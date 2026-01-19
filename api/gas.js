@@ -1,17 +1,20 @@
-// api/gas.js — Proxy serverless na Vercel (CommonJS) e robusto a não‑JSON
+// api/gas.js — Proxy serverless na Vercel apontando para seu Apps Script
 module.exports = async (req, res) => {
   try {
     const GAS_BASE = 'https://script.google.com/macros/s/AKfycbw3QOsfXlVTrCQuAUD6yVZQSa7aps1ignOCd55jw1DQ3MgNV4zmknaYw6dvjiko0fjd/exec';
     const qs = new URLSearchParams(req.query).toString();
     const target = qs ? `${GAS_BASE}?${qs}` : GAS_BASE;
+
     const options = { method: req.method };
     if (req.method === 'POST') {
       options.headers = { 'Content-Type': 'application/json' };
       options.body = JSON.stringify(req.body || {});
     }
+
     const upstream = await fetch(target, options);
     const status = upstream.status;
     const contentType = upstream.headers.get('content-type') || '';
+
     if (contentType.includes('application/json')) {
       const data = await upstream.json();
       return res.status(status).json(data);

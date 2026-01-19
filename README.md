@@ -1,11 +1,10 @@
-# DSS GIG — (completo) Logo Base64 no gestor + index do colaborador
+# DSS GIG — pacote final (index + gestor) com proxy apontando para seu Apps Script
 
-- `gestor.html`: logo LSG Sky Chefs embutido via Base64 (`FIXED_LOGO_DATAURL`), PDF ajustado.
-- `index.html`: fluxo completo (colaborador) com player, assinatura e POST.
-- `api/gas.js`: proxy CommonJS para Apps Script.
-- `apps-script/Code.gs`: API para planilha.
-- `styles.css`: estilos.
+- /index.html (colaborador)
+- /gestor.html (gestor, PDF A4 otimizado)
+- /api/gas.js (proxy) -> https://script.google.com/macros/s/AKfycbw3QOsfXlVTrCQuAUD6yVZQSa7aps1ignOCd55jw1DQ3MgNV4zmknaYw6dvjiko0fjd/exec
+- /styles.css
 
-Após publicar, acesse:
-- `/` (colaborador)
-- `/gestor.html` (gestor)
+Deploy sugerido: Vercel
+- / (colaborador)
+- /gestor.html (gestor)

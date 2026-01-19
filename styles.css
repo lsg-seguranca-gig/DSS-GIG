@@ -29,5 +29,5 @@ button.secondary{ background:#e2e8f0; color:#111827; } button.secondary:hover{ b
 .table{ width:100%; border-collapse:collapse; }
 .table th, .table td{ border:1px solid var(--border); padding:8px; text-align:left; }
 .table th{ background:#f1f5f9; }
-.site-footer{ padding:14px; text-align:center; color:var(--muted); border-top:1px solid var(--border); margin-top:24px; }
+.site-footer{ padding:14px; text-align:center; color:#6b7280; border-top:1px solid var(--border); margin-top:24px; }
 .muted{ color:var(--muted); }
