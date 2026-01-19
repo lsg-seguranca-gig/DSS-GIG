@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>DSS GIG — Diálogo Semanal de Segurança (Colaborador)</title>
+<link rel="stylesheet" href="styles.css" />
+<!-- Signature Pad (captura de assinatura) -->
+<script src="https://cdn.jsdelivr.net/npm/signature_pad@4.2.0/dist/signature_pad.umd.min.js"></script>
+<!-- YouTube IFrame API -->
+<script src="https://www.youtube.com/iframe_api"></script>
+</head>
+<body>
+<header class="site-header">
+  <h1>DSS GIG — Diálogo Semanal de Segurança</h1>
+  <p class="subtitle">Assista, assine e registre sua participação</p>
+</header>
+
+<main class="container">
+  <section class="card">
+    <h2>Identificação</h2>
+    <div class="row">
+      <label for="matricula">Matrícula</label>
+      <input type="text" id="matricula" placeholder="Ex.: 12345" />
+      <button id="btnBuscar">Buscar</button>
+    </div>
+    <div id="funcInfo" class="info hidden"></div>
+  </section>
+
+  <section class="card hidden" id="secVideos">
+    <h2>Escolha o vídeo</h2>
+    <p>Disponíveis: semana atual e as duas semanas anteriores (se ativas).</p>
+    <div id="listaVideos" class="video-list"></div>
+  </section>
+
+  <section class="card hidden" id="secPlayer">
+    <h2 id="videoTitle">Vídeo</h2>
+    <p><strong>Semana:</strong> <span id="semanaISO"></span></p>
+    <div id="playerContainer" class="player-container">
+      <div id="ytplayer"></div>
+    </div>
+    <div class="note">O botão "Registrar" aparecerá ao final do vídeo.</div>
+
+    <div id="signatureBlock" class="signature-block hidden">
+      <h3>Assinatura</h3>
+      <p>Assine seu nome no quadro abaixo:</p>
+      <div class="signature-wrapper">
+        <canvas id="signaturePad" width="500" height="180"></canvas>
+      </div>
+      <div class="signature-actions">
+        <button id="btnLimpar">Limpar</button>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button id="btnRegistrar" class="primary hidden">Registrar</button>
+      <button id="btnTrocarVideo" class="secondary">Trocar vídeo</button>
+    </div>
+    <div id="mensagem" class="message"></div>
+  </section>
+</main>
+
+<footer class="site-footer">
+  <small>© Caterair Serviços de Bordo e Hotelaria LTDA - Base GIG</small>
+</footer>
+
+<script>
+// >>>>> ATENÇÃO: cole aqui a URL do seu Apps Script Web App (ex.: https://script.google.com/macros/s/XXXXXXXX/exec)
+const API_BASE = 'https://script.google.com/macros/s/AKfycbw3QOsfXlVTrCQuAUD6yVZQSa7aps1ignOCd55jw1DQ3MgNV4zmknaYw6dvjiko0fjd/exec';
+
+let funcionario = null;
+let treinamentos = [];
+let selectedVideo = null;
+let player = null;
+let signaturePad = null;
+let videoEnded = false;
+let youtubeReady = false;
+
+// Util: extrair videoId do URL do YouTube
+function extractYouTubeId(url) {
+  try {
+    const u = new URL(url);
+    if (u.hostname.includes('youtu.be')) {
+      return u.pathname.slice(1);
+    }
+    if (u.searchParams.get('v')) {
+      return u.searchParams.get('v');
+    }
+    const m = url.match(/embed\/([\w-]+)/);
+    if (m) return m[1];
+  } catch(e){}
+  return null;
+}
+
+// Carrega treinamentos do backend
+async function fetchTreinamentos() {
+  const url = API_BASE + '?action=treinamentos';
+  const res = await fetch(url);
+  const data = await res.json();
+  if (data.ok) return data.data || [];
+  return [];
+}
+
+// Busca funcionário por matrícula
+async function fetchFuncionario(matricula) {
+  const url = API_BASE + '?action=funcionario&matricula=' + encodeURIComponent(matricula);
+  const res = await fetch(url);
+  return await res.json();
+}
+
+document.getElementById('btnBuscar').addEventListener('click', async () => {
+  const m = document.getElementById('matricula').value.trim();
+  const info = document.getElementById('funcInfo');
+  info.classList.add('hidden');
+  info.innerHTML = '';
+  if (!m) {
+    info.classList.remove('hidden');
+    info.innerHTML = '<div class="warn">Informe a matrícula.</div>';
+    return;
+  }
+  const resp = await fetchFuncionario(m);
+  if (!resp.ok || !resp.found) {
+    info.classList.remove('hidden');
+    info.innerHTML = '<div class="error">Funcionário não encontrado ou inativo.</div>';
+    return;
+  }
+  funcionario = resp.data;
+  info.classList.remove('hidden');
+  info.innerHTML = `<div class="ok">Olá, <strong>${funcionario.Nome}</strong> — Setor: <strong>${funcionario.Setor || '-'}</strong>.</div>`;
+
+  treinamentos = await fetchTreinamentos();
+  renderListaVideos(treinamentos);
+  document.getElementById('secVideos').classList.remove('hidden');
+  document.getElementById('secPlayer').classList.add('hidden');
+});
+
+// Renderiza cartões de vídeos
+function renderListaVideos(list) {
+  const c = document.getElementById('listaVideos');
+  c.innerHTML = '';
+  if (!list || list.length === 0) {
+    c.innerHTML = '<div class="warn">Nenhum vídeo disponível no momento.</div>';
+    return;
+  }
+  list.forEach((t, idx) => {
+    const card = document.createElement('div');
+    card.className = 'video-card';
+    card.innerHTML = `
+      <div class="video-meta">
+        <h3>${t.Titulo}</h3>
+        <p><strong>Semana:</strong> ${t.SemanaISO}</p>
+      </div>
+      <button class="secondary" data-idx="${idx}">Assistir</button>
+    `;
+    card.querySelector('button').addEventListener('click', () => selectVideo(idx));
+    c.appendChild(card);
+  });
+}
+
+function selectVideo(idx) {
+  selectedVideo = treinamentos[idx];
+  videoEnded = false;
+  document.getElementById('videoTitle').textContent = selectedVideo.Titulo;
+  document.getElementById('semanaISO').textContent = selectedVideo.SemanaISO;
+  document.getElementById('btnRegistrar').classList.add('hidden');
+  document.getElementById('signatureBlock').classList.add('hidden');
+  document.getElementById('mensagem').innerHTML = '';
+
+  const vid = extractYouTubeId(selectedVideo.URL);
+  if (!vid) {
+    document.getElementById('mensagem').innerHTML = '<div class="error">URL do vídeo inválida.</div>';
+    return;
+  }
+
+  // Cria/atualiza player YouTube
+  const initPlayer = () => {
+    if (player) { player.loadVideoById(vid); return; }
+    if (!window.YT || !YT.Player) { setTimeout(initPlayer, 200); return; }
+    player = new YT.Player('ytplayer', {
+      height: '360', width: '640', videoId: vid,
+      playerVars: { rel: 0, modestbranding: 1 },
+      events: { 'onStateChange': onPlayerStateChange }
+    });
+  };
+  initPlayer();
+
+  document.getElementById('secPlayer').classList.remove('hidden');
+
+  // Inicializa assinatura
+  const canvas = document.getElementById('signaturePad');
+  signaturePad = new SignaturePad(canvas, { minWidth: 1, maxWidth: 2 });
+  document.getElementById('btnLimpar').addEventListener('click', () => signaturePad.clear());
+}
+
+function onYouTubeIframeAPIReady() {
+  youtubeReady = true;
+}
+
+function onPlayerStateChange(e) {
+  if (e.data === YT.PlayerState.ENDED) {
+    videoEnded = true;
+    document.getElementById('signatureBlock').classList.remove('hidden');
+    document.getElementById('btnRegistrar').classList.remove('hidden');
+  }
+}
+
+document.getElementById('btnTrocarVideo').addEventListener('click', () => {
+  document.getElementById('secPlayer').classList.add('hidden');
+  document.getElementById('btnRegistrar').classList.add('hidden');
+  document.getElementById('signatureBlock').classList.add('hidden');
+  selectedVideo = null;
+});
+
+document.getElementById('btnRegistrar').addEventListener('click', async () => {
+  const msg = document.getElementById('mensagem');
+  msg.innerHTML = '';
+  if (!funcionario || !selectedVideo) {
+    msg.innerHTML = '<div class="error">Dados incompletos.</div>';
+    return;
+  }
+  if (!videoEnded) {
+    msg.innerHTML = '<div class="warn">O vídeo ainda não foi concluído.</div>';
+    return;
+  }
+  if (!signaturePad || signaturePad.isEmpty()) {
+    msg.innerHTML = '<div class="warn">Por favor, assine antes de registrar.</div>';
+    return;
+  }
+
+  const assinaturaPNG = signaturePad.toDataURL('image/png');
+  const payload = {
+    matricula: String(funcionario.Matricula),
+    semanaISO: String(selectedVideo.SemanaISO),
+    tituloVideo: String(selectedVideo.Titulo),
+    urlVideo: String(selectedVideo.URL),
+    assinaturaPNG,
+    deviceInfo: navigator.userAgent
+  };
+
+  try {
+    const res = await fetch(API_BASE + '?action=registrar', {
+      method: 'POST', headers: { 'Content-Type':'application/json' },
+      body: JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if (data.ok) {
+      msg.innerHTML = '<div class="ok">Registro realizado com sucesso!</div>';
+      document.getElementById('btnRegistrar').disabled = true;
+    } else {
+      msg.innerHTML = '<div class="error">Falha ao registrar: ' + (data.error || 'Erro') + '</div>';
+    }
+  } catch (err) {
+    msg.innerHTML = '<div class="error">Erro de conexão ao salvar o registro.</div>';
+  }
+});
+</script>
+</body>
+</html>
