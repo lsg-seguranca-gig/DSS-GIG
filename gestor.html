@@ -4,6 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>DSS GIG — Painel do Gestor</title>
+<link rel="icon" href="data:;base64,iVBORw0KGgo=" />
 <link rel="stylesheet" href="styles.css" />
 <!-- jsPDF + AutoTable para gerar PDF -->
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
@@ -66,17 +67,14 @@
 </footer>
 
 <script>
-// >>>>> ATENÇÃO: cole aqui a URL do seu Apps Script Web App
-const API_BASE = 'https://script.google.com/macros/s/AKfycbw3QOsfXlVTrCQuAUD6yVZQSa7aps1ignOCd55jw1DQ3MgNV4zmknaYw6dvjiko0fjd/exec';
+const API_BASE = '/api/gas';
 
 let registros = [];
 let logoDataURL = null;
 
 document.getElementById('logoUpload').addEventListener('change', (ev) => {
-  const file = ev.target.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = () => { logoDataURL = reader.result; };
+  const file = ev.target.files[0]; if (!file) return;
+  const reader = new FileReader(); reader.onload = () => { logoDataURL = reader.result; };
   reader.readAsDataURL(file);
 });
 
@@ -84,8 +82,7 @@ document.getElementById('btnBuscar').addEventListener('click', buscar);
 document.getElementById('btnPDF').addEventListener('click', gerarPDF);
 
 async function buscar() {
-  const status = document.getElementById('status');
-  status.innerHTML = '';
+  const status = document.getElementById('status'); status.innerHTML='';
   const matricula = document.getElementById('fMat').value.trim();
   const nome = document.getElementById('fNome').value.trim();
   const semana = document.getElementById('fSem').value.trim();
@@ -97,7 +94,7 @@ async function buscar() {
 
   try {
     const res = await fetch(API_BASE + '?' + qs.toString());
-    const data = await res.json();
+    let data; try { data = await res.json(); } catch { data = { ok:false, error:'Resposta não-JSON', status: res.status }; }
     if (!data.ok) throw new Error(data.error || 'Erro ao buscar');
     registros = data.data || [];
     renderTabela(registros);
@@ -108,12 +105,8 @@ async function buscar() {
 }
 
 function renderTabela(list) {
-  const tbody = document.getElementById('tbody');
-  tbody.innerHTML = '';
-  if (!list || list.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="6" class="muted">Sem resultados</td></tr>';
-    return;
-  }
+  const tbody = document.getElementById('tbody'); tbody.innerHTML='';
+  if (!list || list.length === 0) { tbody.innerHTML = '<tr><td colspan="6" class="muted">Sem resultados</td></tr>'; return; }
   list.forEach(r => {
     const tr = document.createElement('tr');
     const dataPart = formatTimestamp(r.Timestamp);
@@ -123,84 +116,59 @@ function renderTabela(list) {
       <td>${r.Setor || ''}</td>
       <td>${r.SemanaISO || ''}</td>
       <td>${dataPart}</td>
-      <td>${r.AssinaturaPNG ? '<img class="sig-img" src="'+r.AssinaturaPNG+'" alt="Assinatura" />' : '-'}</td>
-    `;
+      <td>${r.AssinaturaPNG ? '<img class="sig-img" src="'+r.AssinaturaPNG+'" alt="Assinatura" />' : '-'}</td>`;
     tbody.appendChild(tr);
   });
 }
 
 function formatTimestamp(ts) {
-  try {
-    const d = new Date(ts);
-    if (!isNaN(d.getTime())) {
-      return d.toLocaleString('pt-BR');
-    }
-  } catch(e){}
+  try { const d = new Date(ts); if (!isNaN(d.getTime())) return d.toLocaleString('pt-BR'); } catch(e){}
   return String(ts || '');
 }
 
 async function gerarPDF() {
-  if (!registros || registros.length === 0) {
-    alert('Nenhum dado para gerar PDF.');
-    return;
-  }
+  if (!registros || registros.length === 0) { alert('Nenhum dado para gerar PDF.'); return; }
   const semanaEscolhida = (document.getElementById('fSem').value || '').trim();
 
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
 
-  const marginLeft = 40, marginTop = 50;
-  let y = marginTop;
-
-  if (logoDataURL) {
-    try { doc.addImage(logoDataURL, 'PNG', marginLeft, y - 10, 80, 40); } catch(e) {}
-  }
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(16);
+  const marginLeft = 40, marginTop = 50; let y = marginTop;
+  if (logoDataURL) { try { doc.addImage(logoDataURL, 'PNG', marginLeft, y - 10, 80, 40); } catch(e) {} }
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(16);
   doc.text('Diálogo Semanal de Segurança', marginLeft + (logoDataURL ? 90 : 0) + 10, y + 5);
 
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(12);
-  if (semanaEscolhida) {
-    doc.text('Semana: ' + semanaEscolhida, marginLeft, y + 30);
-  } else {
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(12);
+  if (semanaEscolhida) { doc.text('Semana: ' + semanaEscolhida, marginLeft, y + 30); }
+  else {
     const sem = [...new Set(registros.map(r => r.SemanaISO).filter(Boolean))].join(', ');
     doc.text('Semana: ' + (sem || '-'), marginLeft, y + 30);
   }
   y += 50;
 
   const head = [['Matrícula','Funcionário','Setor','Data de participação','Assinatura']];
-  const body = registros.map(r => [
-    r.Matricula || '', r.Nome || '', r.Setor || '', formatTimestamp(r.Timestamp) || '', ''
-  ]);
+  const body = registros.map(r => [ r.Matricula || '', r.Nome || '', r.Setor || '', formatTimestamp(r.Timestamp) || '', '' ]);
 
   doc.autoTable({
-    startY: y,
-    head: head,
-    body: body,
+    startY: y, head: head, body: body,
     styles: { font: 'helvetica', fontSize: 10, cellPadding: 6, valign: 'middle' },
     headStyles: { fillColor: [33,150,243], textColor: 255, halign: 'center' },
     columnStyles: { 0: { cellWidth: 80 }, 1: { cellWidth: 150 }, 2: { cellWidth: 100 }, 3: { cellWidth: 140 }, 4: { cellWidth: 120 } },
     didDrawCell: function (data) {
       if (data.section === 'body' && data.column.index === 4) {
-        const i = data.row.index;
-        const sig = registros[i].AssinaturaPNG;
-        if (sig) {
-          try { doc.addImage(sig, 'PNG', data.cell.x + 8, data.cell.y + 4, 100, 26); } catch(e){}
-        }
+        const i = data.row.index; const sig = registros[i].AssinaturaPNG;
+        if (sig) { try { doc.addImage(sig, 'PNG', data.cell.x + 8, data.cell.y + 4, 100, 26); } catch(e){} }
       }
     }
   });
 
-  let afterTableY = doc.lastAutoTable.finalY + 20;
+  let afterTableY = (doc.lastAutoTable && doc.lastAutoTable.finalY ? doc.lastAutoTable.finalY : y) + 20;
   const generatedAt = new Date().toLocaleString('pt-BR');
-  doc.setFont('helvetica', 'italic');
-  doc.setFontSize(10);
+  doc.setFont('helvetica', 'italic'); doc.setFontSize(10);
   doc.text('Relatório gerado em: ' + generatedAt, 40, afterTableY);
   afterTableY += 30;
 
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(9);
   const footerLines = [
     'Caterair Serviços de Bordo e Hotelaria LTDA - Base GIG',
     'CNPJ 33.375.601/0001-38',

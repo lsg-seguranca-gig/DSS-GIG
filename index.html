@@ -4,6 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>DSS GIG — Diálogo Semanal de Segurança (Colaborador)</title>
+<link rel="icon" href="data:;base64,iVBORw0KGgo=" />
 <link rel="stylesheet" href="styles.css" />
 <!-- Signature Pad (captura de assinatura) -->
 <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.2.0/dist/signature_pad.umd.min.js"></script>
@@ -65,8 +66,7 @@
 </footer>
 
 <script>
-// >>>>> ATENÇÃO: cole aqui a URL do seu Apps Script Web App (ex.: https://script.google.com/macros/s/XXXXXXXX/exec)
-const API_BASE = 'https://script.google.com/macros/s/AKfycbw3QOsfXlVTrCQuAUD6yVZQSa7aps1ignOCd55jw1DQ3MgNV4zmknaYw6dvjiko0fjd/exec';
+const API_BASE = '/api/gas'; // agora usando o proxy (sem CORS)
 
 let funcionario = null;
 let treinamentos = [];
@@ -74,52 +74,41 @@ let selectedVideo = null;
 let player = null;
 let signaturePad = null;
 let videoEnded = false;
-let youtubeReady = false;
 
-// Util: extrair videoId do URL do YouTube
 function extractYouTubeId(url) {
   try {
     const u = new URL(url);
-    if (u.hostname.includes('youtu.be')) {
-      return u.pathname.slice(1);
-    }
-    if (u.searchParams.get('v')) {
-      return u.searchParams.get('v');
-    }
-    const m = url.match(/embed\/([\w-]+)/);
-    if (m) return m[1];
+    if (u.hostname.includes('youtu.be')) return u.pathname.slice(1);
+    if (u.searchParams.get('v')) return u.searchParams.get('v');
+    const m = url.match(/embed\/([\w-]+)/); if (m) return m[1];
   } catch(e){}
   return null;
 }
 
-// Carrega treinamentos do backend
 async function fetchTreinamentos() {
-  const url = API_BASE + '?action=treinamentos';
-  const res = await fetch(url);
-  const data = await res.json();
-  if (data.ok) return data.data || [];
-  return [];
+  const res = await fetch(API_BASE + '?action=treinamentos');
+  try { return await res.json(); } catch { return { ok:false, error:'Resposta não-JSON', status: res.status }; }
 }
 
-// Busca funcionário por matrícula
 async function fetchFuncionario(matricula) {
-  const url = API_BASE + '?action=funcionario&matricula=' + encodeURIComponent(matricula);
-  const res = await fetch(url);
-  return await res.json();
+  const res = await fetch(API_BASE + '?action=funcionario&matricula=' + encodeURIComponent(matricula));
+  try { return await res.json(); } catch { return { ok:false, error:'Resposta não-JSON', status: res.status }; }
 }
 
 document.getElementById('btnBuscar').addEventListener('click', async () => {
   const m = document.getElementById('matricula').value.trim();
   const info = document.getElementById('funcInfo');
-  info.classList.add('hidden');
-  info.innerHTML = '';
-  if (!m) {
+  info.classList.add('hidden'); info.innerHTML = '';
+  if (!m) { info.classList.remove('hidden'); info.innerHTML = '<div class="warn">Informe a matrícula.</div>'; return; }
+
+  const resp = await fetchFuncionario(m);
+  if (!resp || !resp.ok) {
+    const detalhe = resp && resp.error ? ` (${resp.error}${resp.status? ' - status '+resp.status:''})` : '';
     info.classList.remove('hidden');
-    info.innerHTML = '<div class="warn">Informe a matrícula.</div>';
+    info.innerHTML = `<div class="error">Falha ao consultar funcionário${detalhe}.</div>`;
     return;
   }
-  const resp = await fetchFuncionario(m);
-  if (!resp.ok || !resp.found) {
+  if (resp.found === false) {
     info.classList.remove('hidden');
     info.innerHTML = '<div class="error">Funcionário não encontrado ou inativo.</div>';
     return;
@@ -128,38 +117,37 @@ document.getElementById('btnBuscar').addEventListener('click', async () => {
   info.classList.remove('hidden');
   info.innerHTML = `<div class="ok">Olá, <strong>${funcionario.Nome}</strong> — Setor: <strong>${funcionario.Setor || '-'}</strong>.</div>`;
 
-  treinamentos = await fetchTreinamentos();
+  const tResp = await fetchTreinamentos();
+  if (!tResp || !tResp.ok) {
+    const detalhe = tResp && tResp.error ? ` (${tResp.error}${tResp.status? ' - status '+tResp.status:''})` : '';
+    info.classList.remove('hidden');
+    info.innerHTML += `<div class="error">Falha ao carregar treinamentos${detalhe}.</div>`;
+    return;
+  }
+  treinamentos = tResp.data || [];
   renderListaVideos(treinamentos);
   document.getElementById('secVideos').classList.remove('hidden');
   document.getElementById('secPlayer').classList.add('hidden');
 });
 
-// Renderiza cartões de vídeos
 function renderListaVideos(list) {
-  const c = document.getElementById('listaVideos');
-  c.innerHTML = '';
-  if (!list || list.length === 0) {
-    c.innerHTML = '<div class="warn">Nenhum vídeo disponível no momento.</div>';
-    return;
-  }
+  const c = document.getElementById('listaVideos'); c.innerHTML = '';
+  if (!list || list.length === 0) { c.innerHTML = '<div class="warn">Nenhum vídeo disponível no momento.</div>'; return; }
   list.forEach((t, idx) => {
-    const card = document.createElement('div');
-    card.className = 'video-card';
+    const card = document.createElement('div'); card.className = 'video-card';
     card.innerHTML = `
       <div class="video-meta">
         <h3>${t.Titulo}</h3>
         <p><strong>Semana:</strong> ${t.SemanaISO}</p>
       </div>
-      <button class="secondary" data-idx="${idx}">Assistir</button>
-    `;
+      <button class="secondary" data-idx="${idx}">Assistir</button>`;
     card.querySelector('button').addEventListener('click', () => selectVideo(idx));
     c.appendChild(card);
   });
 }
 
 function selectVideo(idx) {
-  selectedVideo = treinamentos[idx];
-  videoEnded = false;
+  selectedVideo = treinamentos[idx]; videoEnded = false;
   document.getElementById('videoTitle').textContent = selectedVideo.Titulo;
   document.getElementById('semanaISO').textContent = selectedVideo.SemanaISO;
   document.getElementById('btnRegistrar').classList.add('hidden');
@@ -167,12 +155,8 @@ function selectVideo(idx) {
   document.getElementById('mensagem').innerHTML = '';
 
   const vid = extractYouTubeId(selectedVideo.URL);
-  if (!vid) {
-    document.getElementById('mensagem').innerHTML = '<div class="error">URL do vídeo inválida.</div>';
-    return;
-  }
+  if (!vid) { document.getElementById('mensagem').innerHTML = '<div class="error">URL do vídeo inválida.</div>'; return; }
 
-  // Cria/atualiza player YouTube
   const initPlayer = () => {
     if (player) { player.loadVideoById(vid); return; }
     if (!window.YT || !YT.Player) { setTimeout(initPlayer, 200); return; }
@@ -185,15 +169,9 @@ function selectVideo(idx) {
   initPlayer();
 
   document.getElementById('secPlayer').classList.remove('hidden');
-
-  // Inicializa assinatura
   const canvas = document.getElementById('signaturePad');
   signaturePad = new SignaturePad(canvas, { minWidth: 1, maxWidth: 2 });
   document.getElementById('btnLimpar').addEventListener('click', () => signaturePad.clear());
-}
-
-function onYouTubeIframeAPIReady() {
-  youtubeReady = true;
 }
 
 function onPlayerStateChange(e) {
@@ -212,20 +190,10 @@ document.getElementById('btnTrocarVideo').addEventListener('click', () => {
 });
 
 document.getElementById('btnRegistrar').addEventListener('click', async () => {
-  const msg = document.getElementById('mensagem');
-  msg.innerHTML = '';
-  if (!funcionario || !selectedVideo) {
-    msg.innerHTML = '<div class="error">Dados incompletos.</div>';
-    return;
-  }
-  if (!videoEnded) {
-    msg.innerHTML = '<div class="warn">O vídeo ainda não foi concluído.</div>';
-    return;
-  }
-  if (!signaturePad || signaturePad.isEmpty()) {
-    msg.innerHTML = '<div class="warn">Por favor, assine antes de registrar.</div>';
-    return;
-  }
+  const msg = document.getElementById('mensagem'); msg.innerHTML = '';
+  if (!funcionario || !selectedVideo) { msg.innerHTML = '<div class="error">Dados incompletos.</div>'; return; }
+  if (!videoEnded) { msg.innerHTML = '<div class="warn">O vídeo ainda não foi concluído.</div>'; return; }
+  if (!signaturePad || signaturePad.isEmpty()) { msg.innerHTML = '<div class="warn">Por favor, assine antes de registrar.</div>'; return; }
 
   const assinaturaPNG = signaturePad.toDataURL('image/png');
   const payload = {
@@ -239,10 +207,9 @@ document.getElementById('btnRegistrar').addEventListener('click', async () => {
 
   try {
     const res = await fetch(API_BASE + '?action=registrar', {
-      method: 'POST', headers: { 'Content-Type':'application/json' },
-      body: JSON.stringify(payload)
+      method: 'POST', headers: { 'Content-Type':'application/json' }, body: JSON.stringify(payload)
     });
-    const data = await res.json();
+    let data; try { data = await res.json(); } catch { data = { ok:false, error:'Resposta não-JSON', status: res.status }; }
     if (data.ok) {
       msg.innerHTML = '<div class="ok">Registro realizado com sucesso!</div>';
       document.getElementById('btnRegistrar').disabled = true;
