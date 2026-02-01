@@ -1,186 +1,216 @@
 <!DOCTYPE html>
+
 <html lang="pt-BR">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1" name="viewport"/>
 <title>DSS GIG — Painel do Gestor</title>
-<link rel="icon" href="data:;base64,iVBORw0KGgo" />
-<link rel="stylesheet" href="styles.css" />
+<link href="data:;base64,iVBORw0KGgo" rel="icon"/>
+<link href="styles.css" rel="stylesheet"/>
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
-<style>
-  .filters-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
-  @media (max-width:640px){ .filters-grid { grid-template-columns:1fr; } }
-  @media print {
-    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-    .site-header { box-shadow: none; }
-    .card { box-shadow: none; border:1px solid #999; }
-    .actions button { display:none; }
-  }
+<style> 
+ .filters-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; } 
+ @media (max-width:640px){ .filters-grid { grid-template-columns:1fr; } } 
+ @media print { 
+ body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } 
+ .site-header { box-shadow: none; } 
+ .card { box-shadow: none; border:1px solid #999; } 
+ .actions button { display:none; } 
+ } 
 </style>
-<link rel="shortcut icon" href="icone lsg.ico">
+<link href="icone lsg.ico" rel="shortcut icon"/>
 </head>
 <body>
 <header class="site-header">
-  <img src="logo lsg.png" alt="logo LSG">
-  <h1>Painel do Gestor — DSS GIG</h1>
-  <p class="subtitle">Busque e gere relatórios em PDF (otimizado para impressão em papel)</p>
+<img alt="logo LSG" src="logo lsg.png"/>
+<h1>Painel do Gestor — DSS GIG</h1>
+<p class="subtitle">Busque e gere relatórios em PDF (otimizado para impressão em papel)</p>
 </header>
 <main class="container">
-  <section class="card">
-    <h2>Filtros</h2>
-    <div class="filters-grid">
-      <div class="row">
-        <label for="fMat">Matrícula</label>
-        <input type="text" id="fMat" placeholder="Ex.: 12345" />
-      </div>
-      <div class="row">
-        <label for="fNome">Nome</label>
-        <input type="text" id="fNome" placeholder="Nome do colaborador" />
-      </div>
-      <div class="row">
-        <label for="fSem">Semana (YYYY-Www)</label>
-        <input type="text" id="fSem" placeholder="Ex.: 2026-W03" />
-      </div>
-    </div>
-    <div class="actions">
-      <button id="btnBuscar" class="primary">Buscar</button>
-      <button id="btnPDF" class="secondary">Gerar PDF</button>
-    </div>
-    <div id="status" class="message"></div>
-  </section>
-  <section class="card">
-    <h2>Resultados</h2>
-    <div class="table-wrapper">
-      <table id="tbl" class="table">
-        <thead>
-          <tr>
-            <th>Matrícula</th>
-            <th>Funcionário</th>
-            <th>Setor</th>
-            <th>Semana</th>
-            <th>Data de participação</th>
-            <th>Assinatura</th>
-          </tr>
-        </thead>
-        <tbody id="tbody"></tbody>
-      </table>
-    </div>
-  </section>
+<section class="card">
+<h2>Filtros</h2>
+<div class="filters-grid">
+<div class="row">
+<label for="fMat">Matrícula</label>
+<input id="fMat" placeholder="Ex.: 12345" type="text"/>
+</div>
+<div class="row">
+<label for="fNome">Nome</label>
+<input id="fNome" placeholder="Nome do colaborador" type="text"/>
+</div>
+<div class="row">
+<label for="fSem">Semana (YYYY-Www)</label>
+<input id="fSem" placeholder="Ex.: 2026-W03" type="text"/>
+</div>
+</div>
+<div class="actions">
+<button class="primary" id="btnBuscar">Buscar</button>
+<button class="secondary" id="btnPDF">Gerar PDF</button>
+</div>
+<div class="message" id="status"></div>
+</section>
+<section class="card">
+<h2>Resultados</h2>
+<div class="table-wrapper">
+<table class="table" id="tbl">
+<thead>
+<tr>
+<th>Matrícula</th>
+<th>Funcionário</th>
+<th>Setor</th>
+<th>Semana</th>
+<th>Data de participação</th>
+<th>Assinatura</th>
+</tr>
+</thead>
+<tbody id="tbody"></tbody>
+</table>
+</div>
+</section>
 </main>
 <footer class="site-footer">
-  <small>© Caterair Serviços de Bordo e Hotelaria LTDA - Base GIG</small>
+<small>© Caterair Serviços de Bordo e Hotelaria LTDA - Base GIG</small>
 </footer>
+<script> 
+const API_BASE = '/api/gas'; 
+let registros = []; 
+let FIXED_LOGO_DATAURL = 'data:image/png;base64,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'; 
+document.getElementById('btnBuscar').addEventListener('click', buscar); 
+document.getElementById('btnPDF').addEventListener('click', gerarPDF); 
+async function buscar(){ 
+ const status = document.getElementById('status'); status.innerHTML=''; 
+ const fMat = document.getElementById('fMat').value.trim(); 
+ const fNome = document.getElementById('fNome').value.trim(); 
+ const fSem = document.getElementById('fSem').value.trim(); 
+ const qs = new URLSearchParams({ action:'registros' }); 
+ if (fMat) qs.append('matricula', fMat); 
+ if (fNome) qs.append('nome', fNome); 
+ if (fSem) qs.append('semana', fSem); 
+ try{ 
+ const res = await fetch(API_BASE + '?' + qs.toString()); 
+ let data; try{ data = await res.json(); }catch{ data = { ok:false, error:'Resposta não-JSON do proxy', status:res.status }; } 
+ if (!data.ok) throw new Error(data.error || 'Erro ao buscar'); 
+ registros = data.data || []; 
+ renderTabela(registros); 
+ status.innerHTML = '<div class="ok">Busca concluída: ' + registros.length + ' registro(s).</div>'; 
+ }catch(err){ status.innerHTML = '<div class="error">Falha na consulta.</div>'; } 
+} 
+function renderTabela(list){ 
+ const tbody = document.getElementById('tbody'); tbody.innerHTML=''; 
+ if(!list || list.length===0){ tbody.innerHTML='<tr><td colspan="6" class="muted">Sem resultados</td></tr>'; return; } 
+ list.forEach(r=>{ 
+ const tr=document.createElement('tr'); 
+ const dataPart = formatTimestamp(r.Timestamp); 
+ tr.innerHTML = ` 
+ <td>${r.Matricula || ''}</td> 
+ <td>${r.Nome || ''}</td> 
+ <td>${r.Setor || ''}</td> 
+ <td>${r.SemanaISO || ''}</td> 
+ <td>${dataPart}</td> 
+ <td>${r.AssinaturaPNG ? '<img class="sig-img" src="'+r.AssinaturaPNG+'" alt="Assinatura" />' : '-'}</td>`; 
+ tbody.appendChild(tr); 
+ }); 
+} 
+function formatTimestamp(ts){ try{ const d=new Date(ts); if(!isNaN(d.getTime())) return d.toLocaleString('pt-BR'); }catch(e){} return String(ts||''); } 
+async function gerarPDF(){ 
+ if(!registros || registros.length===0){ alert('Nenhum dado para gerar PDF.'); return; } 
+ const semanaEscolhida = (document.getElementById('fSem').value || '').trim(); 
+ const { jsPDF } = window.jspdf; 
+ const doc = new jsPDF({ orientation:'portrait', unit:'pt', format:'a4' }); 
+ const marginLeft=48, marginRight=48; 
+ const pageWidth = doc.internal.pageSize.getWidth(); 
+ const usableWidth = pageWidth - marginLeft - marginRight; 
+ let y = 60; 
+ const LOGO_W = 68, LOGO_H = 32; 
+ if(FIXED_LOGO_DATAURL){ try{ doc.addImage(FIXED_LOGO_DATAURL,'PNG', marginLeft, y-12, LOGO_W, LOGO_H); }catch(e){} } 
+ doc.setFont('helvetica','bold'); doc.setFontSize(16); 
+ const titleX = marginLeft + (FIXED_LOGO_DATAURL ? (LOGO_W + 16) : 0); 
+ doc.text('Diálogo Semanal de Segurança', titleX, y+4); 
+ doc.setFont('helvetica','normal'); doc.setFontSize(12); 
+ const semanaTexto = 'Semana: ' + (semanaEscolhida || ([...new Set(registros.map(r=>r.SemanaISO).filter(Boolean))].join(', ') || '-')); 
+ doc.text(semanaTexto, marginLeft, y+36); 
+ y += 90; 
+ const colWidths = { matricula:60, funcionario:150, setor:90, titulo:170, data:110, assinatura:85 }; 
+ const head = [['Matrícula','Funcionário','Setor','Título do Vídeo','Data de participação','Assinatura']]; 
+ const body = registros.map(r=>[ r.Matricula||'', r.Nome||'', r.Setor||'', r.TituloVideo||'', formatTimestamp(r.Timestamp)||'', '' ]); 
+ doc.autoTable({ 
+ startY: y, 
+ head, body, 
+ margin: { left: marginLeft, right: marginRight }, 
+ tableWidth: usableWidth, 
+ styles: { font:'helvetica', fontSize:9, cellPadding:4, valign:'middle', overflow:'linebreak' }, 
+ headStyles: { fillColor:[33,150,243], textColor:255, halign:'center' }, 
+ columnStyles: { 
+ 0: { cellWidth: colWidths.matricula, halign:'left' }, 
+ 1: { cellWidth: colWidths.funcionario, halign:'left' }, 
+ 2: { cellWidth: colWidths.setor, halign:'left' }, 
+ 3: { cellWidth: colWidths.titulo, halign:'left' },
+ 4: { cellWidth: colWidths.data, halign:'left' }, 
+ 5: { cellWidth: colWidths.assinatura, halign:'center' } 
+ }, 
+ didDrawCell: function(data){ 
+ if(data.section==='body' && data.column.index===5){ 
+ const i=data.row.index; const sig=registros[i].AssinaturaPNG; if(sig){ 
+ try{ 
+ const maxW = Math.min(80, data.cell.width - 8); 
+ const maxH = 22; 
+ const x = data.cell.x + (data.cell.width - maxW)/2; 
+ const yImg = data.cell.y + (data.cell.height - maxH)/2; 
+ doc.addImage(sig,'PNG', x, yImg, maxW, maxH); 
+ }catch(e){} 
+ } 
+ } 
+ } 
+ }); 
+ let afterTableY = doc.lastAutoTable.finalY + 24; 
+ const generatedAt = new Date().toLocaleString('pt-BR'); 
+ doc.setFont('helvetica','italic'); doc.setFontSize(10); 
+ doc.text('Relatório gerado em: ' + generatedAt, marginLeft, afterTableY); 
+ afterTableY += 30; 
+ doc.setFont('helvetica','normal'); doc.setFontSize(9); 
+ const footerLines = [ 
+ 'Caterair Serviços de Bordo e Hotelaria LTDA - Base GIG', 
+ 'CNPJ 33.375.601/0001-38', 
+ 'Rua P, S/N, Área de Apoio do Aeroporto Internacional do Rio de Janeiro - Ilha do Governador - RJ' 
+ ]; 
+ footerLines.forEach((line, idx)=> doc.text(line, marginLeft, afterTableY + (idx*14)) ); 
+ doc.save('Relatorio_Dialogo_Semanal_de_Seguranca.pdf'); 
+} 
 
-<script>
-const API_BASE = '/api/gas';
-let registros = [];
-let FIXED_LOGO_DATAURL = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAOEAAABcCAYAAACY59LRAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsQAAA7EAZUrDhsAAC8aSURBVHhe7X0JfFRFtv7pBEJYAgESCISwqaBIXEBRQRwQVxAdo8CIKCC4gYqKo8gTN/wD+uQpzojiCi4z4wKuMDrjguK4gOiMKO4QICFAAukQErKQ7ne+c271vd10ku6kk/D83+/3q759t7pVdc9X51TVqboeP4NcuHDRZIizti5cuGgiuCR04aKJ4ZLQhYsmhktCFy6aGC4JXbhoYrgkdOGiidGkQxQ+DqG1AI4BwcfNUSTVw3tx1nkcry75HmsL4OrwMYdPhQsXjYdDZJzQJ8RyIo6qrH8gU00kCgdDznjZU+gxHx+zY4gmThcuGgZNSMJwGiiUeHrV3rIqytmaS96iEsovKKCivXupoqxMzgOpnTpRakoKtWiZQF27daUuyS3leO3UcknoounRxJpQtZNCtRaObPxpK3362Tr6fO33tHL1etq1cRsfbWYFXGcCgG2FFfbjAFFaBxo5tB+deupAGnrKidQ/sw8lJ+I6Q3IDE4cLF02HJiehMUPXf/srrXj9XVqwaDlRgZePtGMV14aoVSJSSZ44o7WYtr7QJMfxeT8ftzSanzVpRSVzkonp3SmHsiaeSRPGjaThwwdTWyakq/tcHCqIOQltA686U88+nuvdTyvfWEVzHniBtV0+k66Dkg7w+CxiIXmIw9HRApIZMEFtbRrumYjHQ/7yA0S5xbxfQbPmjqdLx55H/ft0l/MGdodPKKrLiwsX9UeDkNB0qgR3ggB61sttvMeeeJFmz3+eaAdrq/RkouYJSq4gUsUSHDfHH+eLJ593H1FxAU2ZcSbdOG2qRUZjqhoTVdOqCD3nwkXs0ODmaCgpn3tpJU2euYi1UrlFvnjRVE74fcH7sYJo1iqLSAf4+aUlRIX7WDNeTtddN5mTwxWBwLQfkQ5X+7loWMSUhAcbbTb50Nly/S3zafVb/2bydRLykb8ZUiDXGSI2FAGBgHmL58oBPJsDm8XUupJWPDmHLjh3aFClAbg0dNGQaCD5Ah3R6cKmH4enli2nzL4X0uqvthP1TGcCNlfSebidJgIfJ+QLaKkGQqBDB+Rzmr0Y0vC1pqyRf6Sp0+9jc9kmIGAqF+c/Fy5ihZhrQnuQPV7aflOuvY1WLF3H5GPtd1Bbz9J61Xa0xBh+rnOqix/ngD0FRB0TaMO7TzjaikgfzmsOXbiIJepBwnBeLkZTxFHOziIaePok2rWNtV1Hq8dT4Hyc0/SMIfGEbNCypm2HLeI3zzPPwn6Y/5WV3GbdRCtWLQ4yT50dM046utR0UR/ERHYQiR1RHH3L7b+MgWNoVyHvdoD3CoTbBCeqO14/eOKtNqZoWCUg2oOyL4FTK6Ga/81aEPU4is3TW8WU1jgMobWi0QqnKlDtuHBRV9RZEx5c++uRdd/+SoMyxxGla9uv6eCkB3pgo6OLDvxz0WTn0pKlt9BVEy/ifYwztuZg59zEGlwWLlxEjhiRUM21b3/KpczTpzL52rD8ouczOsGPFbQXlDVbWREHpJLT0qyMqDyKrLbg+831xZuYiAuFiHa+nSUQXBouXESDGJBQCZjrraDjTzmf8otb6fCDwGzr9Ig6I66qOfn25dNVZ1XQyGOguTiVcXEU74uuUnDes69oD42aMpOS+5zLeU/ivJu2JvBbJKEpK7dyaWjUq2NGodODRpx/La3+dCdRG9Y6GAgXU5S1SSMTUOGjUd1zaNmNXSmxaKN1LDrEJ7SiqopSa0/388pbUNroB6llyhB+grq4HUqiirRgxkmsfGNdGjYO6kRCvBxnj+Ht9y2mBXNeI+qZzPtNQboQlFfR7WeV05yzCshXAWfwg0lVV+Qm9KMjRi8kf9JhXAbRiCmu1QrrqhvvpBatUvUwo7w0n554+N5q4tNe6OAeWvs/2uBwfH/trS/ox7U/8rESDglE7dtT1gXH0YSxF4jTenKiqRCxRfwaB9Kjz9W0fbrue1r64l/p6Vc/58zu5uOYndKCMgcfQaPOHUpZvz+bBvZH3nG/icsJlQ4XkaMemlBf4ifrfqKhgy4jT+8est+QHi+RAm3C9Lhf6O3ZR1OfFr+wqFSwiBmXtPphR7mHmh0+hjKGXs3iliTHIhM5JZi3zE/tWx5DlNxN9qW96t1BhfvXWkQBgmNUsTbEUzLBoUDHYN/luLqy5dGCucfnjA8urJHyfTIjJfXIDrTiuUfo1BOPkhhsqiNOVExJ0qM9+co76cuPmcipXEE0Y7InsDXjOSA9zf79fJc1KyVr0jB65KG5Mm/TEFgrBxd1Qb1ICEFo3+scjqUNeVqq4BwKJBRBrayg7gk7aWhfFo54FpQqTh+2MYC3mDXt/Q/TkJMH854t0jVDhVXKrOUQoh7D';
+// === Inclusão de novo funcionário (sem alterar layout) ===
+// Atalho: Ctrl+Shift+N abre prompts para cadastro e envia ao backend
+document.addEventListener('keydown', async (ev)=>{
+  if (ev.ctrlKey && ev.shiftKey && (ev.key==='N' || ev.key==='n')) {
+    ev.preventDefault();
+    await novoFuncionarioViaPrompt();
+  }
+});
 
-document.getElementById('btnBuscar').addEventListener('click', buscar);
-document.getElementById('btnPDF').addEventListener('click', gerarPDF);
-
-async function buscar(){
-  const status = document.getElementById('status'); status.innerHTML='';
-  const fMat = document.getElementById('fMat').value.trim();
-  const fNome = document.getElementById('fNome').value.trim();
-  const fSem = document.getElementById('fSem').value.trim();
-  const qs = new URLSearchParams({ action:'registros' });
-  if (fMat) qs.append('matricula', fMat);
-  if (fNome) qs.append('nome', fNome);
-  if (fSem) qs.append('semana', fSem);
+async function novoFuncionarioViaPrompt(){
+  const status = document.getElementById('status');
   try{
-    const res = await fetch(API_BASE + '?' + qs.toString());
-    let data; try{ data = await res.json(); }catch{ data = { ok:false, error:'Resposta não-JSON do proxy', status:res.status }; }
-    if (!data.ok) throw new Error(data.error || 'Erro ao buscar');
-    registros = data.data || [];
-    renderTabela(registros);
-    status.innerHTML = '<div class="ok">Busca concluída: ' + registros.length + ' registro(s).</div>';
-  }catch(err){ status.innerHTML = '<div class="error">Falha na consulta.</div>'; }
-}
+    const matricula = (prompt('Nova matrícula:') || '').trim();
+    if(!matricula) return;
+    const nome = (prompt('Nome completo:') || '').trim();
+    if(!nome) return;
+    const setor = (prompt('Setor (opcional):') || '').trim();
+    const ativoStr = (prompt('Ativo? (S/N)') || 'S').trim().toUpperCase();
+    const ativo = (ativoStr !== 'N');
 
-function renderTabela(list){
-  const tbody = document.getElementById('tbody'); tbody.innerHTML='';
-  if(!list || list.length===0){ tbody.innerHTML='<tr><td colspan="6" class="muted">Sem resultados</td></tr>'; return; }
-  list.forEach(r=>{
-    const tr=document.createElement('tr');
-    const dataPart = formatTimestamp(r.Timestamp);
-    tr.innerHTML = `
-      <td>${r.Matricula || ''}</td>
-      <td>${r.Nome || ''}</td>
-      <td>${r.Setor || ''}</td>
-      <td>${r.SemanaISO || ''}</td>
-      <td>${dataPart}</td>
-      <td>${r.AssinaturaPNG ? '<img class="sig-img" src="'+r.AssinaturaPNG+'" alt="Assinatura" />' : '-'}</td>`;
-    tbody.appendChild(tr);
-  });
-}
+    const payload = { matricula, nome, setor, ativo };
 
-function formatTimestamp(ts){ try{ const d=new Date(ts); if(!isNaN(d.getTime())) return d.toLocaleString('pt-BR'); }catch(e){} return String(ts||''); }
+    status.innerHTML = '<div class="warn">Enviando novo funcionário...</div>';
+    const res = await fetch(API_BASE+'?action=addFuncionario',{
+      method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)
+    });
+    let data; try{ data = await res.json(); } catch{ data = { ok:false, error:'Resposta não-JSON', status: res.status }; }
+    if(!data.ok) throw new Error(data.error || 'Falha ao incluir funcionário');
 
-async function gerarPDF(){
-  if(!registros || registros.length===0){ alert('Nenhum dado para gerar PDF.'); return; }
-  const semanaEscolhida = (document.getElementById('fSem').value || '').trim();
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({ orientation:'portrait', unit:'pt', format:'a4' });
-  const marginLeft=48, marginRight=48;
-  const pageWidth = doc.internal.pageSize.getWidth();
-  const usableWidth = pageWidth - marginLeft - marginRight;
-  let y = 60;
-  const LOGO_W = 68, LOGO_H = 32;
-  if(FIXED_LOGO_DATAURL){ try{ doc.addImage(FIXED_LOGO_DATAURL,'PNG', marginLeft, y-12, LOGO_W, LOGO_H); }catch(e){} }
-  doc.setFont('helvetica','bold'); doc.setFontSize(16);
-  const titleX = marginLeft + (FIXED_LOGO_DATAURL ? (LOGO_W + 16) : 0);
-  doc.text('Diálogo Semanal de Segurança', titleX, y+4);
-  doc.setFont('helvetica','normal'); doc.setFontSize(12);
-  const semanaTexto = 'Semana: ' + (semanaEscolhida || ([...new Set(registros.map(r=>r.SemanaISO).filter(Boolean))].join(', ') || '-'));
-  doc.text(semanaTexto, marginLeft, y+36);
-  y += 90;
-  const colWidths = { matricula:60, funcionario:150, setor:90, data:110, assinatura:85 };
-  const head = [['Matrícula','Funcionário','Setor','Data de participação','Assinatura']];
-  const body = registros.map(r=>[ r.Matricula||'', r.Nome||'', r.Setor||'', formatTimestamp(r.Timestamp)||'', '' ]);
-  doc.autoTable({
-    startY: y,
-    head, body,
-    margin: { left: marginLeft, right: marginRight },
-    tableWidth: usableWidth,
-    styles: { font:'helvetica', fontSize:9, cellPadding:4, valign:'middle', overflow:'linebreak' },
-    headStyles: { fillColor:[33,150,243], textColor:255, halign:'center' },
-    columnStyles: {
-      0: { cellWidth: colWidths.matricula,   halign:'left' },
-      1: { cellWidth: colWidths.funcionario, halign:'left' },
-      2: { cellWidth: colWidths.setor,       halign:'left' },
-      3: { cellWidth: colWidths.data,        halign:'left' },
-      4: { cellWidth: colWidths.assinatura,  halign:'center' }
-    },
-    didDrawCell: function(data){
-      if(data.section==='body' && data.column.index===4){
-        const i=data.row.index; const sig=registros[i].AssinaturaPNG; if(sig){
-          try{
-            const maxW = Math.min(80, data.cell.width - 8);
-            const maxH = 22;
-            const x = data.cell.x + (data.cell.width - maxW)/2;
-            const yImg = data.cell.y + (data.cell.height - maxH)/2;
-            doc.addImage(sig,'PNG', x, yImg, maxW, maxH);
-          }catch(e){}
-        }
-      }
-    }
-  });
-  let afterTableY = doc.lastAutoTable.finalY + 24;
-  const generatedAt = new Date().toLocaleString('pt-BR');
-  doc.setFont('helvetica','italic'); doc.setFontSize(10);
-  doc.text('Relatório gerado em: ' + generatedAt, marginLeft, afterTableY);
-  afterTableY += 30;
-  doc.setFont('helvetica','normal'); doc.setFontSize(9);
-  const footerLines = [
-    'Caterair Serviços de Bordo e Hotelaria LTDA - Base GIG',
-    'CNPJ 33.375.601/0001-38',
-    'Rua P, S/N, Área de Apoio do Aeroporto Internacional do Rio de Janeiro - Ilha do Governador - RJ'
-  ];
-  footerLines.forEach((line, idx)=> doc.text(line, marginLeft, afterTableY + (idx*14)) );
-
-  doc.save('Relatorio_Dialogo_Semanal_de_Seguranca.pdf');
+    status.innerHTML = '<div class="ok">Funcionário incluído com sucesso.</div>';
+  }catch(err){
+    status.innerHTML = '<div class="error">'+ (err && err.message ? err.message : 'Erro ao incluir funcionário') +'</div>';
+  }
 }
 </script>
 </body>
