@@ -10,7 +10,7 @@ label{ min-width:160px; color:var(--muted); }
 input[type="text"], input[type="file"]{ flex:1; padding:10px 12px; border:1px solid var(--border); border-radius:8px; outline:none; }
 button{ padding:10px 14px; border:none; border-radius:8px; cursor:pointer; }
 button.primary{ background:var(--primary); color:#fff; } button.primary:hover{ background:var(--primary-600); }
-button.secondary{ background:#e2e8f0; color:#111827; } button.secondary:hover{ background:#cbd5e1; }
+button.secondary{ background:#FF0000; color:#111827; } button.secondary:hover{ background:#cbd5e1; }
 .hidden{ display:none; }
 .info .ok{ color:var(--ok); }
 .warn{ color:var(--warn); }
