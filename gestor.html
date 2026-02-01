@@ -46,6 +46,7 @@
 </div>
 <div class="actions">
 <button class="primary" id="btnBuscar">Buscar</button>
+<button class="secondary" id="btnAddFunc">Novo Funcionário</button>
 <button class="secondary" id="btnPDF">Gerar PDF</button>
 </div>
 <div class="message" id="status"></div>
@@ -78,6 +79,9 @@ let registros = [];
 let FIXED_LOGO_DATAURL = 'data:image/png;base64,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'; 
 document.getElementById('btnBuscar').addEventListener('click', buscar); 
 document.getElementById('btnPDF').addEventListener('click', gerarPDF); 
+
+document.getElementById('btnAddFunc')?.addEventListener('click', novoFuncionarioViaPrompt);
+
 async function buscar(){ 
  const status = document.getElementById('status'); status.innerHTML=''; 
  const fMat = document.getElementById('fMat').value.trim(); 
@@ -178,34 +182,41 @@ async function gerarPDF(){
  doc.save('Relatorio_Dialogo_Semanal_de_Seguranca.pdf'); 
 } 
 
-// === Inclusão de novo funcionário (sem alterar layout) ===
-// Atalho: Ctrl+Shift+N abre prompts para cadastro e envia ao backend
-document.addEventListener('keydown', async (ev)=>{
-  if (ev.ctrlKey && ev.shiftKey && (ev.key==='N' || ev.key==='n')) {
-    ev.preventDefault();
-    await novoFuncionarioViaPrompt();
-  }
-});
-
+// === Inclusão de novo funcionário (via botão) com validação de matrícula duplicada ===
 async function novoFuncionarioViaPrompt(){
   const status = document.getElementById('status');
+  status.innerHTML = '';
   try{
     const matricula = (prompt('Nova matrícula:') || '').trim();
-    if(!matricula) return;
-    const nome = (prompt('Nome completo:') || '').trim();
-    if(!nome) return;
-    const setor = (prompt('Setor (opcional):') || '').trim();
-    const ativoStr = (prompt('Ativo? (S/N)') || 'S').trim().toUpperCase();
-    const ativo = (ativoStr !== 'N');
+    if(!matricula){ return; }
 
-    const payload = { matricula, nome, setor, ativo };
+    // 1) Validação client-side de duplicidade via endpoint existente (funcionario)
+    try{
+      const chk = await fetch(API_BASE + '?action=funcionario&matricula=' + encodeURIComponent(matricula));
+      let chkData; try{ chkData = await chk.json(); } catch{ chkData = null; }
+      // Se o endpoint retornar found!==false, consideramos já cadastrado
+      if(chkData && chkData.ok && chkData.found !== false){
+        status.innerHTML = '<div class="error">Matrícula '+ matricula +' já cadastrada.</div>'; 
+        return;
+      }
+    }catch(_){}
+
+    const nome = (prompt('Nome completo:') || '').trim();
+    if(!nome){ return; }
+    const setor = (prompt('Setor (opcional):') || '').trim();
+
+    const payload = { matricula, nome, setor, ativo: true };
 
     status.innerHTML = '<div class="warn">Enviando novo funcionário...</div>';
     const res = await fetch(API_BASE+'?action=addFuncionario',{
       method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)
     });
     let data; try{ data = await res.json(); } catch{ data = { ok:false, error:'Resposta não-JSON', status: res.status }; }
-    if(!data.ok) throw new Error(data.error || 'Falha ao incluir funcionário');
+    if(!data.ok){
+      // Se o backend também validar duplicidade, repassa a msg
+      status.innerHTML = '<div class="error">'+ (data.error || 'Falha ao incluir funcionário') +'</div>';
+      return;
+    }
 
     status.innerHTML = '<div class="ok">Funcionário incluído com sucesso.</div>';
   }catch(err){
