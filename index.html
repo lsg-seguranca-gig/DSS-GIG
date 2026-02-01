@@ -1,302 +1,85 @@
 <!DOCTYPE html>
+
 <html lang="pt-BR">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>DSS GIG — Diálogo Semanal de Segurança (Colaborador)</title>
-  <link rel="icon" href="data:;base64,iVBORw0KGgo=" />
-  <link rel="stylesheet" href="styles.css" />
-  <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.2.0/dist/signature_pad.umd.min.js"></script>
-  <script src="https://www.youtube.com/iframe_api"></script>
-  <link rel="shortcut icon" href="icone lsg.ico">
-</head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1" name="viewport"/>
+<title>DSS GIG — Diálogo Semanal de Segurança (Colaborador)</title>
+<link href="data:;base64,iVBORw0KGgo=" rel="icon"/>
+<link href="styles.css" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/signature_pad@4.2.0/dist/signature_pad.umd.min.js"></script>
+<script src="https://www.youtube.com/iframe_api"></script>
+<link href="icone lsg.ico" rel="shortcut icon"/>
+<style>:root { --brand-navy:#0b2a4a; --brand-orange:#f2a01b; --play-size:min(22vw,220px); --play-shadow:0 10px 28px rgba(0,0,0,.35);} .player-container{position:relative;display:inline-block;} .play-overlay{all:unset;position:absolute;inset:0;margin:auto;width:var(--play-size);height:var(--play-size);cursor:pointer;filter:drop-shadow(var(--play-shadow));transition:transform .2s ease,filter .2s ease,opacity .15s ease;display:grid;place-items:center;outline:none;} .play-overlay .play-bg{position:absolute;inset:0;border-radius:50%;background:var(--brand-navy);} .play-overlay .stripe{position:absolute;left:44%;right:10%;height:calc(var(--play-size)*.09);background:var(--brand-orange);border-radius:calc(var(--play-size)*.045);transform-origin:left center;opacity:.95;} .play-overlay .stripe.s1{top:28%;} .play-overlay .stripe.s2{top:44%;} .play-overlay .stripe.s3{top:60%;} .play-overlay .stripe.s4{top:76%;} .play-overlay .play-icon{width:42%;height:42%;z-index:1;fill:#fff;transform:translateX(-6%);} .play-overlay:focus-visible{box-shadow:0 0 0 4px rgba(242,160,27,.35);border-radius:50%;} .play-overlay:hover{transform:scale(1.03);} .play-overlay:active{transform:scale(0.98);} .play-overlay.hidden{opacity:0;pointer-events:none;} @media(max-width:420px){:root{--play-size:160px;}}</style></head>
 <body>
 <header class="site-header">
-  <img src="logo lsg.png" alt="logo LSG">
-  <h1>DSS GIG — Diálogo Semanal de Segurança</h1>
-  <p class="subtitle">Assista, assine e registre sua participação</p>
+<img alt="logo LSG" src="logo lsg.png"/>
+<h1>DSS GIG — Diálogo Semanal de Segurança</h1>
+<p class="subtitle">Assista, assine e registre sua participação</p>
 </header>
 <main class="container">
-  <section class="card">
-    <h2>Identificação</h2>
-    <div class="row">
-      <label for="matricula">Matrícula</label>
-      <input type="text" id="matricula" placeholder="Ex.: 12345" />
-      <button id="btnBuscar">Buscar</button>
-    </div>
-    <div id="funcInfo" class="info hidden"></div>
-  </section>
-
-  <section class="card hidden" id="secVideos">
-    <h2>Escolha o vídeo</h2>
-    <p>Disponíveis: semana atual e as duas semanas anteriores (se ativas).</p>
-    <div id="listaVideos" class="video-list"></div>
-  </section>
-
-  <section class="card hidden" id="secPlayer">
-    <h2 id="videoTitle">Vídeo</h2>
-    <p><strong>Semana:</strong> <span id="semanaISO"></span></p>
-    <div id="playerContainer" class="player-container"><div id="ytplayer"></div></div>
-    <div class="note">O botão "Registrar" aparecerá ao final do vídeo.</div>
-
-    <div id="signatureBlock" class="signature-block hidden">
-      <h3>Assinatura</h3>
-      <p>Assine seu nome no quadro abaixo:</p>
-      <div class="signature-wrapper"><canvas id="signaturePad" width="500" height="180"></canvas></div>
-      <div class="signature-actions"><button id="btnLimpar">Limpar</button></div>
-    </div>
-
-    <div class="actions">
-      <button id="btnRegistrar" class="primary hidden">Registrar</button>
-      <button id="btnTrocarVideo" class="secondary">Trocar vídeo</button>
-    </div>
-
-    <div id="mensagem" class="message"></div>
-  </section>
+<section class="card">
+<h2>Identificação</h2>
+<div class="row">
+<label for="matricula">Matrícula</label>
+<input id="matricula" placeholder="Ex.: 12345" type="text"/>
+<button id="btnBuscar">Buscar</button>
+</div>
+<div class="info hidden" id="funcInfo"></div>
+</section>
+<section class="card hidden" id="secVideos">
+<h2>Escolha o vídeo</h2>
+<p>Disponíveis: semana atual e as duas semanas anteriores (se ativas).</p>
+<div class="video-list" id="listaVideos"></div>
+</section>
+<section class="card hidden" id="secPlayer">
+<h2 id="videoTitle">Vídeo</h2>
+<p><strong>Semana:</strong> <span id="semanaISO"></span></p>
+<div class="player-container" id="playerContainer"><div id="ytplayer"></div><button aria-label="Tocar vídeo" class="play-overlay" id="btnPlayOverlay" title="Tocar vídeo"><span aria-hidden="true" class="play-bg"></span><span aria-hidden="true" class="stripe s1"></span><span aria-hidden="true" class="stripe s2"></span><span aria-hidden="true" class="stripe s3"></span><span aria-hidden="true" class="stripe s4"></span><svg aria-hidden="true" class="play-icon" focusable="false" viewbox="0 0 100 100"><polygon points="38,30 74,50 38,70"></polygon></svg></button></div>
+<div class="note">O botão "Registrar" aparecerá ao final do vídeo.</div>
+<div class="signature-block hidden" id="signatureBlock">
+<h3>Assinatura</h3>
+<p>Assine seu nome no quadro abaixo:</p>
+<div class="signature-wrapper"><canvas height="180" id="signaturePad" width="500"></canvas></div>
+<div class="signature-actions"><button id="btnLimpar">Limpar</button></div>
+</div>
+<div class="actions">
+<button class="primary hidden" id="btnRegistrar">Registrar</button>
+<button class="secondary" id="btnTrocarVideo">Trocar vídeo</button>
+</div>
+<div class="message" id="mensagem"></div>
+</section>
 </main>
 <footer class="site-footer"><small>© Caterair Serviços de Bordo e Hotelaria LTDA - Base GIG</small></footer>
-
-<script>
-  const API_BASE = '/api/gas';
-  let funcionario = null,
-      treinamentos = [],
-      selectedVideo = null,
-      player = null,
-      signaturePad = null,
-      videoEnded = false;
-
-  // --- Controle anti-seek (não permite avançar) ---
-  let lastAllowedTime = 0;       // último tempo realmente assistido
-  let seekGuardTimer = null;     // timer do guardião
-  const SEEK_TOLERANCE = 2;      // tolerância de 2s para buffers/rede
-
-  function extractYouTubeId(url){
-    try{
-      const u = new URL(url);
-      if (u.hostname.includes('youtu.be')) return u.pathname.slice(1);
-      if (u.searchParams.get('v')) return u.searchParams.get('v');
-      const m = url.match(/embed\/([\w\-]+)/);
-      if (m) return m[1];
-    }catch(e){}
-    return null;
-  }
-
-  async function fetchTreinamentos(){
-    const res = await fetch(API_BASE + '?action=treinamentos');
-    try{ return await res.json(); }
-    catch{ return { ok:false, error:'Resposta não-JSON', status: res.status }; }
-  }
-
-  async function fetchFuncionario(m){
-    const res = await fetch(API_BASE + '?action=funcionario&matricula=' + encodeURIComponent(m));
-    try{ return await res.json(); }
-    catch{ return { ok:false, error:'Resposta não-JSON', status: res.status }; }
-  }
-
-  document.getElementById('btnBuscar').addEventListener('click', async () => {
-    const m = document.getElementById('matricula').value.trim();
-    const info = document.getElementById('funcInfo');
-    info.classList.add('hidden');
-    info.innerHTML = '';
-
-    if (!m){
-      info.classList.remove('hidden');
-      info.innerHTML = '<div class="warn">Informe a matrícula.</div>';
-      return;
-    }
-
-    const resp = await fetchFuncionario(m);
-    if (!resp || !resp.ok){
-      const d = resp && resp.error ? ` (${resp.error}${resp.status ? ' - status ' + resp.status : ''})` : '';
-      info.classList.remove('hidden');
-      info.innerHTML = `<div class="error">Falha ao consultar funcionário${d}.</div>`;
-      return;
-    }
-
-    if (resp.found === false){
-      info.classList.remove('hidden');
-      info.innerHTML = '<div class="error">Funcionário não encontrado ou inativo.</div>';
-      return;
-    }
-
-    funcionario = resp.data;
-    info.classList.remove('hidden');
-    info.innerHTML = `<div class="ok">Olá, <strong>${funcionario.Nome}</strong> — Setor: <strong>${funcionario.Setor || '-'}</strong>.</div>`;
-
-    const tResp = await fetchTreinamentos();
-    if (!tResp || !tResp.ok){
-      const d = tResp && tResp.error ? ` (${tResp.error}${tResp.status ? ' - status ' + tResp.status : ''})` : '';
-      info.classList.remove('hidden');
-      info.innerHTML += `<div class="error">Falha ao carregar treinamentos${d}.</div>`;
-      return;
-    }
-
-    treinamentos = tResp.data || [];
-    renderListaVideos(treinamentos);
-    document.getElementById('secVideos').classList.remove('hidden');
-    document.getElementById('secPlayer').classList.add('hidden');
-  });
-
-  function renderListaVideos(list){
-    const c = document.getElementById('listaVideos');
-    c.innerHTML = '';
-    if (!list || list.length === 0){
-      c.innerHTML = '<div class="warn">Nenhum vídeo disponível no momento.</div>';
-      return;
-    }
-    list.forEach((t, idx) => {
-      const card = document.createElement('div');
-      card.className = 'video-card';
-      card.innerHTML = `
-        <div class="video-meta">
-          <h3>${t.Titulo}</h3>
-          <p><strong>Semana:</strong> ${t.SemanaISO}</p>
-        </div>
-        <button class="secondary" data-idx="${idx}">Assistir</button>
-      `;
-      card.querySelector('button').addEventListener('click', () => selectVideo(idx));
-      c.appendChild(card);
-    });
-  }
-
-  function selectVideo(idx){
-    selectedVideo = treinamentos[idx];
-    videoEnded = false;
-    document.getElementById('videoTitle').textContent = selectedVideo.Titulo;
-    document.getElementById('semanaISO').textContent = selectedVideo.SemanaISO;
-    document.getElementById('btnRegistrar').classList.add('hidden');
-    document.getElementById('signatureBlock').classList.add('hidden');
-    document.getElementById('mensagem').innerHTML = '';
-
-    const vid = extractYouTubeId(selectedVideo.URL);
-    if (!vid){
-      document.getElementById('mensagem').innerHTML = '<div class="error">URL do vídeo inválida.</div>';
-      return;
-    }
-
-    const init = () => {
-      if (player){
-        player.loadVideoById(vid);
-        lastAllowedTime = 0; // zera a referência ao trocar de vídeo
-        return;
-      }
-      if (!window.YT || !YT.Player){
-        setTimeout(init, 200);
-        return;
-      }
-      player = new YT.Player('ytplayer', {
-        height: '360',
-        width: '640',
-        videoId: vid,
-        playerVars: {
-          rel: 0,
-          modestbranding: 1,
-          controls: 0,   // sem barra de progresso/botões
-          disablekb: 1,  // bloqueia atalhos
-          fs: 0          // sem botão de tela cheia
-        },
-        events: {
-          'onReady': onPlayerReady,
-          'onStateChange': onPlayerStateChange
-        }
-      });
-    };
-    init();
-
-    document.getElementById('secPlayer').classList.remove('hidden');
-    const canvas = document.getElementById('signaturePad');
-    signaturePad = new SignaturePad(canvas, { minWidth: 1, maxWidth: 2 });
-    document.getElementById('btnLimpar').addEventListener('click', () => signaturePad.clear());
-  }
-
-  // Inicia o guardião que evita avanço forçado
-  function onPlayerReady(){
-    if (seekGuardTimer) clearInterval(seekGuardTimer);
-    lastAllowedTime = 0;
-    seekGuardTimer = setInterval(() => {
-      if (!player) return;
-      const state = player.getPlayerState();
-      if (state === YT.PlayerState.PLAYING){
-        const t = player.getCurrentTime();
-        if (t > lastAllowedTime + SEEK_TOLERANCE){
-          // Tentativa de salto para frente -> puxa de volta
-          player.seekTo(lastAllowedTime, true);
-        } else {
-          // avanço orgânico -> atualiza referência
-          lastAllowedTime = Math.max(lastAllowedTime, t);
-        }
-      }
-    }, 500);
-  }
-
-  function onPlayerStateChange(e){
-    if (e.data === YT.PlayerState.PLAYING){
-      lastAllowedTime = Math.max(lastAllowedTime, player.getCurrentTime());
-    }
-    if (e.data === YT.PlayerState.ENDED){
-      videoEnded = true;
-      document.getElementById('signatureBlock').classList.remove('hidden');
-      document.getElementById('btnRegistrar').classList.remove('hidden');
-    }
-  }
-
-  document.getElementById('btnTrocarVideo').addEventListener('click', () => {
-    document.getElementById('secPlayer').classList.add('hidden');
-    document.getElementById('btnRegistrar').classList.add('hidden');
-    document.getElementById('signatureBlock').classList.add('hidden');
-    selectedVideo = null;
-    lastAllowedTime = 0; // garante reset
-  });
-
-  document.getElementById('btnRegistrar').addEventListener('click', async () => {
-    const msg = document.getElementById('mensagem');
-    msg.innerHTML = '';
-
-    if (!funcionario || !selectedVideo){
-      msg.innerHTML = '<div class="error">Dados incompletos.</div>';
-      return;
-    }
-
-    if (!videoEnded){
-      msg.innerHTML = '<div class="warn">O vídeo ainda não foi concluído.</div>';
-      return;
-    }
-
-    if (!signaturePad || signaturePad.isEmpty()){
-      msg.innerHTML = '<div class="warn">Por favor, assine antes de registrar.</div>';
-      return;
-    }
-
-    const assinaturaPNG = signaturePad.toDataURL('image/png');
-    const payload = {
-      matricula: String(funcionario.Matricula),
-      semanaISO: String(selectedVideo.SemanaISO),
-      tituloVideo: String(selectedVideo.Titulo),
-      urlVideo: String(selectedVideo.URL),
-      assinaturaPNG,
-      deviceInfo: navigator.userAgent
-    };
-
-    try{
-      const res = await fetch(API_BASE + '?action=registrar', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      let data;
-      try{ data = await res.json(); }
-      catch{ data = { ok:false, error:'Resposta não-JSON', status: res.status }; }
-
-      if (data.ok){
-        msg.innerHTML = '<div class="ok">Registro realizado com sucesso!</div>';
-        document.getElementById('btnRegistrar').disabled = true;
-      } else {
-        msg.innerHTML = '<div class="error">Falha ao registrar: ' + (data.error || 'Erro') + '</div>';
-      }
-    } catch(err){
-      msg.innerHTML = '<div class="error">Erro de conexão ao salvar o registro.</div>';
-    }
-  });
+<script> 
+const API_BASE = '/api/gas'; 
+let funcionario=null, treinamentos=[], selectedVideo=null, player=null, signaturePad=null, videoEnded=false; 
+function extractYouTubeId(url){try{const u=new URL(url);if(u.hostname.includes('youtu.be'))return u.pathname.slice(1);if(u.searchParams.get('v'))return u.searchParams.get('v');const m=url.match(/embed\/([\w\-]+)/);if(m)return m[1]}catch(e){}return null} 
+async function fetchTreinamentos(){const res=await fetch(API_BASE+'?action=treinamentos');try{return await res.json()}catch{return {ok:false,error:'Resposta não-JSON',status:res.status}}} 
+async function fetchFuncionario(m){const res=await fetch(API_BASE+'?action=funcionario&matricula='+encodeURIComponent(m));try{return await res.json()}catch{return {ok:false,error:'Resposta não-JSON',status:res.status}}} 
+document.getElementById('btnBuscar').addEventListener('click', async ()=>{ 
+ const m=document.getElementById('matricula').value.trim(); 
+ const info=document.getElementById('funcInfo'); info.classList.add('hidden'); info.innerHTML=''; 
+ if(!m){info.classList.remove('hidden');info.innerHTML='<div class="warn">Informe a matrícula.</div>';return} 
+ const resp=await fetchFuncionario(m); 
+ if(!resp||!resp.ok){const d=resp&&resp.error?` (${resp.error}${resp.status?' - status '+resp.status:''})`:'';info.classList.remove('hidden');info.innerHTML=`<div class="error">Falha ao consultar funcionário${d}.</div>`;return} 
+ if(resp.found===false){info.classList.remove('hidden');info.innerHTML='<div class="error">Funcionário não encontrado ou inativo.</div>';return} 
+ funcionario=resp.data; info.classList.remove('hidden'); info.innerHTML=`<div class="ok">Olá, <strong>${funcionario.Nome}</strong> — Setor: <strong>${funcionario.Setor||'-'}</strong>.</div>`; 
+ const tResp=await fetchTreinamentos(); if(!tResp||!tResp.ok){const d=tResp&&tResp.error?` (${tResp.error}${tResp.status?' - status '+tResp.status:''})`:'';info.classList.remove('hidden');info.innerHTML+=`<div class="error">Falha ao carregar treinamentos${d}.</div>`;return} 
+ treinamentos=tResp.data||[]; renderListaVideos(treinamentos); document.getElementById('secVideos').classList.remove('hidden'); document.getElementById('secPlayer').classList.add('hidden'); 
+}); 
+function renderListaVideos(list){const c=document.getElementById('listaVideos'); c.innerHTML=''; if(!list||list.length===0){c.innerHTML='<div class="warn">Nenhum vídeo disponível no momento.</div>';return} list.forEach((t,idx)=>{const card=document.createElement('div'); card.className='video-card'; card.innerHTML=`<div class=\"video-meta\"><h3>${t.Titulo}</h3><p><strong>Semana:</strong> ${t.SemanaISO}</p></div><button class=\"secondary\" data-idx=\"${idx}\">Assistir</button>`; card.querySelector('button').addEventListener('click',()=>selectVideo(idx)); c.appendChild(card);});} 
+function selectVideo(idx){selectedVideo=treinamentos[idx]; videoEnded=false; document.getElementById('videoTitle').textContent=selectedVideo.Titulo; document.getElementById('semanaISO').textContent=selectedVideo.SemanaISO; document.getElementById('btnRegistrar').classList.add('hidden'); document.getElementById('signatureBlock').classList.add('hidden'); document.getElementById('mensagem').innerHTML=''; const vid=extractYouTubeId(selectedVideo.URL); if(!vid){document.getElementById('mensagem').innerHTML='<div class=\"error\">URL do vídeo inválida.</div>';return} 
+ const init=()=>{if(player){player.loadVideoById(vid);return} if(!window.YT||!YT.Player){setTimeout(init,200);return} player=new YT.Player('ytplayer',{height:'360',width:'640',videoId:vid,playerVars:{controls:0,disablekb:1,fs:0,rel:0,modestbranding:1,playsinline:1},events:{'onStateChange':onPlayerStateChange}})}; init(); 
+ const __btn=document.getElementById('btnPlayOverlay'); if(__btn){ __btn.addEventListener('click',()=>{ if(player&&player.playVideo) player.playVideo(); }); } 
+ document.getElementById('secPlayer').classList.remove('hidden'); const canvas=document.getElementById('signaturePad'); signaturePad=new SignaturePad(canvas,{minWidth:1,maxWidth:2}); document.getElementById('btnLimpar').addEventListener('click',()=>signaturePad.clear());} 
+function onPlayerStateChange(e){var btn=document.getElementById('btnPlayOverlay'); if(btn){ if(e.data===YT.PlayerState.PLAYING){ btn.classList.add('hidden'); } else if(e.data===YT.PlayerState.PAUSED || e.data===YT.PlayerState.CUED){ btn.classList.remove('hidden'); } } if(e.data===YT.PlayerState.ENDED){ videoEnded=true; if(btn) btn.classList.remove('hidden'); document.getElementById('signatureBlock').classList.remove('hidden'); document.getElementById('btnRegistrar').classList.remove('hidden'); }} 
+document.getElementById('btnTrocarVideo').addEventListener('click',()=>{document.getElementById('secPlayer').classList.add('hidden'); document.getElementById('btnRegistrar').classList.add('hidden'); document.getElementById('signatureBlock').classList.add('hidden'); selectedVideo=null;}); 
+document.getElementById('btnRegistrar').addEventListener('click', async ()=>{ 
+ const msg=document.getElementById('mensagem'); msg.innerHTML=''; if(!funcionario||!selectedVideo){msg.innerHTML='<div class=\"error\">Dados incompletos.</div>';return} if(!videoEnded){msg.innerHTML='<div class=\"warn\">O vídeo ainda não foi concluído.</div>';return} if(!signaturePad||signaturePad.isEmpty()){msg.innerHTML='<div class=\"warn\">Por favor, assine antes de registrar.</div>';return} 
+ const assinaturaPNG=signaturePad.toDataURL('image/png'); const payload={matricula:String(funcionario.Matricula), semanaISO:String(selectedVideo.SemanaISO), tituloVideo:String(selectedVideo.Titulo), urlVideo:String(selectedVideo.URL), assinaturaPNG, deviceInfo:navigator.userAgent}; 
+ try{const res=await fetch(API_BASE+'?action=registrar',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}); let data; try{data=await res.json()}catch{data={ok:false,error:'Resposta não-JSON',status:res.status}} if(data.ok){msg.innerHTML='<div class=\"ok\">Registro realizado com sucesso!</div>'; document.getElementById('btnRegistrar').disabled=true}else{msg.innerHTML='<div class=\"error\">Falha ao registrar: '+(data.error||'Erro')+'</div>'}}catch(err){msg.innerHTML='<div class=\"error\">Erro de conexão ao salvar o registro.</div>'} 
+}); 
 </script>
 </body>
 </html>
