@@ -1,7 +1,7 @@
 // api/gas.js — Proxy serverless na Vercel apontando para seu Apps Script
 module.exports = async (req, res) => {
   try {
-    const GAS_BASE = 'https://script.google.com/macros/s/AKfycbw3QOsfXlVTrCQuAUD6yVZQSa7aps1ignOCd55jw1DQ3MgNV4zmknaYw6dvjiko0fjd/exec';
+    const GAS_BASE = 'https://script.google.com/macros/s/AKfycbyUbzgwsF1OFYFl1I341Umfx96Iz9F5XNqutcDECxyR7NsLgJidk4mkHklTHF_EeEJh/exec';
     const qs = new URLSearchParams(req.query).toString();
     const target = qs ? `${GAS_BASE}?${qs}` : GAS_BASE;
 
