@@ -31,3 +31,23 @@ button.secondary{ background:#FF0000; color:#111827; } button.secondary:hover{ b
 .table th{ background:#f1f5f9; }
 .site-footer{ padding:14px; text-align:center; color:#6b7280; border-top:1px solid var(--border); margin-top:24px; }
 .muted{ color:var(--muted); }
+
+/* === Overrides (2026-02-07): Botões DSS GIG === */
+/* 1) Buscar, Assistir e Registrar em azul: já mapeados para .primary nos HTMLs */
+button.primary{ background: var(--primary); color:#fff; }
+button.primary:hover{ background: var(--primary-600); }
+
+/* 2) Novo Funcionário em laranja (tom do logo LSG Sky Chefs) */
+#btnAddFunc{ background:#f2a01b; color:#111827; }
+#btnAddFunc:hover{ background:#d78d17; }
+
+/* 3) Demais botões (.secondary) no padrão nativo dos navegadores */
+button.secondary{
+  background: ButtonFace;
+  color: ButtonText;
+  border: 1px solid ButtonBorder;
+}
+button.secondary:hover{ background: ButtonFace; }
+
+/* Ajuste: margem entre label e campo = 2px */
+.filters-wrap label{ margin-bottom: 2px; }
