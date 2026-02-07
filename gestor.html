@@ -12,19 +12,25 @@
   <!-- XLSX (SheetJS) para gerar Excel -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <style>
+    /* Fonte única na página, mantendo os tamanhos atuais */
+    html, body, button, input, select, table, th, td, label, .card, .site-header { 
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, 'Helvetica Neue', Arial, 'Noto Sans', 'Liberation Sans', sans-serif; 
+    }
+
+    /* Grid e filtros adicionais */
     .filters-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
     @media (max-width:640px){ .filters-grid { grid-template-columns:1fr; } }
+    .filters-inline { display:flex; flex-wrap:wrap; gap:12px; margin-top:12px; }
+    .filters-inline .row { display:flex; flex-direction:column; min-width:200px; }
+    .actions { display:flex; align-items:center; gap:8px; margin-top:12px; }
+    .sig-img { height:48px; object-fit:contain; }
+
     @media print {
       body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
       .site-header { box-shadow: none; }
       .card { box-shadow: none; border:1px solid #999; }
       .actions button { display:none; }
     }
-    /* NOVOS FILTROS e CORES (complementa styles.css) */
-    .filters-inline { display:flex; flex-wrap:wrap; gap:12px; margin-top:12px; }
-    .filters-inline .row { display:flex; flex-direction:column; min-width:200px; }
-    .actions { display:flex; align-items:center; gap:8px; margin-top:12px; }
-    .sig-img { height:48px; object-fit:contain; }
   </style>
   <link rel="shortcut icon" href="icone lsg.ico">
 </head>
@@ -79,7 +85,7 @@
       <button id="btnBuscar" class="primary">Buscar</button>
       <button id="btnXLS" class="secondary">Gerar XLS</button>
       <button id="btnPDF" class="secondary">Gerar PDF</button>
-      <button id="btnAddFunc" class="danger">Novo Funcionário</button>
+      <button id="btnAddFunc" class="secondary" style="margin-left:16px;">Novo Funcionário</button>
     </div>
 
     <div id="status" class="message"></div>
@@ -260,13 +266,38 @@
     XLSX.writeFile(wb, nomeArquivo('xlsx'));
   }
 
-  // PDF (assinatura maior)
+  // Helper: buscar Treinamentos (para assuntos do cabeçalho)
+  async function fetchTreinamentos(){
+    try{
+      const res = await fetch(API_BASE + '?action=treinamentos');
+      const data = await res.json();
+      if (!data.ok) return [];
+      return Array.isArray(data.data) ? data.data : [];
+    }catch(e){ return []; }
+  }
+
+  // PDF (assinatura maior, tabela menor, rodapé menor + paginação, assuntos abaixo da Semana)
   async function gerarPDF(){
     await loadLogoAsDataURL();
     const base = (registrosFiltrados && registrosFiltrados.length) ? registrosFiltrados : registros;
     if(!base || !base.length){ alert('Nenhum dado para gerar PDF.'); return; }
+
+    // Cabeçalho contextual
     const titulos = [...new Set(base.map(r=>r.TituloVideo).filter(Boolean))];
     const tituloSemana = titulos.length ? titulos.join('; ') : '-';
+
+    // Carregar Assuntos
+    let assuntosCabecalho = '';
+    try{
+      const tList = await fetchTreinamentos();
+      const semanasISO = [...new Set(base.map(r=>r.SemanaISO).filter(Boolean))];
+      if (tList && tList.length){
+        const setISO = new Set(semanasISO);
+        let hit = tList.find(t => setISO.has(String(t['SemanaISO'])));
+        if (!hit && titulos.length) hit = tList.find(t => String(t['Titulo']).trim() === titulos[0]);
+        assuntosCabecalho = hit && hit['Assuntos'] ? String(hit['Assuntos']) : '';
+      }
+    }catch(e){}
 
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ orientation:'portrait', unit:'pt', format:'a4' });
@@ -276,28 +307,33 @@
     const LOGO_W = 120, LOGO_H = 52;
 
     function drawHeaderFooter(){
+      // ----- Cabeçalho
       try{ if(LOGO_DATAURL) doc.addImage(LOGO_DATAURL,'PNG', pageWidth - marginRight - LOGO_W, 28, LOGO_W, LOGO_H); }catch(e){}
       doc.setFont('helvetica','bold'); doc.setFontSize(18);
       doc.text('Diálogo Semanal de Segurança', marginLeft, 48);
+
       doc.setFont('helvetica','bold'); doc.setFontSize(14);
       const headerText = 'Semana: ' + (tituloSemana || '-');
       doc.text(doc.splitTextToSize(headerText, usableWidth - (LOGO_W + 12)), marginLeft, 78);
+
+      if (assuntosCabecalho && assuntosCabecalho.length){
+        doc.setFont('helvetica','normal'); doc.setFontSize(11);
+        doc.text(doc.splitTextToSize('Assuntos: ' + assuntosCabecalho, usableWidth), marginLeft, 96);
+      }
+
+      // ----- Rodapé (texto institucional menor)
       const pageHeight = doc.internal.pageSize.getHeight();
-      const lineH = 14; const startY = pageHeight - marginBottom + 10;
-      const generatedAt = new Date().toLocaleString('pt-BR');
-      doc.setFont('helvetica','italic'); doc.setFontSize(9);
-      doc.text('Gerado em: ' + generatedAt, marginLeft, startY);
-      doc.setFont('helvetica','normal'); doc.setFontSize(9);
-      doc.text('Caterair Serviços de Bordo e Hotelaria LTDA - Base GIG', marginLeft, startY + lineH);
-      doc.text('CNPJ 33.375.601/0001-38', marginLeft, startY + 2*lineH);
-      doc.text('Rua P, S/N, Área de Apoio do Aeroporto Internacional do Rio de Janeiro - Ilha do Governador - RJ', marginLeft, startY + 3*lineH);
+      const baseY = pageHeight - 20;
+      doc.setFont('helvetica','normal'); doc.setFontSize(7);
+      doc.text('Caterair Serviços de Bordo e Hotelaria LTDA - Base GIG', marginLeft, baseY - 10);
+      doc.text('CNPJ 33.375.601/0001-38', marginLeft, baseY - 6);
+      doc.text('Rua P, S/N, Área de Apoio do Aeroporto Internacional do Rio de Janeiro - Ilha do Governador - RJ', marginLeft, baseY - 2);
     }
 
     const head = [['Matrícula','Funcionário','Setor','Data de Participação','Assinatura']];
-    const body = base.map(r => [
-      r.Matricula||'', r.Nome||'', r.Setor||'', formatTimestamp(r.Timestamp)||'', ''
-    ]);
+    const body = base.map(r => [ r.Matricula||'', r.Nome||'', r.Setor||'', formatTimestamp(r.Timestamp)||'', '' ]);
 
+    // Larguras relativas; assinatura maior
     const weights = { matricula:0.12, funcionario:0.30, setor:0.18, data:0.22, assinatura:0.18 };
     const norm = Object.values(weights).reduce((a,b)=>a+b,0) || 1;
     const W = {
@@ -310,12 +346,14 @@
     const sumW = W.matricula + W.funcionario + W.setor + W.data + W.assinatura;
     if (sumW !== usableWidth) W.assinatura += (usableWidth - sumW);
 
+    const startY = assuntosCabecalho ? (marginTop + 16) : marginTop;
+
     doc.autoTable({
-      startY: marginTop,
+      startY,
       head, body,
       margin: { left: marginLeft, right: marginRight, top: marginTop, bottom: marginBottom },
       tableWidth: usableWidth,
-      styles: { font:'helvetica', fontSize:9, cellPadding:4, valign:'middle', overflow:'linebreak' },
+      styles: { font:'helvetica', fontSize:8, cellPadding:4, valign:'middle', overflow:'linebreak' },
       headStyles: { fillColor:[33,150,243], textColor:255, halign:'center' },
       columnStyles: {
         0: { cellWidth: W.matricula, halign:'left' },
@@ -343,8 +381,18 @@
           }
         }
       },
-      didDrawPage: drawHeaderFooter
+      didDrawPage: () => { drawHeaderFooter(); }
     });
+
+    // Paginação centralizada (após montar todas as páginas)
+    const pageCount = doc.internal.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      const pw = doc.internal.pageSize.getWidth();
+      const ph = doc.internal.pageSize.getHeight();
+      doc.setFont('helvetica','italic'); doc.setFontSize(8);
+      doc.text(`Página ${i} de ${pageCount}`, pw/2, ph - 20, { align: 'center' });
+    }
 
     doc.save(nomeArquivo('pdf'));
   }

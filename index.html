@@ -9,21 +9,10 @@
   <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.2.0/dist/signature_pad.umd.min.js"></script>
   <script src="https://www.youtube.com/iframe_api"></script>
   <style>
-    /* ===== Player responsivo ===== */
+    /* Player responsivo */
     .player-container { position: relative; width: 100%; max-width: 960px; aspect-ratio: 16 / 9; display: inline-block; }
     .player-container iframe,
     .player-container #ytplayer iframe { position: absolute; inset: 0; width: 100% !important; height: 100% !important; }
-    /* ===== Play estilizado ===== */
-    :root { --brand-navy:#0b2a4a; --brand-orange:#f2a01b; --play-size: clamp(64px, 16vmin, 140px); --play-shadow:0 10px 28px rgba(0,0,0,.35); }
-    .play-overlay { all: unset; position: absolute; inset: 0; margin: auto; width: var(--play-size); height: var(--play-size); cursor: pointer; filter: drop-shadow(var(--play-shadow)); transition: transform .2s ease, filter .2s ease, opacity .15s ease; display: grid; place-items: center; outline: none; }
-    .play-overlay .play-bg { position: absolute; inset: 0; border-radius: 50%; background: var(--brand-navy); }
-    .play-overlay .stripe { position: absolute; left: 46%; right: 12%; height: calc(var(--play-size) * .075); border-radius: calc(var(--play-size) * .0375); background: var(--brand-orange); transform-origin: left center; opacity: .95; }
-    .play-overlay .s1 { top: 30%; } .play-overlay .s2 { top: 45%; } .play-overlay .s3 { top: 60%; } .play-overlay .s4 { top: 75%; }
-    .play-overlay .play-icon { width: 34%; height: 34%; z-index: 1; fill: #fff; transform: translateX(-4%); }
-    .play-overlay:focus-visible { box-shadow: 0 0 0 4px rgba(242,160,27,.35); border-radius: 50%; }
-    .play-overlay:hover { transform: scale(1.03); } .play-overlay:active { transform: scale(0.98); }
-    .play-overlay.hidden { opacity: 0; pointer-events: none; }
-    @media (max-width: 420px) { :root { --play-size: clamp(56px, 18vw, 120px); } }
   </style>
   <link rel="shortcut icon" href="icone lsg.ico">
 </head>
@@ -40,7 +29,7 @@
     <div class="row">
       <label for="matricula">Matrícula</label>
       <input type="text" id="matricula" placeholder="Ex.: 12345" />
-      <button id="btnBuscar" class="secondary">Buscar</button>
+      <button id="btnBuscar" class="primary">Buscar</button>
     </div>
     <div id="funcInfo" class="info hidden"></div>
   </section>
@@ -57,14 +46,6 @@
 
     <div id="playerContainer" class="player-container">
       <div id="ytplayer"></div>
-      <button id="btnPlayOverlay" class="play-overlay" aria-label="Tocar vídeo" title="Tocar vídeo">
-        <span class="play-bg" aria-hidden="true"></span>
-        <span class="stripe s1" aria-hidden="true"></span>
-        <span class="stripe s2" aria-hidden="true"></span>
-        <span class="stripe s3" aria-hidden="true"></span>
-        <span class="stripe s4" aria-hidden="true"></span>
-        <svg class="play-icon" viewBox="0 0 100 100" aria-hidden="true" focusable="false"><polygon points="38,30 74,50 38,70"/></svg>
-      </button>
     </div>
 
     <div class="note">O botão "Registrar" aparecerá ao final do vídeo.</div>
@@ -135,7 +116,7 @@
     if(!list||list.length===0){ c.innerHTML='<div class="ok">Você já assistiu todos os vídeos disponíveis. Obrigado!</div>'; return }
     list.forEach((t,idx)=>{
       const card=document.createElement('div'); card.className='video-card';
-      card.innerHTML=`<div class="video-meta"><h3>${t.Titulo}</h3><p><strong>Semana:</strong> ${t.SemanaISO}</p></div><button class="secondary" data-idx="${idx}">Assistir</button>`;
+      card.innerHTML=`<div class="video-meta"><h3>${t.Titulo}</h3><p><strong>Semana:</strong> ${t.SemanaISO}</p></div><button class="primary" data-idx="${idx}">Assistir</button>`;
       card.querySelector('button').addEventListener('click',()=>selectVideo(idx));
       c.appendChild(card);
     });
@@ -163,23 +144,11 @@
       });
     };
     init();
-
-    const playBtn=document.getElementById('btnPlayOverlay');
-    if(playBtn){ playBtn.onclick=()=>{ if(player&&player.playVideo) player.playVideo(); }; }
-
-    document.getElementById('secPlayer').classList.remove('hidden');
-
-    const canvas=document.getElementById('signaturePad');
-    signaturePad=new SignaturePad(canvas,{minWidth:1,maxWidth:2});
-    document.getElementById('btnLimpar').addEventListener('click',()=>signaturePad.clear());
   }
 
   function onPlayerStateChange(e){
-    const btn=document.getElementById('btnPlayOverlay'); if(!btn) return;
-    if(e.data===YT.PlayerState.PLAYING){ btn.classList.add('hidden'); }
-    else if(e.data===YT.PlayerState.PAUSED || e.data===YT.PlayerState.CUED){ btn.classList.remove('hidden'); }
     if(e.data===YT.PlayerState.ENDED){
-      videoEnded=true; btn.classList.remove('hidden');
+      videoEnded=true;
       document.getElementById('signatureBlock').classList.remove('hidden');
       document.getElementById('btnRegistrar').classList.remove('hidden');
     }
@@ -196,7 +165,11 @@
     const msg=document.getElementById('mensagem'); msg.innerHTML='';
     if(!funcionario||!selectedVideo){ msg.innerHTML='<div class="error">Dados incompletos.</div>'; return }
     if(!videoEnded){ msg.innerHTML='<div class="warn">O vídeo ainda não foi concluído.</div>'; return }
-    if(!signaturePad||signaturePad.isEmpty()){ msg.innerHTML='<div class="warn">Por favor, assine antes de registrar.</div>'; return }
+    if(!signaturePad){
+      const canvas=document.getElementById('signaturePad');
+      signaturePad=new SignaturePad(canvas,{minWidth:1,maxWidth:2});
+    }
+    if(signaturePad.isEmpty()){ msg.innerHTML='<div class="warn">Por favor, assine antes de registrar.</div>'; return }
 
     const assinaturaPNG=signaturePad.toDataURL('image/png');
     const payload={ matricula:String(funcionario.Matricula), semanaISO:String(selectedVideo.SemanaISO), tituloVideo:String(selectedVideo.Titulo), urlVideo:String(selectedVideo.URL), assinaturaPNG, deviceInfo:navigator.userAgent };
@@ -207,7 +180,7 @@
       if(data.ok){
         msg.innerHTML='<div class="ok">Muito obrigado por assistir!</div>';
         document.getElementById('btnRegistrar').disabled=true;
-        setTimeout(()=>location.reload(), 1500); // retorna à identificação
+        setTimeout(()=>location.reload(), 1500);
       } else {
         msg.innerHTML='<div class="error">Falha ao registrar: '+(data.error||'Erro')+'</div>';
       }
