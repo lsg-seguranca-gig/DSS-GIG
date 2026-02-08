@@ -92,6 +92,16 @@
   const API_BASE = '/api/gas';
   let funcionario=null, treinamentos=[], selectedVideo=null, player=null, signaturePad=null, videoEnded=false;
 
+  
+  // Normaliza título para comparação (sem acentos, minúsculo, espaços colapsados)
+  function normalizeTitle(str){
+    try{
+      return String(str || '')
+        .normalize('NFD').replace(/\p{Diacritic}+/gu,'')
+        .toLowerCase().trim().replace(/\s+/g,' ');
+    }catch(e){ return String(str||'').toLowerCase().trim(); }
+  }
+
   function extractYouTubeId(url){ try{ const u=new URL(url); if(u.hostname.includes('youtu.be')) return u.pathname.slice(1); if(u.searchParams.get('v')) return u.searchParams.get('v'); const m=url.match(/embed\/([\w\-]+)/); if(m) return m[1]; }catch(e){} return null; }
   async function fetchTreinamentos(){ const res=await fetch(API_BASE+'?action=treinamentos'); try{ return await res.json(); }catch{ return {ok:false,error:'Resposta não-JSON',status:res.status} } }
   async function fetchFuncionario(m){ const res=await fetch(API_BASE+'?action=funcionario&matricula='+encodeURIComponent(m)); try{ return await res.json(); }catch{ return {ok:false,error:'Resposta não-JSON',status:res.status} } }
