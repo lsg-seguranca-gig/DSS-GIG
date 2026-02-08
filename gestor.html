@@ -4,84 +4,62 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>DSS GIG — Painel do Gestor</title>
-  <link rel="icon" href="data:;base64,iVBORw0KGgo" />
   <link rel="stylesheet" href="styles.css" />
-  <style>
-    html, body, button, input, select, table, th, td, label, .card, .site-header { font-family: system-ui, -apple-system, Segoe UI, Roboto, 'Helvetica Neue', Arial, 'Noto Sans', 'Liberation Sans', sans-serif; }
-    .container{ max-width:1000px; margin:24px auto; padding:0 16px; }
-    .card{ background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:20px; margin-bottom:16px; }
-    .site-header{ background:linear-gradient(135deg,#1e293b,#0f172a); color:#fff; padding:24px; text-align:center; }
-    .site-header img{ height:42px; vertical-align:middle; margin-bottom:8px; }
-    .subtitle{ color:#9ca3af; margin:4px 0 0 0 }
-    .table{ width:100%; border-collapse:collapse; }
-    .table th, .table td{ border:1px solid #e5e7eb; padding:8px; text-align:left; }
-    .message{ margin-top:10px; }
-    .sig-img{ height:48px; object-fit:contain; }
-    .filters-wrap { display:flex; flex-direction:column; gap:14px; }
-    .filters-row-1 { display:grid; grid-template-columns: 320px 1fr; gap:24px; }
-    .filters-row-1 .col-mat input[type="text"]{ max-width:320px; }
-    .filters-row-2 { display:grid; grid-template-columns: 1fr 1fr 1fr; gap:24px; }
-    .filters-wrap .row { display:flex; flex-direction:column; align-items:flex-start; }
-    .filters-wrap label { display:block; font-size:14px; margin-bottom:2px; line-height:1.2; color:#374151; }
-    .filters-wrap input[type="text"], .filters-wrap input[type="date"], .filters-wrap select { height:40px; padding:10px 12px; border:1px solid #e5e7eb; border-radius:8px; background:#fff; color:#111827; box-sizing:border-box; width:100%; }
-    .actions{ display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; margin-top:6px; }
-    .actions-left{ display:flex; gap:6px; flex-wrap:wrap; }
-    .actions-right{ display:flex; gap:8px; }
-    .primary{ background:#2563eb; color:#fff; padding:10px 14px; border:none; border-radius:8px; cursor:pointer; }
-    .secondary{ background:#f3f4f6; color:#111827; border:1px solid #d1d5db; padding:10px 14px; border-radius:8px; cursor:pointer; }
-  </style>
 </head>
 <body>
 <header class="site-header">
-  <img src="logo lsg.png" alt="logo LSG" />
-  <h1>Painel do Gestor — DSS GIG</h1>
-  <p id="buildBadge" class="subtitle"></p>
+  <div class="header-inner">
+    <h1>Painel do Gestor — DSS GIG</h1>
+    <p id="buildBadge" class="subtitle"></p>
+  </div>
 </header>
-
 <main class="container">
   <section class="card">
     <h2>Filtros</h2>
-    <div class="filters-wrap">
-      <div class="filters-row-1">
-        <div class="row col-mat">
-          <label for="fMat">Matrícula</label>
-          <input type="text" id="fMat" placeholder="Ex.: 12345" />
-        </div>
-        <div class="row col-nome">
-          <label for="fNome">Nome</label>
-          <input type="text" id="fNome" placeholder="Nome do colaborador" />
-        </div>
+    <div class="filters-row-1">
+      <div class="row">
+        <label for="fMat">Matrícula</label>
+        <input type="text" id="fMat" placeholder="Ex.: 12345" />
       </div>
-      <div class="filters-row-2">
-        <div class="row">
-          <label for="fSemanaTitulo">Semana</label>
-          <select id="fSemanaTitulo">
-            <option value="">Todas</option>
-          </select>
-        </div>
-        <div class="row">
-          <label for="fDataInicio">Data Inicial</label>
-          <input type="date" id="fDataInicio" />
-        </div>
-        <div class="row">
-          <label for="fDataFinal">Data Final</label>
-          <input type="date" id="fDataFinal" />
-        </div>
+      <div class="row">
+        <label for="fNome">Nome</label>
+        <input type="text" id="fNome" placeholder="Nome do colaborador" />
       </div>
-      <div class="actions">
-        <div class="actions-left">
-          <button id="btnBuscar" class="primary">Buscar</button>
-          <button id="btnXLS" class="secondary">Gerar XLS</button>
-          <button id="btnPDF" class="secondary">Gerar PDF</button>
-          <button id="btnZIP" class="secondary">Gerar Pacote Offline (ZIP)</button>
-        </div>
-        <div class="actions-right">
-          <button id="btnAddFunc" class="secondary">Novo Funcionário</button>
-        </div>
-      </div>
-      <div id="status" class="message"></div>
     </div>
+    <div class="filters-row-2">
+      <div class="row">
+        <label for="fSemanaTitulo">Semana</label>
+        <select id="fSemanaTitulo"><option value="">Todas</option></select>
+      </div>
+      <div class="row">
+        <label for="fDataInicio">Data Inicial</label>
+        <input type="date" id="fDataInicio" />
+      </div>
+      <div class="row">
+        <label for="fDataFinal">Data Final</label>
+        <input type="date" id="fDataFinal" />
+      </div>
+    </div>
+
+    <div class="actions">
+      <div class="actions-left">
+        <button id="btnBuscar" class="btn primary">Buscar</button>
+        <button id="btnXLS" class="btn">Gerar XLS</button>
+        <button id="btnPDF" class="btn">Gerar PDF</button>
+        <button id="btnZIP" class="btn">Gerar Pacote Offline (ZIP)</button>
+      </div>
+      <div class="actions-right">
+        <label class="toggle">
+          <input type="checkbox" id="pdfCompact" />
+          <span>Margem compacta (mais linhas por página)</span>
+        </label>
+        <button id="btnAddFunc" class="btn">Novo Funcionário</button>
+      </div>
+    </div>
+
+    <div id="status" class="message"></div>
   </section>
+
   <section class="card">
     <h2>Resultados</h2>
     <div class="table-wrapper">
@@ -102,11 +80,8 @@
     </div>
   </section>
 </main>
-
-<footer class="site-footer" style="text-align:center; color:#6b7280; padding:14px;"><small>© Caterair Serviços de Bordo e Hotelaria LTDA - Base GIG</small></footer>
-
-<script>window.__BUILD_BADGE__='Build: '+new Date().toLocaleString('pt-BR')+' (clean v7)';</script>
+<footer class="site-footer">© Caterair Serviços de Bordo e Hotelaria LTDA - Base GIG</footer>
 <script src="app.js"></script>
-<script>try{document.getElementById('buildBadge').textContent=window.__BUILD_BADGE__;}catch(e){}</script>
+<script>document.getElementById('buildBadge').textContent='Build: '+new Date().toLocaleString('pt-BR')+' (v7.4.1)';</script>
 </body>
 </html>
