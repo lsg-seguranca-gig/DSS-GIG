@@ -103,7 +103,7 @@ async function gerarPDF(){
     tableWidth: usableWidth,
     styles: { font:'helvetica', fontSize:8, cellPadding:4, valign:'middle', overflow:'linebreak' },
     headStyles: { fillColor:[33,150,243], textColor:255, halign:'center' },
-    didParseCell: (data)=>{ if (data.section==='body' && data.column.index===4) { data.cell.height = Math.max(data.cell.height, typeof SIG_MIN_H!=='undefined' ? SIG_MIN_H : 56); } },
+    didParseCell: (data)=>{ if (data.section==='body' && data.column.index===4) { data.cell.height = Math.max(data.cell.height, 32); } },
     didDrawCell: (data)=>{
       if (data.section==='body' && data.column.index===4){
         const i = data.row.index; const sig = base[i].AssinaturaPNG;
@@ -464,7 +464,7 @@ async function gerarPDF(){
       tableWidth: usableWidth,
       styles: { font:'helvetica', fontSize:8, cellPadding:4, valign:'middle', overflow:'linebreak' },
       headStyles: { fillColor:[33,150,243], textColor:255, halign:'center' },
-      didParseCell: (data)=>{ if (data.section==='body' && data.column.index===4) { data.cell.height = Math.max(data.cell.height, typeof SIG_MIN_H!=='undefined' ? SIG_MIN_H : 56); } },
+      didParseCell: (data)=>{ if (data.section==='body' && data.column.index===4) { data.cell.height = Math.max(data.cell.height, 32); } },
       didDrawCell: (data)=>{
         if (data.section==='body' && data.column.index===4){
           const i = data.row.index; const sig = base[i].AssinaturaPNG; if(sig){ const pad=2; const x=data.cell.x+pad, y=data.cell.y+pad; const w=data.cell.width-pad*2, h=data.cell.height-pad*2; try{ doc.addImage(sig,'PNG',x,y,w,h);}catch(e){} }
