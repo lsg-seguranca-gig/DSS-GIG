@@ -143,7 +143,7 @@
 <script>
 (function(){
   // ====== Setup de build badge ======
-  try{ document.getElementById('buildBadge').textContent = 'Build: ' + new Date().toLocaleString('pt-BR') + ' (clean)'; }catch(e){}
+  try{ document.getElementById('buildBadge').textContent = 'Build: ' + new Date().toLocaleString('pt-BR') + ' (clean v2)'; }catch(e){}
 
   // ====== Estado ======
   window.registros = [];
@@ -298,11 +298,11 @@
 
         // jsPDF
         var jsPDF = window.jspdf.jsPDF; var doc = new jsPDF({ orientation:'portrait', unit:'pt', format:'a4' });
-        var marginLeft=48, marginRight=48, marginTop=120, marginBottom=88;
+        var marginLeft=48, marginRight=48, marginTop=150, marginBottom=88; // margem top maior para não sobrepor cabeçalho nas páginas seguintes
         var pageWidth  = doc.internal.pageSize.getWidth();
         var pageHeight = doc.internal.pageSize.getHeight();
         var usableWidth = pageWidth - marginLeft - marginRight;
-        var LOGO_W=120, LOGO_H=52; var LINE=12; var SIG_MIN_H=56;
+        var LOGO_W=120, LOGO_H=52; var LINE=12; var SIG_MIN_H=112; // assinaturas 2x
 
         function drawHeaderFooter(pageNumber, totalPages){
           try{ if(window.LOGO_DATAURL) doc.addImage(window.LOGO_DATAURL,'PNG', pageWidth - marginRight - LOGO_W, 28, LOGO_W, LOGO_H); }catch(e){}
@@ -318,20 +318,18 @@
             doc.text(assuntosLines, marginLeft, y);
             y += LINE * Math.max(1, assuntosLines.length);
           }
-          var now = new Date();
-          var dataStr = 'Data do relatório: ' + String(now.getDate()).padStart(2,'0') + '/' + String(now.getMonth()+1).padStart(2,'0') + '/' + now.getFullYear();
-          var horaStr = 'Hora do relatório: ' + String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0');
+          // UMA LINHA: "Relatório gerado em dd/mm/yyyy às hh:mm"
+          var dt = new Date();
+          var linhaDH = 'Relatório gerado em ' + String(dt.getDate()).padStart(2,'0') + '/' + String(dt.getMonth()+1).padStart(2,'0') + '/' + dt.getFullYear() + ' às ' + String(dt.getHours()).padStart(2,'0') + ':' + String(dt.getMinutes()).padStart(2,'0');
           doc.setFont('helvetica','normal'); doc.setFontSize(10);
-          doc.text(dataStr, marginLeft, y + LINE);
-          doc.text(horaStr, marginLeft, y + LINE*2);
+          doc.text(linhaDH, marginLeft, y + LINE);
+
+          // Rodapé institucional (sem paginação aqui)
           doc.setFont('helvetica','normal'); doc.setFontSize(7);
           var FOOT_LH=12, FOOT_Y=pageHeight-22;
           doc.text('Caterair Serviços de Bordo e Hotelaria LTDA - Base GIG', marginLeft, FOOT_Y - (FOOT_LH * 2));
           doc.text('CNPJ 33.375.601/0001-38',                                marginLeft, FOOT_Y - (FOOT_LH * 1));
           doc.text('Rua P, S/N, Área de Apoio do Aeroporto Internacional do Rio de Janeiro - Ilha do Governador - RJ', marginLeft, FOOT_Y);
-          doc.setFont('helvetica','italic'); doc.setFontSize(8);
-          var txt = 'Página ' + pageNumber + ' de ' + totalPages;
-          doc.text(txt, pageWidth - marginRight, FOOT_Y + 2, { align:'right' });
         }
 
         var head = [['Matrícula','Funcionário','Setor','Data de Participação','Assinatura']];
@@ -349,6 +347,16 @@
           didDrawCell: function(d){ if(d.section==='body' && d.column.index===4){ var i=d.row.index; var sig = base[i].AssinaturaPNG; if(sig){ var pad=2; var x=d.cell.x+pad, y=d.cell.y+pad; var w=d.cell.width-pad*2, h=d.cell.height-pad*2; try{ doc.addImage(sig,'PNG',x,y,w,h);}catch(e){} } } },
           didDrawPage: function(hk){ var pageNumber = (hk && hk.pageNumber)? hk.pageNumber : (doc.internal.getCurrentPageInfo && doc.internal.getCurrentPageInfo().pageNumber) || 1; var totalPages = doc.internal.getNumberOfPages(); drawHeaderFooter(pageNumber, totalPages); }
         });
+
+        // Paginação correta: após a tabela (com o total já definido)
+        var total = doc.internal.getNumberOfPages();
+        for (var pi = 1; pi <= total; pi++) {
+          doc.setPage(pi);
+          doc.setFont('helvetica','italic'); doc.setFontSize(8);
+          var FOOT_Y = pageHeight - 22;
+          var label = 'Página ' + pi + ' de ' + total;
+          doc.text(label, pageWidth - marginRight, FOOT_Y + 2, { align:'right' });
+        }
 
         doc.save('DSS_GIG_Relatorio.pdf');
       });
@@ -404,7 +412,7 @@
           '(function(){'+
             'function pad(n){ return String(n).padStart(2,\'0\'); }'+
             'function loadLogo(cb){ fetch(\'logo.png\').then(function(r){ if(!r.ok) return cb(null); return r.blob(); }).then(function(b){ if(!b) return cb(null); var fr=new FileReader(); fr.onload=function(){ cb(fr.result); }; fr.readAsDataURL(b); }).catch(function(){ cb(null); }); }'+
-            'document.getElementById(\'btnGerar\').onclick = function(){ fetch(\'data.json\').then(function(res){ return res.json(); }).then(function(snap){ var base = Array.isArray(snap.base)? snap.base : []; var tituloSemana = snap.tituloSemana || \"-\"; var assuntosCabecalho = snap.assuntosCabecalho || \"\"; var jsPDF = window.jspdf.jsPDF; var doc = new jsPDF({ orientation:\'portrait\', unit:\'pt\', format:\'a4\' }); var marginLeft=48, marginRight=48, marginTop=120, marginBottom=88; var pageWidth=doc.internal.pageSize.getWidth(), pageHeight=doc.internal.pageSize.getHeight(); var usableWidth=pageWidth - marginLeft - marginRight; var LOGO_W=120, LOGO_H=52; var LINE=12; var SIG_MIN_H=56; function drawHeaderFooter(pageNumber,totalPages,LOGO){ try{ if(LOGO) doc.addImage(LOGO,\'PNG\', pageWidth - marginRight - LOGO_W, 28, LOGO_W, LOGO_H);}catch(e){} doc.setFont(\'helvetica\',\'bold\'); doc.setFontSize(18); doc.text(\'Diálogo Semanal de Segurança\', marginLeft, 48); doc.setFont(\'helvetica\',\'bold\'); doc.setFontSize(14); var semanaText=\'Semana: \'+(tituloSemana||\'-\'); var semanaLines=doc.splitTextToSize(semanaText, usableWidth - (LOGO_W + 12)); var ySemana=78; doc.text(semanaLines, marginLeft, ySemana); var y = ySemana + LINE * Math.max(1, semanaLines.length) + LINE; if(assuntosCabecalho && assuntosCabecalho.length){ doc.setFont(\'helvetica\',\'normal\'); doc.setFontSize(11); var as=doc.splitTextToSize(\'Assuntos: \'+assuntosCabecalho, usableWidth); doc.text(as, marginLeft, y); y += LINE * Math.max(1, as.length); } var now=new Date(); var dataStr=\'Data do relatório: \'+pad(now.getDate())+\'\/\'+pad(now.getMonth()+1)+\'\/\'+now.getFullYear(); var horaStr=\'Hora do relatório: \'+pad(now.getHours())+\':\'+pad(now.getMinutes()); doc.setFont(\'helvetica\',\'normal\'); doc.setFontSize(10); doc.text(dataStr, marginLeft, y + LINE); doc.text(horaStr, marginLeft, y + LINE*2); doc.setFont(\'helvetica\',\'normal\'); doc.setFontSize(7); var FOOT_LH=12, FOOT_Y=pageHeight-22; doc.text(\'Caterair Serviços de Bordo e Hotelaria LTDA - Base GIG\', marginLeft, FOOT_Y - (FOOT_LH * 2)); doc.text(\'CNPJ 33.375.601/0001-38\', marginLeft, FOOT_Y - (FOOT_LH * 1)); doc.text(\'Rua P, S/N, Área de Apoio do Aeroporto Internacional do Rio de Janeiro - Ilha do Governador - RJ\', marginLeft, FOOT_Y); doc.setFont(\'helvetica\',\'italic\'); doc.setFontSize(8); var txt=\'Página \'+pageNumber+\' de \'+totalPages; doc.text(txt, pageWidth - marginRight, FOOT_Y + 2, {align:\'right\'}); } var head=[[\'Matrícula\',\'Funcionário\',\'Setor\',\'Data de Participação\',\'Assinatura\']]; var body=base.map(function(r){ return [ r.Matricula||\'\', r.Nome||\'\', r.Setor||\'\', r.Timestamp||\'\', \"\" ]; }); loadLogo(function(LOGO){ doc.autoTable({ startY: marginTop + LINE*4, head: head, body: body, margin:{ left:marginLeft, right:marginRight, top:marginTop, bottom:marginBottom }, tableWidth: usableWidth, styles:{ font:\'helvetica\', fontSize:8, cellPadding:4, valign:\'middle\', overflow:\'linebreak\' }, headStyles:{ fillColor:[33,150,243], textColor:255, halign:\'center\' }, didParseCell:function(d){ if(d.section===\'body\' && d.column.index===4){ d.cell.height=Math.max(d.cell.height, SIG_MIN_H);} }, didDrawCell:function(d){ if(d.section===\'body\' && d.column.index===4){ var i=d.row.index; var sig=base[i].AssinaturaPNG; if(sig){ var pad2=2; var x=d.cell.x+pad2, y2=d.cell.y+pad2; var w=d.cell.width-pad2*2, h=d.cell.height-pad2*2; try{ doc.addImage(sig,\'PNG\',x,y2,w,h);}catch(e){} } } }, didDrawPage:function(hk){ var pageNumber=(hk && hk.pageNumber)? hk.pageNumber : (doc.internal.getCurrentPageInfo && doc.internal.getCurrentPageInfo().pageNumber) || 1; var totalPages=doc.internal.getNumberOfPages(); drawHeaderFooter(pageNumber,totalPages,LOGO); } }); doc.save(\'DSS_GIG_Relatorio_OFFLINE.pdf\'); }); }); };'+
+            'document.getElementById(\'btnGerar\').onclick = function(){ fetch(\'data.json\').then(function(res){ return res.json(); }).then(function(snap){ var base = Array.isArray(snap.base)? snap.base : []; var tituloSemana = snap.tituloSemana || \"-\"; var assuntosCabecalho = snap.assuntosCabecalho || \"\"; var jsPDF = window.jspdf.jsPDF; var doc = new jsPDF({ orientation:\'portrait\', unit:\'pt\', format:\'a4\' }); var marginLeft=48, marginRight=48, marginTop=150, marginBottom=88; var pageWidth=doc.internal.pageSize.getWidth(), pageHeight=doc.internal.pageSize.getHeight(); var usableWidth=pageWidth - marginLeft - marginRight; var LOGO_W=120, LOGO_H=52; var LINE=12; var SIG_MIN_H=112; function drawHeaderFooter(pageNumber,totalPages,LOGO){ try{ if(LOGO) doc.addImage(LOGO,\'PNG\', pageWidth - marginRight - LOGO_W, 28, LOGO_W, LOGO_H);}catch(e){} doc.setFont(\'helvetica\',\'bold\'); doc.setFontSize(18); doc.text(\'Diálogo Semanal de Segurança\', marginLeft, 48); doc.setFont(\'helvetica\',\'bold\'); doc.setFontSize(14); var semanaText=\'Semana: \'+(tituloSemana||\'-\'); var semanaLines=doc.splitTextToSize(semanaText, usableWidth - (LOGO_W + 12)); var ySemana=78; doc.text(semanaLines, marginLeft, ySemana); var y = ySemana + LINE * Math.max(1, semanaLines.length) + LINE; if(assuntosCabecalho && assuntosCabecalho.length){ doc.setFont(\'helvetica\',\'normal\'); doc.setFontSize(11); var as=doc.splitTextToSize(\'Assuntos: \'+assuntosCabecalho, usableWidth); doc.text(as, marginLeft, y); y += LINE * Math.max(1, as.length); } var dt=new Date(); var linhaDH='Relatório gerado em '+pad(dt.getDate())+'/'+pad(dt.getMonth()+1)+'/'+dt.getFullYear()+' às '+pad(dt.getHours())+':'+pad(dt.getMinutes()); doc.setFont(\'helvetica\',\'normal\'); doc.setFontSize(10); doc.text(linhaDH, marginLeft, y + LINE); doc.setFont(\'helvetica\',\'normal\'); doc.setFontSize(7); var FOOT_LH=12, FOOT_Y=pageHeight-22; doc.text(\'Caterair Serviços de Bordo e Hotelaria LTDA - Base GIG\', marginLeft, FOOT_Y - (FOOT_LH * 2)); doc.text(\'CNPJ 33.375.601/0001-38\', marginLeft, FOOT_Y - (FOOT_LH * 1)); doc.text(\'Rua P, S/N, Área de Apoio do Aeroporto Internacional do Rio de Janeiro - Ilha do Governador - RJ\', marginLeft, FOOT_Y); } var head=[[\'Matrícula\',\'Funcionário\',\'Setor\',\'Data de Participação\',\'Assinatura\']]; var body=base.map(function(r){ return [ r.Matricula||\'\', r.Nome||\'\', r.Setor||\'\', r.Timestamp||\'\', \"\" ]; }); loadLogo(function(LOGO){ doc.autoTable({ startY: marginTop + LINE*4, head: head, body: body, margin:{ left:marginLeft, right:marginRight, top:marginTop, bottom:marginBottom }, tableWidth: usableWidth, styles:{ font:\'helvetica\', fontSize:8, cellPadding:4, valign:\'middle\', overflow:\'linebreak\' }, headStyles:{ fillColor:[33,150,243], textColor:255, halign:\'center\' }, didParseCell:function(d){ if(d.section===\'body\' && d.column.index===4){ d.cell.height=Math.max(d.cell.height, SIG_MIN_H);} }, didDrawCell:function(d){ if(d.section===\'body\' && d.column.index===4){ var i=d.row.index; var sig=base[i].AssinaturaPNG; if(sig){ var pad2=2; var x=d.cell.x+pad2, y2=d.cell.y+pad2; var w=d.cell.width-pad2*2, h=d.cell.height-pad2*2; try{ doc.addImage(sig,\'PNG\',x,y2,w,h);}catch(e){} } } }, didDrawPage:function(hk){ var pageNumber=(hk && hk.pageNumber)? hk.pageNumber : (doc.internal.getCurrentPageInfo && doc.internal.getCurrentPageInfo().pageNumber) || 1; var totalPages=doc.internal.getNumberOfPages(); drawHeaderFooter(pageNumber,totalPages,LOGO); } }); var total=doc.internal.getNumberOfPages(); for (var pi=1; pi<=total; pi++){ doc.setPage(pi); doc.setFont(\'helvetica\',\'italic\'); doc.setFontSize(8); var FOOT_Y=pageHeight-22; var label='Página '+pi+' de '+total; doc.text(label, pageWidth - marginRight, FOOT_Y + 2, {align:\'right\'});} doc.save(\'DSS_GIG_Relatorio_OFFLINE.pdf\'); }); }); };'+
           '})();'+
           '<\/script>'+
           '</body></html>';
