@@ -11,48 +11,28 @@
   <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
   <!-- XLSX (SheetJS) para gerar Excel -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-
   <style>
     /* Fonte única na página (mantém tamanhos atuais do layout) */
     html, body, button, input, select, table, th, td, label, .card, .site-header {
       font-family: system-ui, -apple-system, Segoe UI, Roboto, 'Helvetica Neue', Arial, 'Noto Sans', 'Liberation Sans', sans-serif;
     }
 
-    /* ===== Layout dos Filtros (organizado em linhas) ===== */
+    /* ===== Layout dos Filtros (igual ao mock) ===== */
     .filters-wrap { display:flex; flex-direction:column; gap:14px; }
 
     /* Linha 1: 2 colunas (Matrícula | Nome) */
-    .filters-row-1 { display:grid; grid-template-columns: 320px 1fr; gap:24px; }
-    .filters-row-1 .col-mat input[type="text"]{ max-width: 320px; }
+    .filters-row-1 { display:grid; grid-template-columns: 1fr 1fr; gap:24px; }
 
     /* Linha 2: 3 colunas (Semana | Data Inicial | Data Final) */
     .filters-row-2 { display:grid; grid-template-columns: 1fr 1fr 1fr; gap:24px; }
 
-    /* Campos consistentes */
-    .filters-wrap .row { display:flex; flex-direction:column; align-items:flex-start; }
-    .filters-wrap label { display:block; font-size:14px; margin-bottom:2px; line-height:1.2; color:#374151; }
-
-    .filters-wrap input[type="text"],
-    .filters-wrap input[type="date"],
-    .filters-wrap select {
-      height:40px; padding:10px 12px; border:1px solid var(--border); border-radius:8px;
-      background:#fff; color:#111827; box-sizing:border-box; width:100%;
-    }
-
-    /* Ações: três à esquerda, "Novo Funcionário" à direita */
-    .actions{ display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; margin-top:6px; }
-    .actions-left{ display:flex; gap:6px; flex-wrap:wrap; }   /* gap menor entre os botões */
-    .actions-right{ display:flex; gap:8px; }
-
-    /* Responsivo */
-    @media (max-width: 900px){
-      .filters-row-1{ grid-template-columns: 1fr; }
-      .filters-row-2{ grid-template-columns: 1fr 1fr 1fr; } /* mantém na mesma linha até 900px */
-      .actions{ justify-content:flex-start; gap:8px; }
-      .actions-right{ margin-top:6px; }
-    }
-
-    /* Tabela/print mantidos */
+    /* Filtros */
+    .filters-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    @media (max-width:640px){ .filters-grid { grid-template-columns:1fr; } }
+    .filters-inline { display:grid; grid-template-columns: 1fr 1fr 1fr; gap:12px; margin-top:12px; }
+    @media (max-width:860px){ .filters-inline { grid-template-columns: 1fr; } }
+    .filters-inline .row { display:flex; flex-direction:column; min-width:200px; }
+    .actions { display:flex; align-items:center; gap:8px; margin-top:12px; }
     .sig-img { height:48px; object-fit:contain; }
     @media print {
       body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
@@ -74,51 +54,41 @@
   <section class="card">
     <h2>Filtros</h2>
 
-    <div class="filters-wrap">
-      <!-- Linha 1 -->
-      <div class="filters-row-1">
-        <div class="row col-mat">
-          <label for="fMat">Matrícula</label>
-          <input type="text" id="fMat" placeholder="Ex.: 12345" />
-        </div>
-        <div class="row col-nome">
-          <label for="fNome">Nome</label>
-          <input type="text" id="fNome" placeholder="Nome do colaborador" />
-        </div>
+    <!-- Linha 1: Matrícula e Nome -->
+    <div class="filters-grid">
+      <div class="row">
+        <label for="fMat">Matrícula</label>
+        <input type="text" id="fMat" placeholder="Ex.: 12345" />
       </div>
-
-      <!-- Linha 2 -->
-      <div class="filters-row-2">
-        <div class="row">
-          <label for="fSemanaTitulo">Semana</label>
-          <select id="fSemanaTitulo">
-            <option value="">Todas</option>
-          </select>
-        </div>
-        <div class="row">
-          <label for="fDataInicio">Data Inicial</label>
-          <input type="date" id="fDataInicio" />
-        </div>
-        <div class="row">
-          <label for="fDataFinal">Data Final</label>
-          <input type="date" id="fDataFinal" />
-        </div>
+      <div class="row">
+        <label for="fNome">Nome</label>
+        <input type="text" id="fNome" placeholder="Nome do colaborador" />
       </div>
-
-      <!-- Botões -->
-      <div class="actions">
-        <div class="actions-left">
-          <button id="btnBuscar" class="primary">Buscar</button>
-          <button id="btnXLS" class="secondary">Gerar XLS</button>
-          <button id="btnPDF" class="secondary">Gerar PDF</button>
-        </div>
-        <div class="actions-right">
-          <button id="btnAddFunc" class="secondary">Novo Funcionário</button>
-        </div>
+      <div class="row">
+        <label for="fSemanaTitulo">Semana</label>
+        <select id="fSemanaTitulo">
+          <option value="">Todas</option>
+        </select>
       </div>
-
-      <div id="status" class="message"></div>
+      <div class="row">
+        <label for="fDataInicio">Data Inicial</label>
+        <input type="date" id="fDataInicio" />
+      </div>
+      <div class="row">
+        <label for="fDataFinal">Data Final</label>
+        <input type="date" id="fDataFinal" />
+      </div>
     </div>
+
+    <!-- Botões -->
+    <div class="actions">
+      <button id="btnBuscar" class="primary">Buscar</button>
+      <button id="btnXLS" class="secondary">Gerar XLS</button>
+      <button id="btnPDF" class="secondary">Gerar PDF</button>
+      <button id="btnAddFunc" class="primary" style="margin-left:100px;">Novo Funcionário</button>
+    </div>
+
+    <div id="status" class="message"></div>
   </section>
 
   <section class="card">
@@ -249,7 +219,6 @@
       }
 
       registrosFiltrados = Array.from(mapa.values())
-        // Ordenação alfabética por Nome (pt-BR)
         .sort((a,b)=> String(a.Nome||'').localeCompare(String(b.Nome||''),'pt-BR',{sensitivity:'base'}));
 
       renderTabela(registrosFiltrados);
@@ -308,7 +277,7 @@
     }catch(e){ return []; }
   }
 
-  // PDF (tabela menor, rodapé com espaçamento + paginação central, assuntos, e ordenação por Nome)
+  // PDF (tabela menor, rodapé menor + paginação central, assuntos, e ordenação por Nome)
   async function gerarPDF(){
     await loadLogoAsDataURL();
     const baseSource = (registrosFiltrados && registrosFiltrados.length) ? registrosFiltrados : registros;
@@ -336,21 +305,14 @@
 
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ orientation:'portrait', unit:'pt', format:'a4' });
-
-    const marginLeft   = 48,
-          marginRight  = 48,
-          marginTop    = 120,
-          marginBottom = 88;
-
-    const pageWidth  = doc.internal.pageSize.getWidth();
-    const pageHeight = doc.internal.pageSize.getHeight();
+    const marginLeft = 48, marginRight = 48, marginTop = 120, marginBottom = 88;
+    const pageWidth = doc.internal.pageSize.getWidth();
     const usableWidth = pageWidth - marginLeft - marginRight;
-
     const LOGO_W = 120, LOGO_H = 52;
 
-    /* ===== Espaçamento do rodapé (sem alterar fonte) ===== */
-    const FOOT_LH = 12;            // altura do "pulo" entre as linhas do rodapé (ajuste aqui se quiser mais: 13/14)
-    const FOOT_Y  = pageHeight - 22; // base do bloco do rodapé
+    const FOOT_LH = 14;
+    const FOOT_Y  = pageHeight - 22;
+    const paginationY = FOOT_Y + 4;
 
     function drawHeaderFooter(){
       // Cabeçalho
@@ -367,18 +329,15 @@
         doc.text(doc.splitTextToSize('Assuntos: ' + assuntosCabecalho, usableWidth), marginLeft, 96);
       }
 
-      // Rodapé (mesma fonte 7 pt, com mais respiro entre linhas)
+      // Rodapé menor + paginacao central
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const baseY = pageHeight - 20;
       doc.setFont('helvetica','normal'); doc.setFontSize(7);
-      const rod1 = 'Caterair Serviços de Bordo e Hotelaria LTDA - Base GIG';
-      const rod2 = 'CNPJ 33.375.601/0001-38';
-      const rod3 = 'Rua P, S/N, Área de Apoio do Aeroporto Internacional do Rio de Janeiro - Ilha do Governador - RJ';
-
-      doc.text(rod1, marginLeft, FOOT_Y - (FOOT_LH * 2));
-      doc.text(rod2, marginLeft, FOOT_Y - (FOOT_LH * 1));
-      doc.text(rod3, marginLeft, FOOT_Y - (FOOT_LH * 0));
+      doc.text('Caterair Serviços de Bordo e Hotelaria LTDA - Base GIG', marginLeft, baseY - 10);
+      doc.text('CNPJ 33.375.601/0001-38', marginLeft, baseY - 6);
+      doc.text('Rua P, S/N, Área de Apoio do Aeroporto Internacional do Rio de Janeiro - Ilha do Governador - RJ', marginLeft, baseY - 2);
     }
 
-    // ===== tabela (mantida com 8 pt) =====
     const head = [['Matrícula','Funcionário','Setor','Data de Participação','Assinatura']];
     const body = base.map(r => [ r.Matricula||'', r.Nome||'', r.Setor||'', formatTimestamp(r.Timestamp)||'', '' ]);
 
@@ -432,19 +391,20 @@
       didDrawPage: () => { drawHeaderFooter(); }
     });
 
-    // ===== Paginação centralizada, com distância segura do rodapé =====
+    // Paginação centralizada ao final
     const pageCount = doc.internal.getNumberOfPages();
     for (let i = 1; i <= pageCount; i++) {
       doc.setPage(i);
+      const pw = doc.internal.pageSize.getWidth();
+      const ph = doc.internal.pageSize.getHeight();
       doc.setFont('helvetica','italic'); doc.setFontSize(8);
-      const paginationY = FOOT_Y + 2; // ajuste fino caso queira mais/menos espaço
-      doc.text(`Página ${i} de ${pageCount}`, pageWidth/2, paginationY, { align: 'center' });
+      doc.text(`Página ${i} de ${pageCount}`, pw/2, ph - 20, { align: 'center' });
     }
 
     doc.save(nomeArquivo('pdf'));
   }
 
-  // Inclusão de novo funcionário (mesmo fluxo de antes)
+  // Inclusão de novo funcionário (mesmo fluxo)
   async function novoFuncionarioViaPrompt(){
     const status = document.getElementById('status');
     try{
@@ -513,4 +473,8 @@
     const d = parseTimestamp(ts);
     if (!d) return String(ts||'');
     const pad = (n)=>String(n).padStart(2,'0');
-    return `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()} ${pad
+    return `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+</script>
+</body>
+</html>
