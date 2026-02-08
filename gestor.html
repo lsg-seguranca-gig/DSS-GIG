@@ -6,13 +6,6 @@
   <title>DSS GIG — Painel do Gestor</title>
   <link rel="icon" href="data:;base64,iVBORw0KGgo" />
   <link rel="stylesheet" href="styles.css" />
-  <!-- jsPDF + AutoTable (CDNs fixos) -->
-  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
-  <!-- XLSX (SheetJS) + JSZip + FileSaver -->
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
   <style>
     html, body, button, input, select, table, th, td, label, .card, .site-header {
       font-family: system-ui, -apple-system, Segoe UI, Roboto, 'Helvetica Neue', Arial, 'Noto Sans', 'Liberation Sans', sans-serif;
@@ -41,13 +34,6 @@
 
     .primary{ background:#2563eb; color:#fff; padding:10px 14px; border:none; border-radius:8px; cursor:pointer; }
     .secondary{ background:#f3f4f6; color:#111827; border:1px solid #d1d5db; padding:10px 14px; border-radius:8px; cursor:pointer; }
-
-    @media (max-width: 900px){
-      .filters-row-1{ grid-template-columns: 1fr; }
-      .filters-row-2{ grid-template-columns: 1fr 1fr 1fr; }
-      .actions{ justify-content:flex-start; gap:8px; }
-      .actions-right{ margin-top:6px; }
-    }
   </style>
 </head>
 <body>
@@ -133,8 +119,32 @@
 
 <script type="text/javascript">
 (function(){
-  // ===== Build badge =====
-  try { document.getElementById('buildBadge').textContent = 'Build: ' + new Date().toLocaleString('pt-BR') + ' (clean v4)'; } catch(e){}
+  // ===== Badge =====
+  try { document.getElementById('buildBadge').textContent = 'Build: ' + new Date().toLocaleString('pt-BR') + ' (clean v5)'; } catch(e){}
+
+  // ===== Loader dinâmico com fallback (LOCAL -> CDN) =====
+  function loadScript(src){
+    return new Promise(function(resolve, reject){
+      var s = document.createElement('script');
+      s.src = src; s.async = false; // garantir ordem
+      s.onload = function(){ resolve(src); };
+      s.onerror = function(){ reject(new Error('Falha ao carregar '+src)); };
+      document.head.appendChild(s);
+    });
+  }
+  function tryLoadPair(localSrc, cdnSrc){
+    return loadScript(localSrc).catch(function(){ return loadScript(cdnSrc); });
+  }
+  function ensureLibs(){
+    // tenta local /vendor, se 404 carrega CDN correspondente
+    return Promise.resolve()
+      .then(function(){ return tryLoadPair('/vendor/jspdf.umd.min.js', 'https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js'); })
+      .then(function(){ return tryLoadPair('/vendor/jspdf.plugin.autotable.min.js', 'https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js'); })
+      .then(function(){ return tryLoadPair('/vendor/xlsx.full.min.js', 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js'); })
+      .then(function(){ return tryLoadPair('/vendor/jszip.min.js', 'https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js'); })
+      .then(function(){ return tryLoadPair('/vendor/FileSaver.min.js', 'https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js'); });
+  }
+  window.ensureLibs = ensureLibs;
 
   // ===== Estado =====
   window.registros = [];
@@ -157,18 +167,7 @@
   function formatTimestamp(ts){ var d=parseTimestamp(ts); if(!d) return String(ts||''); function pad(n){return String(n).padStart(2,'0');} return pad(d.getDate())+'/'+pad(d.getMonth()+1)+'/'+d.getFullYear()+' '+pad(d.getHours())+':'+pad(d.getMinutes()); }
   function normalizarDataInput(v){ if(!v) return null; var p=v.split('-'); return new Date(Date.UTC(+p[0], +p[1]-1, +p[2], 0,0,0)); }
   function fimDoDia(d){ if(!d) return null; return new Date(d.getTime()+24*60*60*1000-1); }
-  function escapeHtml(s){
-    s = (s==null)? '' : String(s);
-    return s.replace(/[&<>"']/g, function(ch){
-      switch(ch){
-        case '&': return '&amp;';
-        case '<': return '&lt;';
-        case '>': return '&gt;';
-        case '"': return '&quot;';
-        default: return '&#39;';
-      }
-    });
-  }
+  function escapeHtml(s){ s = (s==null)? '' : String(s); return s.replace(/[&<>"']/g, function(ch){ switch(ch){ case '&': return '&amp;'; case '<': return '&lt;'; case '>': return '&gt;'; case '"': return '&quot;'; default: return '&#39;'; } }); }
 
   // ===== Dropdown Semana =====
   function popularSemanas(){
@@ -263,20 +262,22 @@
 
   // ===== XLS =====
   function gerarXLS(){
-    var base = (window.registrosFiltrados && window.registrosFiltrados.length)? window.registrosFiltrados : window.registros;
-    if(!base || !base.length){ alert('Faça uma busca primeiro.'); return; }
-    var linhas = base.map(function(r){ return {
-      'Matrícula': r.Matricula || '',
-      'Funcionário': r.Nome || '',
-      'Setor': r.Setor || '',
-      'Semana (ISO)': r.SemanaISO || '',
-      'Título do Vídeo': r.TituloVideo || '',
-      'Data de participação': formatTimestamp(r.Timestamp)
-    };});
-    var wb = XLSX.utils.book_new();
-    var ws = XLSX.utils.json_to_sheet(linhas);
-    XLSX.utils.book_append_sheet(wb, ws, 'Relatório');
-    XLSX.writeFile(wb, 'DSS_GIG_Relatorio_'+ new Date().toISOString().slice(0,10) +'.xlsx');
+    window.ensureLibs().then(function(){
+      var base = (window.registrosFiltrados && window.registrosFiltrados.length)? window.registrosFiltrados : window.registros;
+      if(!base || !base.length){ alert('Faça uma busca primeiro.'); return; }
+      var linhas = base.map(function(r){ return {
+        'Matrícula': r.Matricula || '',
+        'Funcionário': r.Nome || '',
+        'Setor': r.Setor || '',
+        'Semana (ISO)': r.SemanaISO || '',
+        'Título do Vídeo': r.TituloVideo || '',
+        'Data de participação': formatTimestamp(r.Timestamp)
+      };});
+      var wb = XLSX.utils.book_new();
+      var ws = XLSX.utils.json_to_sheet(linhas);
+      XLSX.utils.book_append_sheet(wb, ws, 'Relatório');
+      XLSX.writeFile(wb, 'DSS_GIG_Relatorio_'+ new Date().toISOString().slice(0,10) +'.xlsx');
+    }).catch(function(err){ alert('Falha ao carregar bibliotecas: '+err.message); });
   }
 
   // ===== Treinamentos =====
@@ -286,157 +287,146 @@
 
   // ===== PDF =====
   function gerarPDF(){
-    if(!window.jspdf || !window.jspdf.jsPDF){ alert('Biblioteca jsPDF não carregou. Verifique rede/CDN.'); return; }
-    loadLogoAsDataURL().then(function(){
-      var baseSource = (window.registrosFiltrados && window.registrosFiltrados.length)? window.registrosFiltrados : window.registros;
-      if(!baseSource || !baseSource.length){ alert('Nenhum dado para gerar PDF.'); return; }
-      var base = baseSource.slice().sort(function(a,b){ return String(a.Nome||'').localeCompare(String(b.Nome||''),'pt-BR',{sensitivity:'base'}); });
+    window.ensureLibs().then(function(){
+      loadLogoAsDataURL().then(function(){
+        var baseSource = (window.registrosFiltrados && window.registrosFiltrados.length)? window.registrosFiltrados : window.registros;
+        if(!baseSource || !baseSource.length){ alert('Nenhum dado para gerar PDF.'); return; }
+        var base = baseSource.slice().sort(function(a,b){ return String(a.Nome||'').localeCompare(String(b.Nome||''),'pt-BR',{sensitivity:'base'}); });
 
-      fetchTreinamentos().then(function(tList){
-        var titulos = [];
-        var seen = Object.create(null);
-        for (var i=0;i<base.length;i++){ var t=base[i].TituloVideo; if(t && !seen[t]){ seen[t]=1; titulos.push(t); } }
-        var tituloSemana = titulos.length? titulos.join('; ') : '-';
-        var semanasISO = [];
-        var sseen = Object.create(null);
-        for (var k=0;k<base.length;k++){ var s=base[k].SemanaISO; if(s && !sseen[s]){ sseen[s]=1; semanasISO.push(s); } }
-        var assuntosCabecalho = '';
-        if(tList && tList.length){
-          var setISO = Object.create(null);
-          for (var u=0;u<semanasISO.length;u++){ setISO[semanasISO[u]] = 1; }
-          var hit = null;
-          for(var x=0;x<tList.length;x++){ var tt=tList[x]; if(setISO[String(tt['SemanaISO'])]){ hit=tt; break; } }
-          if(!hit && titulos.length){
-            for(var y=0;y<tList.length;y++){ var tt2=tList[y]; if(String(tt2['Titulo']).trim()===titulos[0]){ hit=tt2; break; } }
+        fetchTreinamentos().then(function(tList){
+          var titulos = []; var seen = Object.create(null);
+          for (var i=0;i<base.length;i++){ var t=base[i].TituloVideo; if(t && !seen[t]){ seen[t]=1; titulos.push(t); } }
+          var tituloSemana = titulos.length? titulos.join('; ') : '-';
+          var semanasISO = []; var sseen = Object.create(null);
+          for (var k=0;k<base.length;k++){ var s=base[k].SemanaISO; if(s && !sseen[s]){ sseen[s]=1; semanasISO.push(s); } }
+          var assuntosCabecalho = '';
+          if(tList && tList.length){ var setISO = Object.create(null); for (var u=0;u<semanasISO.length;u++){ setISO[semanasISO[u]] = 1; } var hit=null; for(var x=0;x<tList.length;x++){ var tt=tList[x]; if(setISO[String(tt['SemanaISO'])]){ hit=tt; break; } } if(!hit && titulos.length){ for(var y=0;y<tList.length;y++){ var tt2=tList[y]; if(String(tt2['Titulo']).trim()===titulos[0]){ hit=tt2; break; } } } if(hit && hit['Assuntos']) assuntosCabecalho = String(hit['Assuntos']); }
+
+          var jsPDF = window.jspdf.jsPDF; var doc = new jsPDF({ orientation:'portrait', unit:'pt', format:'a4' });
+          var marginLeft=48, marginRight=48, marginTop=150, marginBottom=88; // evita sobreposição
+          var pageWidth  = doc.internal.pageSize.getWidth();
+          var pageHeight = doc.internal.pageSize.getHeight();
+          var usableWidth = pageWidth - marginLeft - marginRight;
+          var LOGO_W=120, LOGO_H=52; var LINE=12; var SIG_MIN_H=112; // assinaturas 2x
+
+          function drawHeaderFooter(pageNumber, totalPages){
+            try{ if(window.LOGO_DATAURL) doc.addImage(window.LOGO_DATAURL,'PNG', pageWidth - marginRight - LOGO_W, 28, LOGO_W, LOGO_H); }catch(e){}
+            doc.setFont('helvetica','bold'); doc.setFontSize(18); doc.text('Diálogo Semanal de Segurança', marginLeft, 48);
+            doc.setFont('helvetica','bold'); doc.setFontSize(14);
+            var semanaText = 'Semana: ' + (tituloSemana || '-');
+            var semanaLines = doc.splitTextToSize(semanaText, usableWidth - (LOGO_W + 12));
+            var ySemana = 78; doc.text(semanaLines, marginLeft, ySemana);
+            var y = ySemana + LINE * Math.max(1, semanaLines.length) + LINE; // +1 linha extra
+            if (assuntosCabecalho && assuntosCabecalho.length){
+              doc.setFont('helvetica','normal'); doc.setFontSize(11);
+              var assuntosLines = doc.splitTextToSize('Assuntos: ' + assuntosCabecalho, usableWidth);
+              doc.text(assuntosLines, marginLeft, y);
+              y += LINE * Math.max(1, assuntosLines.length);
+            }
+            var dt = new Date();
+            var linhaDH = 'Relatório gerado em ' + String(dt.getDate()).padStart(2,'0') + '/' + String(dt.getMonth()+1).padStart(2,'0') + '/' + dt.getFullYear() + ' às ' + String(dt.getHours()).padStart(2,'0') + ':' + String(dt.getMinutes()).padStart(2,'0');
+            doc.setFont('helvetica','normal'); doc.setFontSize(10);
+            doc.text(linhaDH, marginLeft, y + LINE);
+
+            doc.setFont('helvetica','normal'); doc.setFontSize(7);
+            var FOOT_LH=12, FOOT_Y=pageHeight-22;
+            doc.text('Caterair Serviços de Bordo e Hotelaria LTDA - Base GIG', marginLeft, FOOT_Y - (FOOT_LH * 2));
+            doc.text('CNPJ 33.375.601/0001-38',                                marginLeft, FOOT_Y - (FOOT_LH * 1));
+            doc.text('Rua P, S/N, Área de Apoio do Aeroporto Internacional do Rio de Janeiro - Ilha do Governador - RJ', marginLeft, FOOT_Y);
           }
-          if(hit && hit['Assuntos']) assuntosCabecalho = String(hit['Assuntos']);
-        }
 
-        var jsPDF = window.jspdf.jsPDF; var doc = new jsPDF({ orientation:'portrait', unit:'pt', format:'a4' });
-        var marginLeft=48, marginRight=48, marginTop=150, marginBottom=88; // evita sobreposição
-        var pageWidth  = doc.internal.pageSize.getWidth();
-        var pageHeight = doc.internal.pageSize.getHeight();
-        var usableWidth = pageWidth - marginLeft - marginRight;
-        var LOGO_W=120, LOGO_H=52; var LINE=12; var SIG_MIN_H=112; // assinaturas 2x
+          var head = [['Matrícula','Funcionário','Setor','Data de Participação','Assinatura']];
+          var body = base.map(function(r){ return [ r.Matricula||'', r.Nome||'', r.Setor||'', formatTimestamp(r.Timestamp)||'', '' ]; });
 
-        function drawHeaderFooter(pageNumber, totalPages){
-          try{ if(window.LOGO_DATAURL) doc.addImage(window.LOGO_DATAURL,'PNG', pageWidth - marginRight - LOGO_W, 28, LOGO_W, LOGO_H); }catch(e){}
-          doc.setFont('helvetica','bold'); doc.setFontSize(18); doc.text('Diálogo Semanal de Segurança', marginLeft, 48);
-          doc.setFont('helvetica','bold'); doc.setFontSize(14);
-          var semanaText = 'Semana: ' + (tituloSemana || '-');
-          var semanaLines = doc.splitTextToSize(semanaText, usableWidth - (LOGO_W + 12));
-          var ySemana = 78; doc.text(semanaLines, marginLeft, ySemana);
-          var y = ySemana + LINE * Math.max(1, semanaLines.length) + LINE; // +1 linha extra
-          if (assuntosCabecalho && assuntosCabecalho.length){
-            doc.setFont('helvetica','normal'); doc.setFontSize(11);
-            var assuntosLines = doc.splitTextToSize('Assuntos: ' + assuntosCabecalho, usableWidth);
-            doc.text(assuntosLines, marginLeft, y);
-            y += LINE * Math.max(1, assuntosLines.length);
+          doc.autoTable({
+            startY: marginTop + LINE*4,
+            head: head,
+            body: body,
+            margin: { left: marginLeft, right: marginRight, top: marginTop, bottom: marginBottom },
+            tableWidth: usableWidth,
+            styles: { font:'helvetica', fontSize:8, cellPadding:4, valign:'middle', overflow:'linebreak' },
+            headStyles: { fillColor:[33,150,243], textColor:255, halign:'center' },
+            didParseCell: function(d){ if(d.section==='body' && d.column.index===4){ d.cell.height = Math.max(d.cell.height, SIG_MIN_H); } },
+            didDrawCell: function(d){ if(d.section==='body' && d.column.index===4){ var i=d.row.index; var sig = base[i].AssinaturaPNG; if(sig){ var pad=2; var x=d.cell.x+pad, y=d.cell.y+pad; var w=d.cell.width-pad*2, h=d.cell.height-pad*2; try{ doc.addImage(sig,'PNG',x,y,w,h);}catch(e){} } } },
+            didDrawPage: function(hk){ var pageNumber = (hk && hk.pageNumber)? hk.pageNumber : (doc.internal.getCurrentPageInfo && doc.internal.getCurrentPageInfo().pageNumber) || 1; var totalPages = doc.internal.getNumberOfPages(); drawHeaderFooter(pageNumber, totalPages); }
+          });
+
+          var total = doc.internal.getNumberOfPages();
+          for (var pi = 1; pi <= total; pi++) {
+            doc.setPage(pi);
+            doc.setFont('helvetica','italic'); doc.setFontSize(8);
+            var FOOT_Y = pageHeight - 22;
+            var label = 'Página ' + pi + ' de ' + total;
+            doc.text(label, pageWidth - marginRight, FOOT_Y + 2, { align:'right' });
           }
-          var dt = new Date();
-          var linhaDH = 'Relatório gerado em ' + String(dt.getDate()).padStart(2,'0') + '/' + String(dt.getMonth()+1).padStart(2,'0') + '/' + dt.getFullYear() + ' às ' + String(dt.getHours()).padStart(2,'0') + ':' + String(dt.getMinutes()).padStart(2,'0');
-          doc.setFont('helvetica','normal'); doc.setFontSize(10);
-          doc.text(linhaDH, marginLeft, y + LINE);
 
-          doc.setFont('helvetica','normal'); doc.setFontSize(7);
-          var FOOT_LH=12, FOOT_Y=pageHeight-22;
-          doc.text('Caterair Serviços de Bordo e Hotelaria LTDA - Base GIG', marginLeft, FOOT_Y - (FOOT_LH * 2));
-          doc.text('CNPJ 33.375.601/0001-38',                                marginLeft, FOOT_Y - (FOOT_LH * 1));
-          doc.text('Rua P, S/N, Área de Apoio do Aeroporto Internacional do Rio de Janeiro - Ilha do Governador - RJ', marginLeft, FOOT_Y);
-        }
-
-        var head = [['Matrícula','Funcionário','Setor','Data de Participação','Assinatura']];
-        var body = base.map(function(r){ return [ r.Matricula||'', r.Nome||'', r.Setor||'', formatTimestamp(r.Timestamp)||'', '' ]; });
-
-        doc.autoTable({
-          startY: marginTop + LINE*4,
-          head: head,
-          body: body,
-          margin: { left: marginLeft, right: marginRight, top: marginTop, bottom: marginBottom },
-          tableWidth: usableWidth,
-          styles: { font:'helvetica', fontSize:8, cellPadding:4, valign:'middle', overflow:'linebreak' },
-          headStyles: { fillColor:[33,150,243], textColor:255, halign:'center' },
-          didParseCell: function(d){ if(d.section==='body' && d.column.index===4){ d.cell.height = Math.max(d.cell.height, SIG_MIN_H); } },
-          didDrawCell: function(d){ if(d.section==='body' && d.column.index===4){ var i=d.row.index; var sig = base[i].AssinaturaPNG; if(sig){ var pad=2; var x=d.cell.x+pad, y=d.cell.y+pad; var w=d.cell.width-pad*2, h=d.cell.height-pad*2; try{ doc.addImage(sig,'PNG',x,y,w,h);}catch(e){} } } },
-          didDrawPage: function(hk){ var pageNumber = (hk && hk.pageNumber)? hk.pageNumber : (doc.internal.getCurrentPageInfo && doc.internal.getCurrentPageInfo().pageNumber) || 1; var totalPages = doc.internal.getNumberOfPages(); drawHeaderFooter(pageNumber, totalPages); }
+          doc.save('DSS_GIG_Relatorio.pdf');
         });
-
-        // Paginação correta após total estabilizado
-        var total = doc.internal.getNumberOfPages();
-        for (var pi = 1; pi <= total; pi++) {
-          doc.setPage(pi);
-          doc.setFont('helvetica','italic'); doc.setFontSize(8);
-          var FOOT_Y = pageHeight - 22;
-          var label = 'Página ' + pi + ' de ' + total;
-          doc.text(label, pageWidth - marginRight, FOOT_Y + 2, { align:'right' });
-        }
-
-        doc.save('DSS_GIG_Relatorio.pdf');
       });
-    });
+    }).catch(function(err){ alert('Falha ao carregar bibliotecas: '+err.message); });
   }
 
   // ===== ZIP OFFLINE =====
   function gerarPacoteOffline(){
-    if(!window.JSZip){ alert('JSZip não carregou.'); return; }
-    var baseSource = (window.registrosFiltrados && window.registrosFiltrados.length)? window.registrosFiltrados : window.registros;
-    if(!baseSource || !baseSource.length){ alert('Nenhum dado para empacotar. Faça uma busca primeiro.'); return; }
-    var base = baseSource.slice().sort(function(a,b){ return String(a.Nome||'').localeCompare(String(b.Nome||''),'pt-BR',{sensitivity:'base'}); });
+    window.ensureLibs().then(function(){
+      var baseSource = (window.registrosFiltrados && window.registrosFiltrados.length)? window.registrosFiltrados : window.registros;
+      if(!baseSource || !baseSource.length){ alert('Nenhum dado para empacotar. Faça uma busca primeiro.'); return; }
+      var base = baseSource.slice().sort(function(a,b){ return String(a.Nome||'').localeCompare(String(b.Nome||''),'pt-BR',{sensitivity:'base'}); });
 
-    fetchTreinamentos().then(function(tList){
-      var titulos=[]; var seen=Object.create(null);
-      for (var i=0;i<base.length;i++){ var t=base[i].TituloVideo; if(t && !seen[t]){ seen[t]=1; titulos.push(t);} }
-      var tituloSemana = titulos.length? titulos.join('; ') : '-';
-      var semanasISO=[]; var sseen=Object.create(null); for (var j=0;j<base.length;j++){ var s=base[j].SemanaISO; if(s && !sseen[s]){ sseen[s]=1; semanasISO.push(s);} }
-      var assuntosCabecalho=''; if(tList && tList.length){ var setISO=Object.create(null); for (var k=0;k<semanasISO.length;k++){ setISO[semanasISO[k]]=1;} var hit=null; for(var u=0;u<tList.length;u++){ var t2=tList[u]; if(setISO[String(t2['SemanaISO'])]){hit=t2;break;} } if(!hit && titulos.length){ for(var w=0; w<tList.length; w++){ var t3=tList[w]; if(String(t3['Titulo']).trim()===titulos[0]){ hit=t3; break; } } } if(hit && hit['Assuntos']) assuntosCabecalho=String(hit['Assuntos']); }
+      fetchTreinamentos().then(function(tList){
+        var titulos=[]; var seen=Object.create(null);
+        for (var i=0;i<base.length;i++){ var t=base[i].TituloVideo; if(t && !seen[t]){ seen[t]=1; titulos.push(t);} }
+        var tituloSemana = titulos.length? titulos.join('; ') : '-';
+        var semanasISO=[]; var sseen=Object.create(null); for (var j=0;j<base.length;j++){ var s=base[j].SemanaISO; if(s && !sseen[s]){ sseen[s]=1; semanasISO.push(s);} }
+        var assuntosCabecalho=''; if(tList && tList.length){ var setISO=Object.create(null); for (var k=0;k<semanasISO.length;k++){ setISO[semanasISO[k]]=1;} var hit=null; for(var u=0;u<tList.length;u++){ var t2=tList[u]; if(setISO[String(t2['SemanaISO'])]){hit=t2;break;} } if(!hit && titulos.length){ for(var w=0; w<tList.length; w++){ var t3=tList[w]; if(String(t3['Titulo']).trim()===titulos[0]){ hit=t3; break; } } } if(hit && hit['Assuntos']) assuntosCabecalho=String(hit['Assuntos']); }
 
-      var zip = new JSZip(); var folder = zip.folder('DSS_GIG_offline');
-      var payload = { base: base, tituloSemana: tituloSemana, assuntosCabecalho: assuntosCabecalho };
-      folder.file('data.json', JSON.stringify(payload, null, 2), {compression:'DEFLATE'});
+        var zip = new JSZip(); var folder = zip.folder('DSS_GIG_offline');
+        var payload = { base: base, tituloSemana: tituloSemana, assuntosCabecalho: assuntosCabecalho };
+        folder.file('data.json', JSON.stringify(payload, null, 2), {compression:'DEFLATE'});
 
-      if(window.LOGO_DATAURL){ var b64 = window.LOGO_DATAURL.split(',')[1]||window.LOGO_DATAURL; var byteChars = atob(b64); var arr = new Uint8Array(byteChars.length); for(var k2=0;k2<byteChars.length;k2++){ arr[k2]=byteChars.charCodeAt(k2);} var blobLogo = new Blob([arr], {type:'image/png'}); folder.file('logo.png', blobLogo); }
+        if(window.LOGO_DATAURL){ var b64 = window.LOGO_DATAURL.split(',')[1]||window.LOGO_DATAURL; var byteChars = atob(b64); var arr = new Uint8Array(byteChars.length); for(var k2=0;k2<byteChars.length;k2++){ arr[k2]=byteChars.charCodeAt(k2);} var blobLogo = new Blob([arr], {type:'image/png'}); folder.file('logo.png', blobLogo); }
 
-      function fetchText(url){ return fetch(url).then(function(r){ return r.text(); }); }
-      Promise.all([
-        fetchText('https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js'),
-        fetchText('https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js')
-      ]).then(function(arrTxt){
-        var vendor = folder.folder('vendor');
-        vendor.file('jspdf.umd.min.js', arrTxt[0]);
-        vendor.file('jspdf.plugin.autotable.min.js', arrTxt[1]);
+        function fetchText(url){ return fetch(url).then(function(r){ return r.text(); }); }
+        Promise.all([
+          fetchText('https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js'),
+          fetchText('https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js')
+        ]).then(function(arrTxt){
+          var vendor = folder.folder('vendor');
+          vendor.file('jspdf.umd.min.js', arrTxt[0]);
+          vendor.file('jspdf.plugin.autotable.min.js', arrTxt[1]);
 
-        // HTML Offline (sem template literals, sem </script> literal)
-        var offlineHTML = ''+
-          '<!DOCTYPE html>\n'+
-          '<html lang="pt-BR"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>'+
-          '<title>DSS GIG — Relatório Offline</title>'+
-          '<style>body{font-family:system-ui,Segoe UI,Roboto,Arial,sans-serif;margin:24px;} .btn{padding:10px 14px;border-radius:8px;border:1px solid #ddd;cursor:pointer;} .muted{color:#6b7280}</style>'+
-          '<script src="vendor/jspdf.umd.min.js"><\/script>'+
-          '<script src="vendor/jspdf.plugin.autotable.min.js"><\/script>'+
-          '</head>'+
-          '<body>'+
-          '<h1>Relatório Offline — DSS GIG</h1>'+
-          '<p class="muted">Este pacote foi gerado a partir de um snapshot. Você pode gerar o PDF abaixo, sem internet.</p>'+
-          '<button id="btnGerar" class="btn">Gerar PDF</button>'+
-          '<script>'+
-          '(function(){'+
-            'function pad(n){ return String(n).padStart(2,\'0\'); }'+
-            'function loadLogo(cb){ fetch(\'logo.png\').then(function(r){ if(!r.ok) return cb(null); return r.blob(); }).then(function(b){ if(!b) return cb(null); var fr=new FileReader(); fr.onload=function(){ cb(fr.result); }; fr.readAsDataURL(b); }).catch(function(){ cb(null); }); }'+
-            'document.getElementById(\'btnGerar\').onclick = function(){ fetch(\'data.json\').then(function(res){ return res.json(); }).then(function(snap){ var base = Array.isArray(snap.base)? snap.base : []; var tituloSemana = snap.tituloSemana || \"-\"; var assuntosCabecalho = snap.assuntosCabecalho || \"\"; var jsPDF = window.jspdf.jsPDF; var doc = new jsPDF({ orientation:\'portrait\', unit:\'pt\', format:\'a4\' }); var marginLeft=48, marginRight=48, marginTop=150, marginBottom=88; var pageWidth=doc.internal.pageSize.getWidth(), pageHeight=doc.internal.pageSize.getHeight(); var usableWidth=pageWidth - marginLeft - marginRight; var LOGO_W=120, LOGO_H=52; var LINE=12; var SIG_MIN_H=112; function drawHeaderFooter(pageNumber,totalPages,LOGO){ try{ if(LOGO) doc.addImage(LOGO,\'PNG\', pageWidth - marginRight - LOGO_W, 28, LOGO_W, LOGO_H);}catch(e){} doc.setFont(\'helvetica\',\'bold\'); doc.setFontSize(18); doc.text(\'Diálogo Semanal de Segurança\', marginLeft, 48); doc.setFont(\'helvetica\',\'bold\'); doc.setFontSize(14); var semanaText=\'Semana: \'+(tituloSemana||\'-\'); var semanaLines=doc.splitTextToSize(semanaText, usableWidth - (LOGO_W + 12)); var ySemana=78; doc.text(semanaLines, marginLeft, ySemana); var y = ySemana + LINE * Math.max(1, semanaLines.length) + LINE; if(assuntosCabecalho && assuntosCabecalho.length){ doc.setFont(\'helvetica\',\'normal\'); doc.setFontSize(11); var as=doc.splitTextToSize(\'Assuntos: \'+assuntosCabecalho, usableWidth); doc.text(as, marginLeft, y); y += LINE * Math.max(1, as.length); } var dt=new Date(); var linhaDH='Relatório gerado em '+pad(dt.getDate())+'/'+pad(dt.getMonth()+1)+'/'+dt.getFullYear()+' às '+pad(dt.getHours())+':'+pad(dt.getMinutes()); doc.setFont(\'helvetica\',\'normal\'); doc.setFontSize(10); doc.text(linhaDH, marginLeft, y + LINE); doc.setFont(\'helvetica\',\'normal\'); doc.setFontSize(7); var FOOT_LH=12, FOOT_Y=pageHeight-22; doc.text(\'Caterair Serviços de Bordo e Hotelaria LTDA - Base GIG\', marginLeft, FOOT_Y - (FOOT_LH * 2)); doc.text(\'CNPJ 33.375.601/0001-38\', marginLeft, FOOT_Y - (FOOT_LH * 1)); doc.text(\'Rua P, S/N, Área de Apoio do Aeroporto Internacional do Rio de Janeiro - Ilha do Governador - RJ\', marginLeft, FOOT_Y); } var head=[[\'Matrícula\',\'Funcionário\',\'Setor\',\'Data de Participação\',\'Assinatura\']]; var body=base.map(function(r){ return [ r.Matricula||\'\', r.Nome||\'\', r.Setor||\'\', r.Timestamp||\'\', \"\" ]; }); loadLogo(function(LOGO){ doc.autoTable({ startY: marginTop + LINE*4, head: head, body: body, margin:{ left:marginLeft, right:marginRight, top:marginTop, bottom:marginBottom }, tableWidth: usableWidth, styles:{ font:\'helvetica\', fontSize:8, cellPadding:4, valign:\'middle\', overflow:\'linebreak\' }, headStyles:{ fillColor:[33,150,243], textColor:255, halign:\'center\' }, didParseCell:function(d){ if(d.section===\'body\' && d.column.index===4){ d.cell.height=Math.max(d.cell.height, SIG_MIN_H);} }, didDrawCell:function(d){ if(d.section===\'body\' && d.column.index===4){ var i=d.row.index; var sig=base[i].AssinaturaPNG; if(sig){ var pad2=2; var x=d.cell.x+pad2, y2=d.cell.y+pad2; var w=d.cell.width-pad2*2, h=d.cell.height-pad2*2; try{ doc.addImage(sig,\'PNG\',x,y2,w,h);}catch(e){} } } }, didDrawPage:function(hk){ var pageNumber=(hk && hk.pageNumber)? hk.pageNumber : (doc.internal.getCurrentPageInfo && doc.internal.getCurrentPageInfo().pageNumber) || 1; var totalPages=doc.internal.getNumberOfPages(); drawHeaderFooter(pageNumber,totalPages,LOGO); } }); var total=doc.internal.getNumberOfPages(); for (var pi=1; pi<=total; pi++){ doc.setPage(pi); doc.setFont(\'helvetica\',\'italic\'); doc.setFontSize(8); var FOOT_Y=pageHeight-22; var label='Página '+pi+' de '+total; doc.text(label, pageWidth - marginRight, FOOT_Y + 2, {align:\'right\'});} doc.save(\'DSS_GIG_Relatorio_OFFLINE.pdf\'); }); }); };'+
-          '})();'+
-          '<\/script>'+
-          '</body></html>';
+          var offlineHTML = ''+
+            '<!DOCTYPE html>\n'+
+            '<html lang="pt-BR"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>'+
+            '<title>DSS GIG — Relatório Offline</title>'+
+            '<style>body{font-family:system-ui,Segoe UI,Roboto,Arial,sans-serif;margin:24px;} .btn{padding:10px 14px;border-radius:8px;border:1px solid #ddd;cursor:pointer;} .muted{color:#6b7280}</style>'+
+            '<script src="vendor/jspdf.umd.min.js"><\/script>'+
+            '<script src="vendor/jspdf.plugin.autotable.min.js"><\/script>'+
+            '</head>'+
+            '<body>'+
+            '<h1>Relatório Offline — DSS GIG</h1>'+
+            '<p class="muted">Este pacote foi gerado a partir de um snapshot. Você pode gerar o PDF abaixo, sem internet.</p>'+
+            '<button id="btnGerar" class="btn">Gerar PDF</button>'+
+            '<script>'+
+            '(function(){'+
+              'function pad(n){ return String(n).padStart(2,\'0\'); }'+
+              'function loadLogo(cb){ fetch(\'logo.png\').then(function(r){ if(!r.ok) return cb(null); return r.blob(); }).then(function(b){ if(!b) return cb(null); var fr=new FileReader(); fr.onload=function(){ cb(fr.result); }; fr.readAsDataURL(b); }).catch(function(){ cb(null); }); }'+
+              'document.getElementById(\'btnGerar\').onclick = function(){ fetch(\'data.json\').then(function(res){ return res.json(); }).then(function(snap){ var base = Array.isArray(snap.base)? snap.base : []; var tituloSemana = snap.tituloSemana || \"-\"; var assuntosCabecalho = snap.assuntosCabecalho || \"\"; var jsPDF = window.jspdf.jsPDF; var doc = new jsPDF({ orientation:\'portrait\', unit:\'pt\', format:\'a4\' }); var marginLeft=48, marginRight=48, marginTop=150, marginBottom=88; var pageWidth=doc.internal.pageSize.getWidth(), pageHeight=doc.internal.pageSize.getHeight(); var usableWidth=pageWidth - marginLeft - marginRight; var LOGO_W=120, LOGO_H=52; var LINE=12; var SIG_MIN_H=112; function drawHeaderFooter(pageNumber,totalPages,LOGO){ try{ if(LOGO) doc.addImage(LOGO,\'PNG\', pageWidth - marginRight - LOGO_W, 28, LOGO_W, LOGO_H);}catch(e){} doc.setFont(\'helvetica\',\'bold\'); doc.setFontSize(18); doc.text(\'Diálogo Semanal de Segurança\', marginLeft, 48); doc.setFont(\'helvetica\',\'bold\'); doc.setFontSize(14); var semanaText=\'Semana: \'+(tituloSemana||\'-\'); var semanaLines=doc.splitTextToSize(semanaText, usableWidth - (LOGO_W + 12)); var ySemana=78; doc.text(semanaLines, marginLeft, ySemana); var y = ySemana + LINE * Math.max(1, semanaLines.length) + LINE; if(assuntosCabecalho && assuntosCabecalho.length){ doc.setFont(\'helvetica\',\'normal\'); doc.setFontSize(11); var as=doc.splitTextToSize(\'Assuntos: \'+assuntosCabecalho, usableWidth); doc.text(as, marginLeft, y); y += LINE * Math.max(1, as.length); } var dt=new Date(); var linhaDH='Relatório gerado em '+pad(dt.getDate())+'/'+pad(dt.getMonth()+1)+'/'+dt.getFullYear()+' às '+pad(dt.getHours())+':'+pad(dt.getMinutes()); doc.setFont(\'helvetica\',\'normal\'); doc.setFontSize(10); doc.text(linhaDH, marginLeft, y + LINE); doc.setFont(\'helvetica\',\'normal\'); doc.setFontSize(7); var FOOT_LH=12, FOOT_Y=pageHeight-22; doc.text(\'Caterair Serviços de Bordo e Hotelaria LTDA - Base GIG\', marginLeft, FOOT_Y - (FOOT_LH * 2)); doc.text(\'CNPJ 33.375.601/0001-38\', marginLeft, FOOT_Y - (FOOT_LH * 1)); doc.text(\'Rua P, S/N, Área de Apoio do Aeroporto Internacional do Rio de Janeiro - Ilha do Governador - RJ\', marginLeft, FOOT_Y); } var head=[[\'Matrícula\',\'Funcionário\',\'Setor\',\'Data de Participação\',\'Assinatura\']]; var body=base.map(function(r){ return [ r.Matricula||\'\', r.Nome||\'\', r.Setor||\'\', r.Timestamp||\'\', \"\" ]; }); loadLogo(function(LOGO){ doc.autoTable({ startY: marginTop + LINE*4, head: head, body: body, margin:{ left:marginLeft, right:marginRight, top:marginTop, bottom:marginBottom }, tableWidth: usableWidth, styles:{ font:\'helvetica\', fontSize:8, cellPadding:4, valign:\'middle\', overflow:\'linebreak\' }, headStyles:{ fillColor:[33,150,243], textColor:255, halign:\'center\' }, didParseCell:function(d){ if(d.section===\'body\' && d.column.index===4){ d.cell.height=Math.max(d.cell.height, SIG_MIN_H);} }, didDrawCell:function(d){ if(d.section===\'body\' && d.column.index===4){ var i=d.row.index; var sig=base[i].AssinaturaPNG; if(sig){ var pad2=2; var x=d.cell.x+pad2, y2=d.cell.y+pad2; var w=d.cell.width-pad2*2, h=d.cell.height-pad2*2; try{ doc.addImage(sig,\'PNG\',x,y2,w,h);}catch(e){} } } }, didDrawPage:function(hk){ var pageNumber=(hk && hk.pageNumber)? hk.pageNumber : (doc.internal.getCurrentPageInfo && doc.internal.getCurrentPageInfo().pageNumber) || 1; var totalPages=doc.internal.getNumberOfPages(); drawHeaderFooter(pageNumber,totalPages,LOGO); } }); var total=doc.internal.getNumberOfPages(); for (var pi=1; pi<=total; pi++){ doc.setPage(pi); doc.setFont(\'helvetica\',\'italic\'); doc.setFontSize(8); var FOOT_Y=pageHeight-22; var label='Página '+pi+' de '+total; doc.text(label, pageWidth - marginRight, FOOT_Y + 2, {align:\'right\'});} doc.save(\'DSS_GIG_Relatorio_OFFLINE.pdf\'); }); }); };'+
+            '})();'+
+            '<\/script>'+
+            '</body></html>';
 
-        folder.file('gestor_offline.html', offlineHTML);
+          folder.file('gestor_offline.html', offlineHTML);
 
-        zip.generateAsync({type:'blob'}).then(function(blob){
-          function pad(n){return String(n).padStart(2,'0');}
-          var now = new Date();
-          var stamp = now.getFullYear()+''+pad(now.getMonth()+1)+''+pad(now.getDate())+'_'+pad(now.getHours())+''+pad(now.getMinutes());
-          saveAs(blob, 'DSS_GIG_offline_'+stamp+'.zip');
-        });
-      }).catch(function(err){ console.error(err); alert('Falha ao gerar o pacote offline.'); });
-    });
+          zip.generateAsync({type:'blob'}).then(function(blob){
+            function pad(n){return String(n).padStart(2,'0');}
+            var now = new Date();
+            var stamp = now.getFullYear()+''+pad(now.getMonth()+1)+''+pad(now.getDate())+'_'+pad(now.getHours())+''+pad(now.getMinutes());
+            saveAs(blob, 'DSS_GIG_offline_'+stamp+'.zip');
+          });
+        }).catch(function(err){ console.error(err); alert('Falha ao gerar o pacote offline.'); });
+      });
+    }).catch(function(err){ alert('Falha ao carregar bibliotecas: '+err.message); });
   }
 
   // ===== Eventos =====
