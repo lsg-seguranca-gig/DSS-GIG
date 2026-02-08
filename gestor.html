@@ -26,13 +26,27 @@
     /* Linha 2: 3 colunas (Semana | Data Inicial | Data Final) */
     .filters-row-2 { display:grid; grid-template-columns: 1fr 1fr 1fr; gap:24px; }
 
-    /* Filtros */
-    .filters-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
-    @media (max-width:640px){ .filters-grid { grid-template-columns:1fr; } }
-    .filters-inline { display:grid; grid-template-columns: 1fr 1fr 1fr; gap:12px; margin-top:12px; }
-    @media (max-width:860px){ .filters-inline { grid-template-columns: 1fr; } }
-    .filters-inline .row { display:flex; flex-direction:column; min-width:200px; }
-    .actions { display:flex; align-items:center; gap:8px; margin-top:12px; }
+    /* Campos consistentes */
+    .filters-wrap .row { display:flex; flex-direction:column; }
+    .filters-wrap label { font-size:14px; margin-bottom:6px; color:#374151; }
+    .filters-wrap input[type="text"],
+    .filters-wrap input[type="date"],
+    .filters-wrap select { height:40px; padding:10px 12px; border:1px solid var(--border); border-radius:8px; background:#fff; color:#111827; box-sizing:border-box; width:100%; }
+
+    /* Ações: três à esquerda, "Novo Funcionário" separado à direita */
+    .actions{ display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; margin-top:6px; }
+    .actions-left{ display:flex; gap:8px; flex-wrap:wrap; }
+    .actions-right{ display:flex; gap:8px; }
+
+    /* Responsivo */
+    @media (max-width: 900px){
+      .filters-row-1{ grid-template-columns: 1fr; }
+      .filters-row-2{ grid-template-columns: 1fr; }
+      .actions{ justify-content:flex-start; gap:8px; }
+      .actions-right{ margin-top:6px; }
+    }
+
+    /* Tabela/print mantidos */
     .sig-img { height:48px; object-fit:contain; }
     @media print {
       body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
@@ -54,41 +68,51 @@
   <section class="card">
     <h2>Filtros</h2>
 
-    <!-- Linha 1: Matrícula e Nome -->
-    <div class="filters-grid">
-      <div class="row">
-        <label for="fMat">Matrícula</label>
-        <input type="text" id="fMat" placeholder="Ex.: 12345" />
+    <div class="filters-wrap">
+      <!-- Linha 1 -->
+      <div class="filters-row-1">
+        <div class="row">
+          <label for="fMat">Matrícula</label>
+          <input type="text" id="fMat" placeholder="Ex.: 12345" />
+        </div>
+        <div class="row">
+          <label for="fNome">Nome</label>
+          <input type="text" id="fNome" placeholder="Nome do colaborador" />
+        </div>
       </div>
-      <div class="row">
-        <label for="fNome">Nome</label>
-        <input type="text" id="fNome" placeholder="Nome do colaborador" />
-      </div>
-      <div class="row">
-        <label for="fSemanaTitulo">Semana</label>
-        <select id="fSemanaTitulo">
-          <option value="">Todas</option>
-        </select>
-      </div>
-      <div class="row">
-        <label for="fDataInicio">Data Inicial</label>
-        <input type="date" id="fDataInicio" />
-      </div>
-      <div class="row">
-        <label for="fDataFinal">Data Final</label>
-        <input type="date" id="fDataFinal" />
-      </div>
-    </div>
 
-    <!-- Botões -->
-    <div class="actions">
-      <button id="btnBuscar" class="primary">Buscar</button>
-      <button id="btnXLS" class="secondary">Gerar XLS</button>
-      <button id="btnPDF" class="secondary">Gerar PDF</button>
-      <button id="btnAddFunc" class="primary" style="margin-left:100px;">Novo Funcionário</button>
-    </div>
+      <!-- Linha 2 -->
+      <div class="filters-row-2">
+        <div class="row">
+          <label for="fSemanaTitulo">Semana</label>
+          <select id="fSemanaTitulo">
+            <option value="">Todas</option>
+          </select>
+        </div>
+        <div class="row">
+          <label for="fDataInicio">Data Inicial</label>
+          <input type="date" id="fDataInicio" />
+        </div>
+        <div class="row">
+          <label for="fDataFinal">Data Final</label>
+          <input type="date" id="fDataFinal" />
+        </div>
+      </div>
 
-    <div id="status" class="message"></div>
+      <!-- Botões (esquerda: 3 / direita: Novo Funcionário) -->
+      <div class="actions">
+        <div class="actions-left">
+          <button id="btnBuscar" class="primary">Buscar</button>
+          <button id="btnXLS" class="secondary">Gerar XLS</button>
+          <button id="btnPDF" class="secondary">Gerar PDF</button>
+        </div>
+        <div class="actions-right">
+          <button id="btnAddFunc" class="secondary">Novo Funcionário</button>
+        </div>
+      </div>
+
+      <div id="status" class="message"></div>
+    </div>
   </section>
 
   <section class="card">
@@ -122,10 +146,9 @@
   let LOGO_DATAURL = '';
 
   // Estado
-  let registros = [];          // brutos
-  let registrosFiltrados = []; // após filtros + deduplicação + ordenação
+  let registros = [];
+  let registrosFiltrados = [];
 
-  // Carrega logo (para PDF)
   function loadLogoAsDataURL() {
     return new Promise(resolve => {
       const img = new Image();
@@ -144,13 +167,11 @@
     });
   }
 
-  // Eventos principais
   document.getElementById('btnBuscar').addEventListener('click', buscar);
   document.getElementById('btnPDF').addEventListener('click', gerarPDF);
   document.getElementById('btnXLS').addEventListener('click', gerarXLS);
   document.getElementById('btnAddFunc').addEventListener('click', novoFuncionarioViaPrompt);
 
-  // Enter nos campos de filtro => Buscar
   ['fMat','fNome','fDataInicio','fDataFinal','fSemanaTitulo'].forEach(id=>{
     const el = document.getElementById(id);
     el.addEventListener('keydown', (e) => {
@@ -158,7 +179,6 @@
     });
   });
 
-  // Popular dropdown "Semana" com TituloVideo a partir de /registros
   (async function popularTitulos(){
     try{
       const res = await fetch(API_BASE + '?action=registros');
@@ -173,12 +193,11 @@
     }catch(e){}
   })();
 
-  // Buscar + filtros locais + deduplicação + ordenação por Nome
   async function buscar(){
     const status = document.getElementById('status'); status.innerHTML='';
     const fMat = document.getElementById('fMat').value.trim();
     const fNome = document.getElementById('fNome').value.trim();
-    const fTitulo = document.getElementById('fSemanaTitulo').value.trim(); // TituloVideo
+    const fTitulo = document.getElementById('fSemanaTitulo').value.trim();
     const fDataI = document.getElementById('fDataInicio').value;
     const fDataF = document.getElementById('fDataFinal').value;
 
@@ -192,9 +211,8 @@
       if (!data.ok) throw new Error(data.error || 'Erro ao buscar');
       registros = Array.isArray(data.data) ? data.data : [];
 
-      // Filtros locais adicionais: Data Inicial/Final e TituloVideo
-      const di = normalizarDataInput(fDataI);           // UTC 00:00
-      const df = fimDoDia(normalizarDataInput(fDataF)); // UTC 23:59:59
+      const di = normalizarDataInput(fDataI);
+      const df = fimDoDia(normalizarDataInput(fDataF));
       let lista = registros.filter(r => {
         const ts = parseTimestamp(r.Timestamp);
         if (!ts) return false;
@@ -204,7 +222,6 @@
         return true;
       });
 
-      // Deduplicação por (Matricula + SemanaISO + TituloVideo), mantendo a PRIMEIRA (timestamp mais antigo)
       const mapa = new Map();
       for (const r of lista) {
         const chave = `${r.Matricula||''}__${r.SemanaISO||''}__${r.TituloVideo||''}`;
@@ -247,12 +264,10 @@
     }).join('');
   }
 
-  // XLSX — exporta já ordenado (mesma lista filtrada)
   function gerarXLS(){
     const base = (registrosFiltrados && registrosFiltrados.length) ? registrosFiltrados : registros;
     if(!base || !base.length) { alert('Faça uma busca primeiro.'); return; }
     const ordenada = (base===registros? [...base].sort((a,b)=> String(a.Nome||'').localeCompare(String(b.Nome||''),'pt-BR',{sensitivity:'base'})) : base);
-
     const linhas = ordenada.map(r => ({
       'Matrícula': r.Matricula || '',
       'Funcionário': r.Nome || '',
@@ -267,7 +282,6 @@
     XLSX.writeFile(wb, nomeArquivo('xlsx'));
   }
 
-  // Helper: buscar Treinamentos (para assuntos do cabeçalho)
   async function fetchTreinamentos(){
     try{
       const res = await fetch(API_BASE + '?action=treinamentos');
@@ -277,20 +291,15 @@
     }catch(e){ return []; }
   }
 
-  // PDF (tabela menor, rodapé menor + paginação central, assuntos, e ordenação por Nome)
   async function gerarPDF(){
     await loadLogoAsDataURL();
     const baseSource = (registrosFiltrados && registrosFiltrados.length) ? registrosFiltrados : registros;
     if(!baseSource || !baseSource.length){ alert('Nenhum dado para gerar PDF.'); return; }
-
-    // Ordenar por Nome antes de gerar
     const base = [...baseSource].sort((a,b)=> String(a.Nome||'').localeCompare(String(b.Nome||''),'pt-BR',{sensitivity:'base'}));
 
-    // Cabeçalho contextual
     const titulos = [...new Set(base.map(r=>r.TituloVideo).filter(Boolean))];
     const tituloSemana = titulos.length ? titulos.join('; ') : '-';
 
-    // Carregar Assuntos
     let assuntosCabecalho = '';
     try{
       const tList = await fetchTreinamentos();
@@ -310,12 +319,11 @@
     const usableWidth = pageWidth - marginLeft - marginRight;
     const LOGO_W = 120, LOGO_H = 52;
 
-    const FOOT_LH = 14;
-    const FOOT_Y  = pageHeight - 22;
+    const FOOT_LH = 14; // espaçamento entre linhas do rodapé (em pt)
+    const FOOT_Y  = pageHeight - 22; // base do bloco do rodapé
     const paginationY = FOOT_Y + 4;
 
     function drawHeaderFooter(){
-      // Cabeçalho
       try{ if(LOGO_DATAURL) doc.addImage(LOGO_DATAURL,'PNG', pageWidth - marginRight - LOGO_W, 28, LOGO_W, LOGO_H); }catch(e){}
       doc.setFont('helvetica','bold'); doc.setFontSize(18);
       doc.text('Diálogo Semanal de Segurança', marginLeft, 48);
@@ -329,7 +337,6 @@
         doc.text(doc.splitTextToSize('Assuntos: ' + assuntosCabecalho, usableWidth), marginLeft, 96);
       }
 
-      // Rodapé menor + paginacao central
       const pageHeight = doc.internal.pageSize.getHeight();
       const baseY = pageHeight - 20;
       doc.setFont('helvetica','normal'); doc.setFontSize(7);
@@ -371,7 +378,7 @@
       },
       didParseCell: (data) => {
         if (data.section === 'body' && data.column.index === 4) {
-          data.cell.height = Math.max(data.cell.height, 32); // assinatura maior
+          data.cell.height = Math.max(data.cell.height, 32);
         }
       },
       didDrawCell: (data) => {
@@ -391,7 +398,6 @@
       didDrawPage: () => { drawHeaderFooter(); }
     });
 
-    // Paginação centralizada ao final
     const pageCount = doc.internal.getNumberOfPages();
     for (let i = 1; i <= pageCount; i++) {
       doc.setPage(i);
@@ -404,7 +410,6 @@
     doc.save(nomeArquivo('pdf'));
   }
 
-  // Inclusão de novo funcionário (mesmo fluxo)
   async function novoFuncionarioViaPrompt(){
     const status = document.getElementById('status');
     try{
@@ -437,7 +442,6 @@
     }
   }
 
-  // Utils
   function escapeHtml(str){
     return String(str ?? '').replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s]));
   }
@@ -446,35 +450,10 @@
     const pad = (n)=>String(n).padStart(2,'0');
     return `DSS_GIG_Relatorio_${hoje.getFullYear()}-${pad(hoje.getMonth()+1)}-${pad(hoje.getDate())}.${ext}`;
   }
-  function normalizarDataInput(v) {
-    if (!v) return null; // 'YYYY-MM-DD'
-    const [yyyy, mm, dd] = v.split('-').map(Number);
-    return new Date(Date.UTC(yyyy, mm - 1, dd, 0, 0, 0)); // UTC 00:00
-  }
-  function fimDoDia(dIniUTC) {
-    if (!dIniUTC) return null;
-    return new Date(dIniUTC.getTime() + 24*60*60*1000 - 1);
-  }
-  function parseTimestamp(valor){
-    if (!valor) return null;
-    let d = new Date(valor);
-    if (!Number.isNaN(d.getTime())) return d;
-    // tenta DD/MM/YYYY HH:MM[:SS]
-    const rx = /^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/;
-    const m = String(valor).trim().match(rx);
-    if (m){
-      const dd = +m[1], mm = +m[2], yy = +m[3];
-      const hh = +(m[4] ?? 0), mi = +(m[5] ?? 0), ss = +(m[6] ?? 0);
-      return new Date(yy, mm-1, dd, hh, mi, ss);
-    }
-    return null;
-  }
-  function formatTimestamp(ts){
-    const d = parseTimestamp(ts);
-    if (!d) return String(ts||'');
-    const pad = (n)=>String(n).padStart(2,'0');
-    return `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
-  }
+  function normalizarDataInput(v) { if (!v) return null; const [yyyy, mm, dd] = v.split('-').map(Number); return new Date(Date.UTC(yyyy, mm - 1, dd, 0, 0, 0)); }
+  function fimDoDia(dIniUTC) { if (!dIniUTC) return null; return new Date(dIniUTC.getTime() + 24*60*60*1000 - 1); }
+  function parseTimestamp(valor){ if (!valor) return null; let d = new Date(valor); if (!Number.isNaN(d.getTime())) return d; const rx = /^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/; const m = String(valor).trim().match(rx); if (m){ const dd=+m[1], mm=+m[2], yy=+m[3]; const hh=+(m[4]??0), mi=+(m[5]??0), ss=+(m[6]??0); return new Date(yy, mm-1, dd, hh, mi, ss);} return null; }
+  function formatTimestamp(ts){ const d = parseTimestamp(ts); if (!d) return String(ts||''); const pad=(n)=>String(n).padStart(2,'0'); return `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`; }
 </script>
 </body>
 </html>
