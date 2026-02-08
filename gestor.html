@@ -27,35 +27,26 @@
     .message{ margin-top:10px; }
     .sig-img{ height:48px; object-fit:contain; }
 
-    /* Filtros */
     .filters-wrap { display:flex; flex-direction:column; gap:14px; }
     .filters-row-1 { display:grid; grid-template-columns: 320px 1fr; gap:24px; }
     .filters-row-1 .col-mat input[type="text"]{ max-width:320px; }
     .filters-row-2 { display:grid; grid-template-columns: 1fr 1fr 1fr; gap:24px; }
     .filters-wrap .row { display:flex; flex-direction:column; align-items:flex-start; }
     .filters-wrap label { display:block; font-size:14px; margin-bottom:2px; line-height:1.2; color:#374151; }
-    .filters-wrap input[type="text"], .filters-wrap input[type="date"], .filters-wrap select {
-      height:40px; padding:10px 12px; border:1px solid #e5e7eb; border-radius:8px; background:#fff; color:#111827; box-sizing:border-box; width:100%; }
+    .filters-wrap input[type="text"], .filters-wrap input[type="date"], .filters-wrap select { height:40px; padding:10px 12px; border:1px solid #e5e7eb; border-radius:8px; background:#fff; color:#111827; box-sizing:border-box; width:100%; }
 
     .actions{ display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; margin-top:6px; }
     .actions-left{ display:flex; gap:6px; flex-wrap:wrap; }
     .actions-right{ display:flex; gap:8px; }
 
     .primary{ background:#2563eb; color:#fff; padding:10px 14px; border:none; border-radius:8px; cursor:pointer; }
-    .secondary{ background:ButtonFace; color:ButtonText; border:1px solid ButtonBorder; padding:10px 14px; border-radius:8px; cursor:pointer; }
+    .secondary{ background:#f3f4f6; color:#111827; border:1px solid #d1d5db; padding:10px 14px; border-radius:8px; cursor:pointer; }
 
     @media (max-width: 900px){
       .filters-row-1{ grid-template-columns: 1fr; }
       .filters-row-2{ grid-template-columns: 1fr 1fr 1fr; }
       .actions{ justify-content:flex-start; gap:8px; }
       .actions-right{ margin-top:6px; }
-    }
-
-    @media print {
-      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-      .site-header { box-shadow: none; }
-      .card { box-shadow: none; border:1px solid #999; }
-      .actions button { display:none; }
     }
   </style>
 </head>
@@ -140,17 +131,17 @@
   <small>© Caterair Serviços de Bordo e Hotelaria LTDA - Base GIG</small>
 </footer>
 
-<script>
+<script type="text/javascript">
 (function(){
-  // ====== Setup de build badge ======
-  try{ document.getElementById('buildBadge').textContent = 'Build: ' + new Date().toLocaleString('pt-BR') + ' (clean v3)'; }catch(e){}
+  // ===== Build badge =====
+  try { document.getElementById('buildBadge').textContent = 'Build: ' + new Date().toLocaleString('pt-BR') + ' (clean v4)'; } catch(e){}
 
-  // ====== Estado ======
+  // ===== Estado =====
   window.registros = [];
   window.registrosFiltrados = [];
   window.LOGO_DATAURL = '';
 
-  // ====== Logo para PDF ======
+  // ===== Logo =====
   function loadLogoAsDataURL(){
     return new Promise(function(resolve){
       var img = new Image();
@@ -161,44 +152,50 @@
     });
   }
 
-  // ====== Utilitários ======
+  // ===== Utils =====
   function parseTimestamp(valor){ if(!valor) return null; var d=new Date(valor); if(!isNaN(d.getTime())) return d; var rx=/(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?/; var m=String(valor).trim().match(rx); if(m){ var dd=+m[1], mm=+m[2], yy=+m[3]; var hh=+(m[4]||0), mi=+(m[5]||0), ss=+(m[6]||0); return new Date(yy,mm-1,dd,hh,mi,ss);} return null; }
   function formatTimestamp(ts){ var d=parseTimestamp(ts); if(!d) return String(ts||''); function pad(n){return String(n).padStart(2,'0');} return pad(d.getDate())+'/'+pad(d.getMonth()+1)+'/'+d.getFullYear()+' '+pad(d.getHours())+':'+pad(d.getMinutes()); }
   function normalizarDataInput(v){ if(!v) return null; var p=v.split('-'); return new Date(Date.UTC(+p[0], +p[1]-1, +p[2], 0,0,0)); }
   function fimDoDia(d){ if(!d) return null; return new Date(d.getTime()+24*60*60*1000-1); }
   function escapeHtml(s){
-    s = String(s||'');
+    s = (s==null)? '' : String(s);
     return s.replace(/[&<>"']/g, function(ch){
-      if (ch==='&') return '&amp;';
-      if (ch==='<') return '&lt;';
-      if (ch==='>') return '&gt;';
-      if (ch==='"') return '&quot;';
-      return '&#39;';
+      switch(ch){
+        case '&': return '&amp;';
+        case '<': return '&lt;';
+        case '>': return '&gt;';
+        case '"': return '&quot;';
+        default: return '&#39;';
+      }
     });
   }
 
-  // ====== Popular dropdown Semanas (por TituloVideo) ======
+  // ===== Dropdown Semana =====
   function popularSemanas(){
     var sel = document.getElementById('fSemanaTitulo'); if(!sel) return;
-    fetch('/api/gas?action=registros').then(function(r){return r.json();}).then(function(data){
-      if(!data || !data.ok) return;
-      var all = Array.isArray(data.data)? data.data : [];
-      var set = {};
-      for (var i=0;i<all.length;i++){
-        var t = (all[i] && all[i].TituloVideo) ? String(all[i].TituloVideo).trim() : '';
-        if(t) set[t]=1;
-      }
-      var titulos = Object.keys(set).sort(function(a,b){ return a.localeCompare(b,'pt-BR',{sensitivity:'base'}); });
-      var opts = '<option value="">Todas</option>';
-      for (var j=0;j<titulos.length;j++){
-        var t2 = titulos[j];
-        opts += '<option value="'+escapeHtml(t2)+'">'+escapeHtml(t2)+'</option>';
-      }
-      sel.innerHTML = opts;
-    }).catch(function(err){ console.warn('Falha ao popular semanas', err); });
+    fetch('/api/gas?action=registros')
+      .then(function(r){ return r.json(); })
+      .then(function(data){
+        if(!data || !data.ok) return;
+        var all = Array.isArray(data.data)? data.data : [];
+        var set = Object.create(null);
+        for (var i=0;i<all.length;i++){
+          var row = all[i] || {};
+          var t = row.TituloVideo ? String(row.TituloVideo).trim() : '';
+          if (t) set[t] = 1;
+        }
+        var titulos = Object.keys(set).sort(function(a,b){ return a.localeCompare(b,'pt-BR',{sensitivity:'base'}); });
+        var opts = '<option value="">Todas</option>';
+        for (var j=0;j<titulos.length;j++){
+          var t2 = titulos[j];
+          opts += '<option value="'+escapeHtml(t2)+'">'+escapeHtml(t2)+'</option>';
+        }
+        sel.innerHTML = opts;
+      })
+      .catch(function(err){ console.warn('Falha ao popular semanas:', err); });
   }
 
-  // ====== Buscar ======
+  // ===== Buscar =====
   function buscar(){
     var status = document.getElementById('status'); status.innerHTML='';
     var fMat = document.getElementById('fMat').value.trim();
@@ -226,8 +223,7 @@
         return true;
       });
 
-      // Deduplicação por (Matricula + SemanaISO + TituloVideo), mantendo mais antigo
-      var mapa = {};
+      var mapa = Object.create(null);
       for (var i=0;i<lista.length;i++){
         var r = lista[i];
         var chave = (r.Matricula||'')+'__'+(r.SemanaISO||'')+'__'+(r.TituloVideo||'');
@@ -265,7 +261,7 @@
     tbody.innerHTML = rows;
   }
 
-  // ====== XLS ======
+  // ===== XLS =====
   function gerarXLS(){
     var base = (window.registrosFiltrados && window.registrosFiltrados.length)? window.registrosFiltrados : window.registros;
     if(!base || !base.length){ alert('Faça uma busca primeiro.'); return; }
@@ -283,12 +279,12 @@
     XLSX.writeFile(wb, 'DSS_GIG_Relatorio_'+ new Date().toISOString().slice(0,10) +'.xlsx');
   }
 
-  // ====== Assuntos (treinamentos) ======
+  // ===== Treinamentos =====
   function fetchTreinamentos(){
     return fetch('/api/gas?action=treinamentos').then(function(r){return r.json();}).then(function(d){ return (d && d.ok && Array.isArray(d.data))? d.data : []; }).catch(function(){ return []; });
   }
 
-  // ====== PDF ======
+  // ===== PDF =====
   function gerarPDF(){
     if(!window.jspdf || !window.jspdf.jsPDF){ alert('Biblioteca jsPDF não carregou. Verifique rede/CDN.'); return; }
     loadLogoAsDataURL().then(function(){
@@ -298,15 +294,15 @@
 
       fetchTreinamentos().then(function(tList){
         var titulos = [];
-        var seen = {};
+        var seen = Object.create(null);
         for (var i=0;i<base.length;i++){ var t=base[i].TituloVideo; if(t && !seen[t]){ seen[t]=1; titulos.push(t); } }
         var tituloSemana = titulos.length? titulos.join('; ') : '-';
         var semanasISO = [];
-        var sseen = {};
+        var sseen = Object.create(null);
         for (var k=0;k<base.length;k++){ var s=base[k].SemanaISO; if(s && !sseen[s]){ sseen[s]=1; semanasISO.push(s); } }
         var assuntosCabecalho = '';
         if(tList && tList.length){
-          var setISO = {};
+          var setISO = Object.create(null);
           for (var u=0;u<semanasISO.length;u++){ setISO[semanasISO[u]] = 1; }
           var hit = null;
           for(var x=0;x<tList.length;x++){ var tt=tList[x]; if(setISO[String(tt['SemanaISO'])]){ hit=tt; break; } }
@@ -317,11 +313,11 @@
         }
 
         var jsPDF = window.jspdf.jsPDF; var doc = new jsPDF({ orientation:'portrait', unit:'pt', format:'a4' });
-        var marginLeft=48, marginRight=48, marginTop=150, marginBottom=88;
+        var marginLeft=48, marginRight=48, marginTop=150, marginBottom=88; // evita sobreposição
         var pageWidth  = doc.internal.pageSize.getWidth();
         var pageHeight = doc.internal.pageSize.getHeight();
         var usableWidth = pageWidth - marginLeft - marginRight;
-        var LOGO_W=120, LOGO_H=52; var LINE=12; var SIG_MIN_H=112;
+        var LOGO_W=120, LOGO_H=52; var LINE=12; var SIG_MIN_H=112; // assinaturas 2x
 
         function drawHeaderFooter(pageNumber, totalPages){
           try{ if(window.LOGO_DATAURL) doc.addImage(window.LOGO_DATAURL,'PNG', pageWidth - marginRight - LOGO_W, 28, LOGO_W, LOGO_H); }catch(e){}
@@ -330,7 +326,7 @@
           var semanaText = 'Semana: ' + (tituloSemana || '-');
           var semanaLines = doc.splitTextToSize(semanaText, usableWidth - (LOGO_W + 12));
           var ySemana = 78; doc.text(semanaLines, marginLeft, ySemana);
-          var y = ySemana + LINE * Math.max(1, semanaLines.length) + LINE;
+          var y = ySemana + LINE * Math.max(1, semanaLines.length) + LINE; // +1 linha extra
           if (assuntosCabecalho && assuntosCabecalho.length){
             doc.setFont('helvetica','normal'); doc.setFontSize(11);
             var assuntosLines = doc.splitTextToSize('Assuntos: ' + assuntosCabecalho, usableWidth);
@@ -365,6 +361,7 @@
           didDrawPage: function(hk){ var pageNumber = (hk && hk.pageNumber)? hk.pageNumber : (doc.internal.getCurrentPageInfo && doc.internal.getCurrentPageInfo().pageNumber) || 1; var totalPages = doc.internal.getNumberOfPages(); drawHeaderFooter(pageNumber, totalPages); }
         });
 
+        // Paginação correta após total estabilizado
         var total = doc.internal.getNumberOfPages();
         for (var pi = 1; pi <= total; pi++) {
           doc.setPage(pi);
@@ -379,7 +376,7 @@
     });
   }
 
-  // ====== ZIP OFFLINE ======
+  // ===== ZIP OFFLINE =====
   function gerarPacoteOffline(){
     if(!window.JSZip){ alert('JSZip não carregou.'); return; }
     var baseSource = (window.registrosFiltrados && window.registrosFiltrados.length)? window.registrosFiltrados : window.registros;
@@ -387,11 +384,11 @@
     var base = baseSource.slice().sort(function(a,b){ return String(a.Nome||'').localeCompare(String(b.Nome||''),'pt-BR',{sensitivity:'base'}); });
 
     fetchTreinamentos().then(function(tList){
-      var titulos=[]; var seen={};
+      var titulos=[]; var seen=Object.create(null);
       for (var i=0;i<base.length;i++){ var t=base[i].TituloVideo; if(t && !seen[t]){ seen[t]=1; titulos.push(t);} }
       var tituloSemana = titulos.length? titulos.join('; ') : '-';
-      var semanasISO=[]; var sseen={}; for (var j=0;j<base.length;j++){ var s=base[j].SemanaISO; if(s && !sseen[s]){ sseen[s]=1; semanasISO.push(s);} }
-      var assuntosCabecalho=''; if(tList && tList.length){ var setISO={}; for (var k=0;k<semanasISO.length;k++){ setISO[semanasISO[k]]=1;} var hit=null; for(var u=0;u<tList.length;u++){ var t2=tList[u]; if(setISO[String(t2['SemanaISO'])]){hit=t2;break;} } if(!hit && titulos.length){ for(var w=0; w<tList.length; w++){ var t3=tList[w]; if(String(t3['Titulo']).trim()===titulos[0]){ hit=t3; break; } } } if(hit && hit['Assuntos']) assuntosCabecalho=String(hit['Assuntos']); }
+      var semanasISO=[]; var sseen=Object.create(null); for (var j=0;j<base.length;j++){ var s=base[j].SemanaISO; if(s && !sseen[s]){ sseen[s]=1; semanasISO.push(s);} }
+      var assuntosCabecalho=''; if(tList && tList.length){ var setISO=Object.create(null); for (var k=0;k<semanasISO.length;k++){ setISO[semanasISO[k]]=1;} var hit=null; for(var u=0;u<tList.length;u++){ var t2=tList[u]; if(setISO[String(t2['SemanaISO'])]){hit=t2;break;} } if(!hit && titulos.length){ for(var w=0; w<tList.length; w++){ var t3=tList[w]; if(String(t3['Titulo']).trim()===titulos[0]){ hit=t3; break; } } } if(hit && hit['Assuntos']) assuntosCabecalho=String(hit['Assuntos']); }
 
       var zip = new JSZip(); var folder = zip.folder('DSS_GIG_offline');
       var payload = { base: base, tituloSemana: tituloSemana, assuntosCabecalho: assuntosCabecalho };
@@ -408,6 +405,7 @@
         vendor.file('jspdf.umd.min.js', arrTxt[0]);
         vendor.file('jspdf.plugin.autotable.min.js', arrTxt[1]);
 
+        // HTML Offline (sem template literals, sem </script> literal)
         var offlineHTML = ''+
           '<!DOCTYPE html>\n'+
           '<html lang="pt-BR"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>'+
@@ -441,34 +439,16 @@
     });
   }
 
-  // ====== Novo funcionário (prompt simples) ======
-  function novoFuncionarioViaPrompt(){
-    var status = document.getElementById('status');
-    try{
-      var mRaw = prompt('Nova matrícula (5 dígitos, apenas números):'); if(mRaw===null) return; mRaw=(mRaw||'').replace(/\D/g,'');
-      while(!/^\d{5}$/.test(mRaw)){ mRaw = prompt('Matrícula inválida. Informe 5 dígitos (ex.: 12345):', mRaw); if(mRaw===null) return; mRaw=(mRaw||'').replace(/\D/g,''); }
-      var matricula = mRaw;
-      var nome = prompt('Nome completo:'); if(nome===null) return; nome=(nome||'').trim(); if(!nome){ alert('Nome é obrigatório.'); return; }
-      var setor = prompt('Setor (opcional):'); if (setor===null) setor=''; setor=(setor||'').trim();
-      var ok = confirm('Confirmar cadastro?\n\nMatrícula: '+matricula+'\nNome: '+nome+'\nSetor: '+(setor||'-')+'\nAtivo: TRUE'); if(!ok){ status.innerHTML='<div class="warn">Operação cancelada.</div>'; return; }
-      var payload = { matricula: matricula, nome: nome, setor: setor, ativo: true };
-      status.innerHTML = '<div class="warn">Enviando novo funcionário...</div>';
-      fetch('/api/gas?action=addFuncionario',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) })
-      .then(function(r){ return r.json(); })
-      .then(function(data){ if(!data || !data.ok) throw new Error('Falha'); status.innerHTML = '<div class="ok">Funcionário incluído com sucesso.</div>'; })
-      .catch(function(){ status.innerHTML = '<div class="error">Erro ao incluir funcionário.</div>'; });
-    }catch(err){ status.innerHTML = '<div class="error">Erro inesperado.</div>'; }
-  }
-
-  // ====== Eventos ======
+  // ===== Eventos =====
   document.getElementById('btnBuscar').addEventListener('click', buscar);
   document.getElementById('btnXLS').addEventListener('click', gerarXLS);
   document.getElementById('btnPDF').addEventListener('click', gerarPDF);
   document.getElementById('btnZIP').addEventListener('click', gerarPacoteOffline);
-  document.getElementById('btnAddFunc').addEventListener('click', novoFuncionarioViaPrompt);
-  ['fMat','fNome','fDataInicio','fDataFinal','fSemanaTitulo'].forEach(function(id){ var el=document.getElementById(id); el.addEventListener('keydown', function(e){ if(e.key==='Enter'){ e.preventDefault(); buscar(); } });});
+  document.getElementById('btnAddFunc').addEventListener('click', function(){ alert('Ação de novo funcionário (placeholder)'); });
+  var ids=['fMat','fNome','fDataInicio','fDataFinal','fSemanaTitulo'];
+  for (var ii=0; ii<ids.length; ii++){ var el=document.getElementById(ids[ii]); if(el){ el.addEventListener('keydown', function(e){ if(e.key==='Enter'){ e.preventDefault(); buscar(); } }); } }
 
-  // ====== Inicialização ======
+  // ===== Inicialização =====
   popularSemanas();
 })();
 </script>
