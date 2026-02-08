@@ -91,6 +91,8 @@
 <script>
   const API_BASE = '/api/gas';
   let funcionario=null, treinamentos=[], selectedVideo=null, player=null, signaturePad=null, videoEnded=false;
+  // caches de semanas/títulos/yt já assistidos (para dupla verificação)
+  let __VISTOS_SEMANA=new Set(), __VISTOS_TIT=new Set(), __VISTOS_YT=new Set();
 
   function extractYouTubeId(url){ try{ const u=new URL(url); if(u.hostname.includes('youtu.be')) return u.pathname.slice(1); if(u.searchParams.get('v')) return u.searchParams.get('v'); const m=url.match(/embed\/([\w\-]+)/); if(m) return m[1]; }catch(e){} return null; }
   async function fetchTreinamentos(){ const res=await fetch(API_BASE+'?action=treinamentos'); try{ return await res.json(); }catch{ return {ok:false,error:'Resposta não-JSON',status:res.status} } }
@@ -111,7 +113,7 @@
   function renderListaVideos(list){
     const c=document.getElementById('listaVideos'); c.innerHTML='';
     if(!list||list.length===0){ c.innerHTML='<div class="warn">Nenhum vídeo disponível no momento.</div>'; return }
-    list.forEach((t,idx)=>{ const card=document.createElement('div'); card.className='video-card'; card.innerHTML=`<div class="video-meta"><h3>${t.Titulo}</h3><p><strong>Semana:</strong> ${t.SemanaISO}</p></div><button class="secondary" data-idx="${idx}">Assistir</button>`; card.querySelector('button').addEventListener('click',()=>selectVideo(idx)); c.appendChild(card); });
+    list2.forEach((t,idx)=>{ const card=document.createElement('div'); card.className='video-card'; card.innerHTML=`<div class="video-meta"><h3>${t.Titulo}</h3><p><strong>Semana:</strong> ${t.SemanaISO}</p></div><button class="secondary" data-idx="${idx}">Assistir</button>`; card.querySelector('button').addEventListener('click',()=>selectVideo(idx)); c.appendChild(card); });
   }
 
   function selectVideo(idx){
