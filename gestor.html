@@ -6,131 +6,14 @@
   <title>DSS GIG — Painel do Gestor</title>
   <link rel="icon" href="data:;base64,iVBORw0KGgo" />
   <link rel="stylesheet" href="styles.css" />
-  <!-- jsPDF + AutoTable (CDNs) -->
-  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js">
-await loadLogoAsDataURL();
-
-  const baseSource = (registrosFiltrados && registrosFiltrados.length) ? registrosFiltrados : registros;
-  if(!baseSource || !baseSource.length){ alert('Nenhum dado para gerar PDF.'); return; }
-
-  // Ordenar por Nome (A→Z, pt-BR)
-  const base = [...baseSource].sort((a,b)=> String(a.Nome||'').localeCompare(String(b.Nome||''),'pt-BR',{sensitivity:'base'}));
-
-  // Cabeçalho contextual (Semana via títulos)
-  const titulos = [...new Set(base.map(r=>r.TituloVideo).filter(Boolean))];
-  const tituloSemana = titulos.length ? titulos.join('; ') : '-';
-
-  // Assuntos
-  let assuntosCabecalho = '';
-  try{
-    const tList = await fetchTreinamentos();
-    const semanasISO = [...new Set(base.map(r=>r.SemanaISO).filter(Boolean))];
-    if (tList && tList.length){
-      const setISO = new Set(semanasISO);
-      let hit = tList.find(t => setISO.has(String(t['SemanaISO'])));
-      if (!hit && titulos.length) hit = tList.find(t => String(t['Titulo']).trim() === titulos[0]);
-      assuntosCabecalho = hit && hit['Assuntos'] ? String(hit['Assuntos']) : '';
-    }
-  }catch(e){}
-
-  // Data e hora (duas linhas separadas)
-  function pad(n){ return String(n).padStart(2,'0'); }
-  const now = new Date();
-  const geradoStr = `Gerado em: ${pad(now.getDate())}/${pad(now.getMonth()+1)}/${now.getFullYear()} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
-
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF({ orientation:'portrait', unit:'pt', format:'a4' });
-
-  const marginLeft=48, marginRight=48, marginTop=120, marginBottom=88;
-  const pageWidth  = doc.internal.pageSize.getWidth();
-  const pageHeight = doc.internal.pageSize.getHeight();
-  const usableWidth = pageWidth - marginLeft - marginRight;
-  const LOGO_W=120, LOGO_H=52;
-
-  const LINE = 14; // altura de linha aproximada
-
-  // Desenha Cabeçalho (com logo) e Rodapé para TODAS as páginas
-  function drawHeaderFooter(){
-    // Logo em TODAS as páginas
-    try{ if(LOGO_DATAURL) doc.addImage(LOGO_DATAURL,'PNG', pageWidth - marginRight - LOGO_W, 28, LOGO_W, LOGO_H); }catch(e){}
-
-    // Título
-    doc.setFont('helvetica','bold'); doc.setFontSize(18);
-    doc.text('Diálogo Semanal de Segurança', marginLeft, 48);
-
-    // Semana
-    doc.setFont('helvetica','bold'); doc.setFontSize(14);
-    const semanaText  = 'Semana: ' + (tituloSemana || '-');
-    const semanaLines = doc.splitTextToSize(semanaText, usableWidth - (LOGO_W + 12));
-    const ySemana     = 78;
-    doc.text(semanaLines, marginLeft, ySemana);
-
-    // +2 linhas entre Semana e Assunto
-    let y = ySemana + LINE * Math.max(2, semanaLines.length) + LINE*2;
-
-    // Assuntos
-    if (assuntosCabecalho && assuntosCabecalho.length){
-      doc.setFont('helvetica','normal'); doc.setFontSize(11);
-      const assLines = doc.splitTextToSize('Assuntos: ' + assuntosCabecalho, usableWidth);
-      doc.text(assLines, marginLeft, y);
-      y += LINE * Math.max(1, assLines.length);
-    }
-
-    // Uma linha: Data e Hora
-    doc.setFont('helvetica','normal');
-    doc.setFontSize(10);
-    doc.text(geradoStr, marginLeft, y + LINE);   // linha 2
-
-    // Rodapé (3 linhas) — texto institucional
-    doc.setFont('helvetica','normal'); doc.setFontSize(7);
-    const FOOT_LH=12, FOOT_Y=pageHeight-22;
-    doc.text('Caterair Serviços de Bordo e Hotelaria LTDA - Base GIG', marginLeft, FOOT_Y - (FOOT_LH * 2));
-    doc.text('CNPJ 33.375.601/0001-38',                                marginLeft, FOOT_Y - (FOOT_LH * 1));
-    doc.text('Rua P, S/N, Área de Apoio do Aeroporto Internacional do Rio de Janeiro - Ilha do Governador - RJ', marginLeft, FOOT_Y);
-  }
-
-  // Tabela
-  const head = [['Matrícula','Funcionário','Setor','Data de Participação','Assinatura']];
-  const body = base.map(r => [ r.Matricula||'', r.Nome||'', r.Setor||'', formatTimestamp(r.Timestamp)||'', '' ]);
-
-  doc.autoTable({
-    // StartY aumentado para caber: Semana + (1 linha extra) + Assuntos + 2 linhas (data/hora)
-    startY: marginTop + LINE*4,
-    head, body,
-    margin: { left: marginLeft, right: marginRight, top: marginTop, bottom: marginBottom },
-    tableWidth: usableWidth,
-    styles: { font:'helvetica', fontSize:8, cellPadding:4, valign:'middle', overflow:'linebreak' },
-    headStyles: { fillColor:[33,150,243], textColor:255, halign:'center' },
-    didParseCell: (data)=>{ if (data.section==='body' && data.column.index===4) { data.cell.height = Math.max(data.cell.height, 32); } },
-    didDrawCell: (data)=>{
-      if (data.section==='body' && data.column.index===4){
-        const i = data.row.index; const sig = base[i].AssinaturaPNG;
-        if(sig){ const pad=2; const x=data.cell.x+pad, y=data.cell.y+pad; const w=data.cell.width-pad*2, h=data.cell.height-pad*2; try{ doc.addImage(sig,'PNG',x,y,w,h);}catch(e){} }
-      }
-    },
-    didDrawPage: ()=>{ drawHeaderFooter(); } // aplica em todas as páginas
-  });
-
-  // Paginação à DIREITA do rodapé
-  const pageCount = doc.internal.getNumberOfPages();
-  for (let i = 1; i <= pageCount; i++){
-    doc.setPage(i);
-    doc.setFont('helvetica','italic'); doc.setFontSize(8);
-    const FOOT_Y = pageHeight - 22;
-    const text   = `Página ${i} de ${pageCount}`;
-    doc.text(text, pageWidth - marginRight, FOOT_Y + 2, { align:'right' });
-  }
-
-  doc.save(nomeArquivo('pdf'));
-}
-
-</script>
+  <!-- jsPDF + AutoTable (CDNs fixos) -->
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
-  <!-- XLSX (SheetJS) para gerar Excel -->
+  <!-- XLSX (SheetJS) + JSZip + FileSaver -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <link rel="shortcut icon" href="icone lsg.ico">
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
   <style>
-    /* Fonte única */
     html, body, button, input, select, table, th, td, label, .card, .site-header {
       font-family: system-ui, -apple-system, Segoe UI, Roboto, 'Helvetica Neue', Arial, 'Noto Sans', 'Liberation Sans', sans-serif;
     }
@@ -138,21 +21,21 @@ await loadLogoAsDataURL();
     .card{ background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:20px; margin-bottom:16px; }
     .site-header{ background:linear-gradient(135deg,#1e293b,#0f172a); color:#fff; padding:24px; text-align:center; }
     .site-header img{ height:42px; vertical-align:middle; margin-bottom:8px; }
+    .subtitle{ color:#9ca3af; margin:4px 0 0 0 }
     .table{ width:100%; border-collapse:collapse; }
     .table th, .table td{ border:1px solid #e5e7eb; padding:8px; text-align:left; }
     .message{ margin-top:10px; }
     .sig-img{ height:48px; object-fit:contain; }
 
-    /* ===== Filtros (duas linhas) ===== */
+    /* Filtros */
     .filters-wrap { display:flex; flex-direction:column; gap:14px; }
     .filters-row-1 { display:grid; grid-template-columns: 320px 1fr; gap:24px; }
     .filters-row-1 .col-mat input[type="text"]{ max-width:320px; }
     .filters-row-2 { display:grid; grid-template-columns: 1fr 1fr 1fr; gap:24px; }
     .filters-wrap .row { display:flex; flex-direction:column; align-items:flex-start; }
     .filters-wrap label { display:block; font-size:14px; margin-bottom:2px; line-height:1.2; color:#374151; }
-    .filters-wrap input[type="text"],
-    .filters-wrap input[type="date"],
-    .filters-wrap select { height:40px; padding:10px 12px; border:1px solid #e5e7eb; border-radius:8px; background:#fff; color:#111827; box-sizing:border-box; width:100%; }
+    .filters-wrap input[type="text"], .filters-wrap input[type="date"], .filters-wrap select {
+      height:40px; padding:10px 12px; border:1px solid #e5e7eb; border-radius:8px; background:#fff; color:#111827; box-sizing:border-box; width:100%; }
 
     .actions{ display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; margin-top:6px; }
     .actions-left{ display:flex; gap:6px; flex-wrap:wrap; }
@@ -180,8 +63,7 @@ await loadLogoAsDataURL();
 <header class="site-header">
   <img src="logo lsg.png" alt="logo LSG" />
   <h1>Painel do Gestor — DSS GIG</h1>
-  <p id="build-badge" class="subtitle" style="margin:4px 0 0;color:#64748b">Build: 2026-02-08 18:56 (patch)</p>
-  <p class="subtitle">Busque e gere relatórios em PDF/XLS (otimizado para impressão)</p>
+  <p id="buildBadge" class="subtitle"></p>
 </header>
 
 <main class="container">
@@ -189,7 +71,6 @@ await loadLogoAsDataURL();
     <h2>Filtros</h2>
 
     <div class="filters-wrap">
-      <!-- Linha 1 -->
       <div class="filters-row-1">
         <div class="row col-mat">
           <label for="fMat">Matrícula</label>
@@ -201,7 +82,6 @@ await loadLogoAsDataURL();
         </div>
       </div>
 
-      <!-- Linha 2 -->
       <div class="filters-row-2">
         <div class="row">
           <label for="fSemanaTitulo">Semana</label>
@@ -219,12 +99,12 @@ await loadLogoAsDataURL();
         </div>
       </div>
 
-      <!-- Botões -->
       <div class="actions">
         <div class="actions-left">
           <button id="btnBuscar" class="primary">Buscar</button>
           <button id="btnXLS" class="secondary">Gerar XLS</button>
           <button id="btnPDF" class="secondary">Gerar PDF</button>
+          <button id="btnZIP" class="secondary">Gerar Pacote Offline (ZIP)</button>
         </div>
         <div class="actions-right">
           <button id="btnAddFunc" class="secondary">Novo Funcionário</button>
@@ -261,378 +141,316 @@ await loadLogoAsDataURL();
 </footer>
 
 <script>
-  const API_BASE = '/api/gas';
-  const LOGO_SRC = 'logo lsg.png';
-  let LOGO_DATAURL = '';
+(function(){
+  // ====== Setup de build badge ======
+  try{ document.getElementById('buildBadge').textContent = 'Build: ' + new Date().toLocaleString('pt-BR') + ' (clean)'; }catch(e){}
 
-  // Estado
-  let registros = [];
-  let registrosFiltrados = [];
+  // ====== Estado ======
+  window.registros = [];
+  window.registrosFiltrados = [];
+  window.LOGO_DATAURL = '';
 
-  // Logo
+  // ====== Logo para PDF ======
   function loadLogoAsDataURL(){
-    return new Promise(resolve=>{
-      const img = new Image();
+    return new Promise(function(resolve){
+      var img = new Image();
       img.crossOrigin = 'anonymous';
-      img.onload = ()=>{ try{ const c=document.createElement('canvas'); c.width=img.width; c.height=img.height; c.getContext('2d').drawImage(img,0,0); LOGO_DATAURL=c.toDataURL('image/png'); resolve(LOGO_DATAURL);}catch(e){ resolve(LOGO_DATAURL=''); } };
-      img.onerror = ()=> resolve(LOGO_DATAURL='');
-      img.src = LOGO_SRC;
+      img.onload = function(){ try{ var c=document.createElement('canvas'); c.width=img.width; c.height=img.height; c.getContext('2d').drawImage(img,0,0); window.LOGO_DATAURL=c.toDataURL('image/png'); resolve(window.LOGO_DATAURL);}catch(e){ resolve(window.LOGO_DATAURL=''); } };
+      img.onerror = function(){ resolve(window.LOGO_DATAURL=''); };
+      img.src = 'logo lsg.png';
     });
   }
 
-  // Eventos
-  document.getElementById('btnBuscar').addEventListener('click', buscar);
-  document.getElementById('btnXLS').addEventListener('click', gerarXLS);
-  document.getElementById('btnPDF').addEventListener('click', gerarPDF);
-  document.getElementById('btnAddFunc').addEventListener('click', novoFuncionarioViaPrompt);
+  // ====== Utilitários ======
+  function parseTimestamp(valor){ if(!valor) return null; var d=new Date(valor); if(!isNaN(d.getTime())) return d; var rx=/(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?/; var m=String(valor).trim().match(rx); if(m){ var dd=+m[1], mm=+m[2], yy=+m[3]; var hh=+(m[4]||0), mi=+(m[5]||0), ss=+(m[6]||0); return new Date(yy,mm-1,dd,hh,mi,ss);} return null; }
+  function formatTimestamp(ts){ var d=parseTimestamp(ts); if(!d) return String(ts||''); function pad(n){return String(n).padStart(2,'0');} return pad(d.getDate())+'/'+pad(d.getMonth()+1)+'/'+d.getFullYear()+' '+pad(d.getHours())+':'+pad(d.getMinutes()); }
+  function normalizarDataInput(v){ if(!v) return null; var p=v.split('-'); return new Date(Date.UTC(+p[0], +p[1]-1, +p[2], 0,0,0)); }
+  function fimDoDia(d){ if(!d) return null; return new Date(d.getTime()+24*60*60*1000-1); }
+  function escapeHtml(str){ return String(str||'').replace(/[&<>"']/g,function(s){return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[s]);}); }
 
-  // Enter => Buscar
-  ['fMat','fNome','fDataInicio','fDataFinal','fSemanaTitulo'].forEach(id=>{
-    const el = document.getElementById(id);
-    el.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); buscar(); } });
-  });
+  // ====== Popular dropdown Semanas (por TituloVideo) ======
+  function popularSemanas(){
+    var sel = document.getElementById('fSemanaTitulo'); if(!sel) return;
+    fetch('/api/gas?action=registros').then(function(r){return r.json();}).then(function(data){
+      if(!data || !data.ok) return;
+      var all = Array.isArray(data.data)? data.data : [];
+      var set = {};
+      all.forEach(function(r){ var t=(r.TituloVideo||'').trim(); if(t) set[t]=1; });
+      var titulos = Object.keys(set).sort(function(a,b){ return a.localeCompare(b,'pt-BR',{sensitivity:'base'}); });
+      sel.innerHTML = '<option value="">Todas</option>' + titulos.map(function(t){return '<option value="'+escapeHtml(t)+'">'+escapeHtml(t)+'</option>';}).join('');
+    }).catch(function(){ /* silencioso */ });
+  }
 
-  // Popular dropdown Semana (a partir dos Registros: TituloVideo)
-  (async function popularTitulos(){
-    try{
-      const res = await fetch(API_BASE + '?action=registros');
-      const data = await res.json();
-      if (!data.ok) return;
-      const all = Array.isArray(data.data) ? data.data : [];
-      const titulos = Array.from(new Set(all.map(r => (r.TituloVideo||'').trim()).filter(Boolean)))
-        .sort((a,b)=>a.localeCompare(b,'pt-BR',{sensitivity:'base'}));
-      const sel = document.getElementById('fSemanaTitulo');
-      sel.innerHTML = '<option value="">Todas</option>' + titulos.map(t => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join('');
-    }catch(e){}
-  })();
+  // ====== Buscar ======
+  function buscar(){
+    var status = document.getElementById('status'); status.innerHTML='';
+    var fMat = document.getElementById('fMat').value.trim();
+    var fNome = document.getElementById('fNome').value.trim();
+    var fTitulo = document.getElementById('fSemanaTitulo').value.trim();
+    var fDataI = document.getElementById('fDataInicio').value;
+    var fDataF = document.getElementById('fDataFinal').value;
 
-  // Buscar
-  async function buscar(){
-    const status = document.getElementById('status'); status.innerHTML='';
-    const fMat = document.getElementById('fMat').value.trim();
-    const fNome = document.getElementById('fNome').value.trim();
-    const fTitulo = document.getElementById('fSemanaTitulo').value.trim();
-    const fDataI = document.getElementById('fDataInicio').value;
-    const fDataF = document.getElementById('fDataFinal').value;
-
-    const qs = new URLSearchParams({ action:'registros' });
+    var qs = new URLSearchParams({ action:'registros' });
     if (fMat) qs.append('matricula', fMat);
     if (fNome) qs.append('nome', fNome);
 
-    try{
-      const res = await fetch(API_BASE + '?' + qs.toString());
-      let data; try{ data = await res.json(); }catch{ data = { ok:false, error:'Resposta não-JSON do proxy', status:res.status }; }
-      if (!data.ok) throw new Error(data.error || 'Erro ao buscar');
-      registros = Array.isArray(data.data) ? data.data : [];
+    fetch('/api/gas?'+qs.toString()).then(function(res){ return res.json(); }).then(function(data){
+      if(!data || !data.ok){ throw new Error('Falha na API'); }
+      window.registros = Array.isArray(data.data)? data.data : [];
 
-      // Filtros locais: Data e Titulo
-      const di = normalizarDataInput(fDataI);
-      const df = fimDoDia(normalizarDataInput(fDataF));
-      let lista = registros.filter(r => {
-        const ts = parseTimestamp(r.Timestamp);
-        if (!ts) return false;
-        if (di && ts < di) return false;
-        if (df && ts > df) return false;
-        if (fTitulo && (r.TituloVideo || '') !== fTitulo) return false;
+      var di = normalizarDataInput(fDataI);
+      var df = fimDoDia(normalizarDataInput(fDataF));
+      var lista = window.registros.filter(function(r){
+        var ts = parseTimestamp(r.Timestamp);
+        if(!ts) return false;
+        if(di && ts < di) return false;
+        if(df && ts > df) return false;
+        if(fTitulo && (r.TituloVideo||'') !== fTitulo) return false;
         return true;
       });
 
-      // Deduplicação por (Matricula + SemanaISO + TituloVideo), mantendo o mais antigo
-      const mapa = new Map();
-      for (const r of lista) {
-        const chave = `${r.Matricula||''}__${r.SemanaISO||''}__${r.TituloVideo||''}`;
-        const atual = mapa.get(chave);
-        const novoTS = parseTimestamp(r.Timestamp);
-        if (!atual) mapa.set(chave, r); else {
-          const antigoTS = parseTimestamp(atual.Timestamp);
-          if (novoTS && antigoTS && novoTS < antigoTS) mapa.set(chave, r);
+      // Deduplicação por (Matricula + SemanaISO + TituloVideo), mantendo mais antigo
+      var mapa = {};
+      lista.forEach(function(r){
+        var chave = (r.Matricula||'')+'__'+(r.SemanaISO||'')+'__'+(r.TituloVideo||'');
+        var atual = mapa[chave];
+        var novoTS = parseTimestamp(r.Timestamp);
+        if(!atual) mapa[chave] = r; else {
+          var antigoTS = parseTimestamp(atual.Timestamp);
+          if(novoTS && antigoTS && novoTS < antigoTS) mapa[chave] = r;
         }
-      }
-      registrosFiltrados = Array.from(mapa.values())
-        .sort((a,b)=> String(a.Nome||'').localeCompare(String(b.Nome||''),'pt-BR',{sensitivity:'base'}));
-
-      renderTabela(registrosFiltrados);
-      status.innerHTML = '<div class="ok">Busca concluída: ' + registrosFiltrados.length + ' registro(s).</div>';
-    }catch(err){ status.innerHTML = '<div class="error">Falha na consulta.</div>'; }
+      });
+      window.registrosFiltrados = Object.keys(mapa).map(function(k){return mapa[k];}).sort(function(a,b){ return String(a.Nome||'').localeCompare(String(b.Nome||''),'pt-BR',{sensitivity:'base'}); });
+      renderTabela(window.registrosFiltrados);
+      status.innerHTML = '<div class="ok">Busca concluída: '+ window.registrosFiltrados.length +' registro(s).</div>';
+    }).catch(function(){ status.innerHTML = '<div class="error">Falha na consulta.</div>'; });
   }
 
   function renderTabela(list){
-    const tbody = document.getElementById('tbody'); tbody.innerHTML='';
-    if(!list || list.length===0){ tbody.innerHTML='<tr><td colspan="7" class="muted">Sem resultados</td></tr>'; return; }
-    tbody.innerHTML = list.map(r=>{
-      const dataPart = formatTimestamp(r.Timestamp);
-      const assinatura = r.AssinaturaPNG ? '<img class="sig-img" src="'+r.AssinaturaPNG+'" alt="Assinatura" />' : '-';
-      return `
-        <tr>
-          <td>${escapeHtml(r.Matricula||'')}</td>
-          <td>${escapeHtml(r.Nome||'')}</td>
-          <td>${escapeHtml(r.Setor||'')}</td>
-          <td>${escapeHtml(r.SemanaISO||'')}</td>
-          <td>${escapeHtml(r.TituloVideo||'')}</td>
-          <td>${escapeHtml(dataPart)}</td>
-          <td>${assinatura}</td>
-        </tr>`;
+    var tbody = document.getElementById('tbody'); tbody.innerHTML='';
+    if(!list || !list.length){ tbody.innerHTML='<tr><td colspan="7" class="muted">Sem resultados</td></tr>'; return; }
+    tbody.innerHTML = list.map(function(r){
+      var dataPart = formatTimestamp(r.Timestamp);
+      var assinatura = r.AssinaturaPNG ? '<img class="sig-img" src="'+r.AssinaturaPNG+'" alt="Assinatura" />' : '-';
+      return '<tr>'+
+        '<td>'+escapeHtml(r.Matricula||'')+'</td>'+
+        '<td>'+escapeHtml(r.Nome||'')+'</td>'+
+        '<td>'+escapeHtml(r.Setor||'')+'</td>'+
+        '<td>'+escapeHtml(r.SemanaISO||'')+'</td>'+
+        '<td>'+escapeHtml(r.TituloVideo||'')+'</td>'+
+        '<td>'+escapeHtml(dataPart)+'</td>'+
+        '<td>'+assinatura+'</td>'+
+      '</tr>';
     }).join('');
   }
 
-  // XLSX
+  // ====== XLS ======
   function gerarXLS(){
-    const base = (registrosFiltrados && registrosFiltrados.length) ? registrosFiltrados : registros;
-    if(!base || !base.length) { alert('Faça uma busca primeiro.'); return; }
-    const linhas = base.map(r => ({
+    var base = (window.registrosFiltrados && window.registrosFiltrados.length)? window.registrosFiltrados : window.registros;
+    if(!base || !base.length){ alert('Faça uma busca primeiro.'); return; }
+    var linhas = base.map(function(r){ return {
       'Matrícula': r.Matricula || '',
       'Funcionário': r.Nome || '',
       'Setor': r.Setor || '',
       'Semana (ISO)': r.SemanaISO || '',
       'Título do Vídeo': r.TituloVideo || '',
       'Data de participação': formatTimestamp(r.Timestamp)
-    }));
-    const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.json_to_sheet(linhas);
+    };});
+    var wb = XLSX.utils.book_new();
+    var ws = XLSX.utils.json_to_sheet(linhas);
     XLSX.utils.book_append_sheet(wb, ws, 'Relatório');
-    XLSX.writeFile(wb, nomeArquivo('xlsx'));
+    XLSX.writeFile(wb, 'DSS_GIG_Relatorio_'+ new Date().toISOString().slice(0,10) +'.xlsx');
   }
 
-  // Treinamentos (para Assuntos no PDF)
-  async function fetchTreinamentos(){
-    try{ const res = await fetch(API_BASE + '?action=treinamentos'); const data = await res.json(); if (!data.ok) return []; return Array.isArray(data.data) ? data.data : []; }catch(e){ return []; }
+  // ====== Assuntos (treinamentos) ======
+  function fetchTreinamentos(){
+    return fetch('/api/gas?action=treinamentos').then(function(r){return r.json();}).then(function(d){ return (d && d.ok && Array.isArray(d.data))? d.data : []; }).catch(function(){ return []; });
   }
 
-  // PDF completo
-  await loadLogoAsDataURL();
+  // ====== PDF ======
+  function gerarPDF(){
+    if(!window.jspdf || !window.jspdf.jsPDF){ alert('Biblioteca jsPDF não carregou. Verifique rede/CDN.'); return; }
+    loadLogoAsDataURL().then(function(){
+      var baseSource = (window.registrosFiltrados && window.registrosFiltrados.length)? window.registrosFiltrados : window.registros;
+      if(!baseSource || !baseSource.length){ alert('Nenhum dado para gerar PDF.'); return; }
+      var base = baseSource.slice().sort(function(a,b){ return String(a.Nome||'').localeCompare(String(b.Nome||''),'pt-BR',{sensitivity:'base'}); });
 
-    const baseSource = (registrosFiltrados && registrosFiltrados.length) ? registrosFiltrados : registros;
-    if(!baseSource || !baseSource.length){ alert('Nenhum dado para gerar PDF.'); return; }
-
-    const base = [...baseSource].sort((a,b)=> String(a.Nome||'').localeCompare(String(b.Nome||''),'pt-BR',{sensitivity:'base'}));
-
-    const titulos = [...new Set(base.map(r=>r.TituloVideo).filter(Boolean))];
-    const tituloSemana = titulos.length ? titulos.join('; ') : '-';
-
-    // Assuntos
-    let assuntosCabecalho = '';
-    try{
-      const tList = await fetchTreinamentos();
-      const semanasISO = [...new Set(base.map(r=>r.SemanaISO).filter(Boolean))];
-      if (tList && tList.length){
-        const setISO = new Set(semanasISO);
-        let hit = tList.find(t => setISO.has(String(t['SemanaISO'])));
-        if (!hit && titulos.length) hit = tList.find(t => String(t['Titulo']).trim() === titulos[0]);
-        assuntosCabecalho = hit && hit['Assuntos'] ? String(hit['Assuntos']) : '';
-      }
-    }catch(e){}
-
-    // === Data e Hora do relatório (duas linhas) ===
-    function pad(n){ return String(n).padStart(2,'0'); }
-  const now = new Date();
-  const geradoStr = `Gerado em: ${pad(now.getDate())}/${pad(now.getMonth()+1)}/${now.getFullYear()} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
-
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF({ orientation:'portrait', unit:'pt', format:'a4' });
-
-    const marginLeft=48, marginRight=48, marginTop=120, marginBottom=88;
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const pageHeight = doc.internal.pageSize.getHeight();
-    const usableWidth = pageWidth - marginLeft - marginRight;
-    const LOGO_W=120, LOGO_H=52;
-
-    // Cabeçalho
-    try{ if(LOGO_DATAURL) doc.addImage(LOGO_DATAURL,'PNG', pageWidth - marginRight - LOGO_W, 28, LOGO_W, LOGO_H); }catch(e){}
-    doc.setFont('helvetica','bold'); doc.setFontSize(18);
-    doc.text('Diálogo Semanal de Segurança', marginLeft, 48);
-
-    doc.setFont('helvetica','bold'); doc.setFontSize(14);
-    const headerText = 'Semana: ' + (tituloSemana || '-');
-    doc.text(doc.splitTextToSize(headerText, usableWidth - (LOGO_W + 12)), marginLeft, 78);
-
-    if (assuntosCabecalho && assuntosCabecalho.length){
-      doc.setFont('helvetica','normal'); doc.setFontSize(11);
-      doc.text(doc.splitTextToSize('Assuntos: ' + assuntosCabecalho, usableWidth), marginLeft, 96);
-    }
-
-    // Tabela
-    const head = [['Matrícula','Funcionário','Setor','Data de Participação','Assinatura']];
-    const body = base.map(r => [ r.Matricula||'', r.Nome||'', r.Setor||'', formatTimestamp(r.Timestamp)||'', '' ]);
-
-    doc.autoTable({
-      startY: (assuntosCabecalho ? (marginTop + 16) : marginTop),
-      head, body,
-      margin: { left: marginLeft, right: marginRight, top: marginTop, bottom: marginBottom },
-      tableWidth: usableWidth,
-      styles: { font:'helvetica', fontSize:8, cellPadding:4, valign:'middle', overflow:'linebreak' },
-      headStyles: { fillColor:[33,150,243], textColor:255, halign:'center' },
-      didParseCell: (data)=>{ if (data.section==='body' && data.column.index===4) { data.cell.height = Math.max(data.cell.height, 32); } },
-      didDrawCell: (data)=>{
-        if (data.section==='body' && data.column.index===4){
-          const i = data.row.index; const sig = base[i].AssinaturaPNG; if(sig){ const pad=2; const x=data.cell.x+pad, y=data.cell.y+pad; const w=data.cell.width-pad*2, h=data.cell.height-pad*2; try{ doc.addImage(sig,'PNG',x,y,w,h);}catch(e){} }
+      // Semana (por títulos) + Assuntos
+      fetchTreinamentos().then(function(tList){
+        var titulos = [];
+        var seen = {};
+        base.forEach(function(r){ var t=r.TituloVideo; if(t && !seen[t]){ seen[t]=1; titulos.push(t); } });
+        var tituloSemana = titulos.length? titulos.join('; ') : '-';
+        var semanasISO = [];
+        var sseen = {};
+        base.forEach(function(r){ var s=r.SemanaISO; if(s && !sseen[s]){ sseen[s]=1; semanasISO.push(s); } });
+        var assuntosCabecalho = '';
+        if(tList && tList.length){
+          var setISO = {};
+          semanasISO.forEach(function(s){ setISO[s]=1; });
+          var hit = null;
+          for(var i=0;i<tList.length;i++){ var t=tList[i]; if(setISO[String(t['SemanaISO'])]){ hit=t; break; } }
+          if(!hit && titulos.length){
+            for(var j=0;j<tList.length;j++){ var tt=tList[j]; if(String(tt['Titulo']).trim()===titulos[0]){ hit=tt; break; } }
+          }
+          if(hit && hit['Assuntos']) assuntosCabecalho = String(hit['Assuntos']);
         }
-      }
+
+        // jsPDF
+        var jsPDF = window.jspdf.jsPDF; var doc = new jsPDF({ orientation:'portrait', unit:'pt', format:'a4' });
+        var marginLeft=48, marginRight=48, marginTop=120, marginBottom=88;
+        var pageWidth  = doc.internal.pageSize.getWidth();
+        var pageHeight = doc.internal.pageSize.getHeight();
+        var usableWidth = pageWidth - marginLeft - marginRight;
+        var LOGO_W=120, LOGO_H=52; var LINE=12; var SIG_MIN_H=56;
+
+        function drawHeaderFooter(pageNumber, totalPages){
+          try{ if(window.LOGO_DATAURL) doc.addImage(window.LOGO_DATAURL,'PNG', pageWidth - marginRight - LOGO_W, 28, LOGO_W, LOGO_H); }catch(e){}
+          doc.setFont('helvetica','bold'); doc.setFontSize(18); doc.text('Diálogo Semanal de Segurança', marginLeft, 48);
+          doc.setFont('helvetica','bold'); doc.setFontSize(14);
+          var semanaText = 'Semana: ' + (tituloSemana || '-');
+          var semanaLines = doc.splitTextToSize(semanaText, usableWidth - (LOGO_W + 12));
+          var ySemana = 78; doc.text(semanaLines, marginLeft, ySemana);
+          var y = ySemana + LINE * Math.max(1, semanaLines.length) + LINE; // +1 linha extra
+          if (assuntosCabecalho && assuntosCabecalho.length){
+            doc.setFont('helvetica','normal'); doc.setFontSize(11);
+            var assuntosLines = doc.splitTextToSize('Assuntos: ' + assuntosCabecalho, usableWidth);
+            doc.text(assuntosLines, marginLeft, y);
+            y += LINE * Math.max(1, assuntosLines.length);
+          }
+          var now = new Date();
+          var dataStr = 'Data do relatório: ' + String(now.getDate()).padStart(2,'0') + '/' + String(now.getMonth()+1).padStart(2,'0') + '/' + now.getFullYear();
+          var horaStr = 'Hora do relatório: ' + String(now.getHours()).padStart(2,'0') + ':' + String(now.getMinutes()).padStart(2,'0');
+          doc.setFont('helvetica','normal'); doc.setFontSize(10);
+          doc.text(dataStr, marginLeft, y + LINE);
+          doc.text(horaStr, marginLeft, y + LINE*2);
+          doc.setFont('helvetica','normal'); doc.setFontSize(7);
+          var FOOT_LH=12, FOOT_Y=pageHeight-22;
+          doc.text('Caterair Serviços de Bordo e Hotelaria LTDA - Base GIG', marginLeft, FOOT_Y - (FOOT_LH * 2));
+          doc.text('CNPJ 33.375.601/0001-38',                                marginLeft, FOOT_Y - (FOOT_LH * 1));
+          doc.text('Rua P, S/N, Área de Apoio do Aeroporto Internacional do Rio de Janeiro - Ilha do Governador - RJ', marginLeft, FOOT_Y);
+          doc.setFont('helvetica','italic'); doc.setFontSize(8);
+          var txt = 'Página ' + pageNumber + ' de ' + totalPages;
+          doc.text(txt, pageWidth - marginRight, FOOT_Y + 2, { align:'right' });
+        }
+
+        var head = [['Matrícula','Funcionário','Setor','Data de Participação','Assinatura']];
+        var body = base.map(function(r){ return [ r.Matricula||'', r.Nome||'', r.Setor||'', formatTimestamp(r.Timestamp)||'', '' ]; });
+
+        doc.autoTable({
+          startY: marginTop + LINE*4,
+          head: head,
+          body: body,
+          margin: { left: marginLeft, right: marginRight, top: marginTop, bottom: marginBottom },
+          tableWidth: usableWidth,
+          styles: { font:'helvetica', fontSize:8, cellPadding:4, valign:'middle', overflow:'linebreak' },
+          headStyles: { fillColor:[33,150,243], textColor:255, halign:'center' },
+          didParseCell: function(d){ if(d.section==='body' && d.column.index===4){ d.cell.height = Math.max(d.cell.height, SIG_MIN_H); } },
+          didDrawCell: function(d){ if(d.section==='body' && d.column.index===4){ var i=d.row.index; var sig = base[i].AssinaturaPNG; if(sig){ var pad=2; var x=d.cell.x+pad, y=d.cell.y+pad; var w=d.cell.width-pad*2, h=d.cell.height-pad*2; try{ doc.addImage(sig,'PNG',x,y,w,h);}catch(e){} } } },
+          didDrawPage: function(hk){ var pageNumber = (hk && hk.pageNumber)? hk.pageNumber : (doc.internal.getCurrentPageInfo && doc.internal.getCurrentPageInfo().pageNumber) || 1; var totalPages = doc.internal.getNumberOfPages(); drawHeaderFooter(pageNumber, totalPages); }
+        });
+
+        doc.save('DSS_GIG_Relatorio.pdf');
+      });
     });
-
-    // Rodapé + paginação
-    const FOOT_LH=14, FOOT_Y=pageHeight-22, paginationY = FOOT_Y + 4;
-    const rod1='Caterair Serviços de Bordo e Hotelaria LTDA - Base GIG';
-    const rod2='CNPJ 33.375.601/0001-38';
-    const rod3='Rua P, S/N, Área de Apoio do Aeroporto Internacional do Rio de Janeiro - Ilha do Governador - RJ';
-
-    const pageCount = doc.internal.getNumberOfPages();
-    for (let i = 1; i <= pageCount; i++){
-      doc.setPage(i);
-      doc.setFont('helvetica','normal'); doc.setFontSize(7);
-      doc.text(rod1, marginLeft, FOOT_Y - (FOOT_LH * 2));
-      doc.text(rod2, marginLeft, FOOT_Y - (FOOT_LH * 1));
-      doc.text(rod3, marginLeft, FOOT_Y - (FOOT_LH * 0));
-      doc.setFont('helvetica','italic'); doc.setFontSize(8);
-      const paginationY = FOOT_Y + 2;
-      doc.text(`Página ${i} de ${pageCount}`, pageWidth/2, paginationY, { align:'center' });
-    }
-
-    doc.save(nomeArquivo('pdf'));
   }
 
-  // Novo funcionário
-  async function novoFuncionarioViaPrompt(){
-    const status = document.getElementById('status');
-    try{
-      let mRaw = prompt('Nova matrícula (5 dígitos, apenas números):'); if (mRaw === null) return; mRaw = (mRaw||'').replace(/\D/g,'');
-      while (!/^\d{5}$/.test(mRaw)) { mRaw = prompt('Matrícula inválida. Informe 5 dígitos (ex.: 12345):', mRaw); if (mRaw === null) return; mRaw = (mRaw||'').replace(/\D/g,''); }
-      const matricula = mRaw;
-      let nome = prompt('Nome completo:'); if (nome === null) return; nome = (nome||'').trim(); if (!nome) { alert('Nome é obrigatório.'); return; }
-      let setor = prompt('Setor (opcional):'); if (setor === null) setor = ''; setor = (setor||'').trim();
-      const ok = confirm(`Confirmar cadastro?\n\nMatrícula: ${matricula}\nNome: ${nome}\nSetor: ${setor||'-'}\nAtivo: TRUE`); if (!ok) { status.innerHTML='<div class="warn">Operação cancelada.</div>'; return; }
-      const payload = { matricula, nome, setor, ativo: true };
-      status.innerHTML = '<div class="warn">Enviando novo funcionário...</div>';
-      const res = await fetch(API_BASE+'?action=addFuncionario',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
-      let data; try{ data = await res.json(); } catch{ data = { ok:false, error:'Resposta não-JSON', status: res.status }; }
-      if(!data.ok) throw new Error(data.error || 'Falha ao incluir funcionário');
-      status.innerHTML = '<div class="ok">Funcionário incluído com sucesso.</div>';
-    }catch(err){ status.innerHTML = '<div class="error">'+ (err && err.message ? err.message : 'Erro ao incluir funcionário') +'</div>'; }
-  }
+  // ====== ZIP OFFLINE ======
+  function gerarPacoteOffline(){
+    if(!window.JSZip){ alert('JSZip não carregou.'); return; }
+    var baseSource = (window.registrosFiltrados && window.registrosFiltrados.length)? window.registrosFiltrados : window.registros;
+    if(!baseSource || !baseSource.length){ alert('Nenhum dado para empacotar. Faça uma busca primeiro.'); return; }
+    var base = baseSource.slice().sort(function(a,b){ return String(a.Nome||'').localeCompare(String(b.Nome||''),'pt-BR',{sensitivity:'base'}); });
 
-  // Utils
-  function escapeHtml(str){ return String(str ?? '').replace(/[&<>"']/g, s => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[s])); }
-  function nomeArquivo(ext){ const hoje=new Date(); const pad=n=>String(n).padStart(2,'0'); return `DSS_GIG_Relatorio_${hoje.getFullYear()}-${pad(hoje.getMonth()+1)}-${pad(hoje.getDate())}.${ext}`; }
-  function normalizarDataInput(v){ if(!v) return null; const [yyyy,mm,dd]=v.split('-').map(Number); return new Date(Date.UTC(yyyy, mm-1, dd, 0,0,0)); }
-  function fimDoDia(dIni){ if(!dIni) return null; return new Date(dIni.getTime()+24*60*60*1000-1); }
-  function parseTimestamp(valor){ if(!valor) return null; let d=new Date(valor); if(!Number.isNaN(d.getTime())) return d; const rx=/(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?/; const m=String(valor).trim().match(rx); if(m){ const dd=+m[1], mm=+m[2], yy=+m[3]; const hh=+(m[4]??0), mi=+(m[5]??0), ss=+(m[6]??0); return new Date(yy,mm-1,dd,hh,mi,ss);} return null; }
-  function formatTimestamp(ts){ const d=parseTimestamp(ts); if(!d) return String(ts||''); const pad=n=>String(n).padStart(2,'0'); return `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`; }
-</script>
+    fetchTreinamentos().then(function(tList){
+      var titulos=[]; var seen={};
+      base.forEach(function(r){ var t=r.TituloVideo; if(t && !seen[t]){ seen[t]=1; titulos.push(t);} });
+      var tituloSemana = titulos.length? titulos.join('; ') : '-';
+      var semanasISO=[]; var sseen={}; base.forEach(function(r){ var s=r.SemanaISO; if(s && !sseen[s]){ sseen[s]=1; semanasISO.push(s);} });
+      var assuntosCabecalho=''; if(tList && tList.length){ var setISO={}; semanasISO.forEach(function(s){setISO[s]=1;}); var hit=null; for(var i=0;i<tList.length;i++){ var t=tList[i]; if(setISO[String(t['SemanaISO'])]){hit=t;break;} } if(!hit && titulos.length){ for(var j=0;j<tList.length;j++){ var tt=tList[j]; if(String(tt['Titulo']).trim()===titulos[0]){hit=tt;break;} } } if(hit && hit['Assuntos']) assuntosCabecalho=String(hit['Assuntos']); }
 
-<script id="pdf-patch-final">
-(function(){
-  console.info('[DSS-GIG] patch ativo - build: 2026-02-08 18:56);
-  function pad(n){ return String(n).padStart(2,'0'); }
-  function b64ToBlob(base64, contentType){ const byteChars = atob(base64.split(',')[1] || base64); const arr = Uint8Array.from(byteChars, c=>c.charCodeAt(0)); return new Blob([arr], {type: contentType||'application/octet-stream'}); }
-
-  async function headerData(base){
-    const titulos = [...new Set(base.map(r=>r.TituloVideo).filter(Boolean))];
-    const tituloSemana = titulos.length ? titulos.join('; ') : '-';
-    let assuntosCabecalho = '';
-    try{
-      if (typeof fetchTreinamentos === 'function'){
-        const tList = await fetchTreinamentos();
-        const semanasISO = [...new Set(base.map(r=>r.SemanaISO).filter(Boolean))];
-        if (tList && tList.length){
-          const setISO = new Set(semanasISO);
-          let hit = tList.find(t => setISO.has(String(t['SemanaISO'])));
-          if (!hit && titulos.length) hit = tList.find(t => String(t['Titulo']).trim() === titulos[0]);
-          assuntosCabecalho = hit && hit['Assuntos'] ? String(hit['Assuntos']) : '';
-        }
-      }
-    }catch(e){ console.warn('Assuntos indisponíveis', e); }
-    return { tituloSemana, assuntosCabecalho };
-  }
-
-  window.gerarPDF = async function(){
-    if(!window.jspdf || !window.jspdf.jsPDF){ alert('jsPDF não carregou. Verifique bloqueio de CDN.'); return; }
-    if(typeof loadLogoAsDataURL === 'function'){ try{ await loadLogoAsDataURL(); }catch(e){} }
-
-    const baseSource = (window.registrosFiltrados && window.registrosFiltrados.length) ? window.registrosFiltrados : (window.registros||[]);
-    if(!baseSource || !baseSource.length){ alert('Nenhum dado para gerar PDF.'); return; }
-    const base = [...baseSource].sort((a,b)=> String(a.Nome||'').localeCompare(String(b.Nome||''),'pt-BR',{sensitivity:'base'}));
-
-    const { tituloSemana, assuntosCabecalho } = await headerData(base);
-
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF({ orientation:'portrait', unit:'pt', format:'a4' });
-
-    const marginLeft=48, marginRight=48, marginTop=120, marginBottom=88;
-    const pageWidth  = doc.internal.pageSize.getWidth();
-    const pageHeight = doc.internal.pageSize.getHeight();
-    const usableWidth = pageWidth - marginLeft - marginRight;
-    const LOGO_W=120, LOGO_H=52; const LINE=12; const SIG_MIN_H=56;
-
-    function drawHeaderFooter(pageNumber, totalPages){
-      try{ if(window.LOGO_DATAURL) doc.addImage(window.LOGO_DATAURL,'PNG', pageWidth - marginRight - LOGO_W, 28, LOGO_W, LOGO_H); }catch(e){}
-      doc.setFont('helvetica','bold'); doc.setFontSize(18); doc.text('Diálogo Semanal de Segurança', marginLeft, 48);
-      doc.setFont('helvetica','bold'); doc.setFontSize(14);
-      const semanaText  = 'Semana: ' + (tituloSemana || '-');
-      const semanaLines = doc.splitTextToSize(semanaText, usableWidth - (LOGO_W + 12));
-      const ySemana = 78; doc.text(semanaLines, marginLeft, ySemana);
-      let y = ySemana + LINE * Math.max(1, semanaLines.length) + LINE;
-      if (assuntosCabecalho && assuntosCabecalho.length){
-        doc.setFont('helvetica','normal'); doc.setFontSize(11);
-        const as = doc.splitTextToSize('Assuntos: ' + assuntosCabecalho, usableWidth);
-        doc.text(as, marginLeft, y); y += LINE * Math.max(1, as.length);
-      }
-      const now = new Date();
-      const dataStr = `Data do relatório: ${pad(now.getDate())}/${pad(now.getMonth()+1)}/${now.getFullYear()}`;
-      const horaStr = `Hora do relatório: ${pad(now.getHours())}:${pad(now.getMinutes())}`;
-      doc.setFont('helvetica','normal'); doc.setFontSize(10);
-      doc.text(dataStr, marginLeft, y + LINE);
-      doc.text(horaStr, marginLeft, y + LINE*2);
-      doc.setFont('helvetica','normal'); doc.setFontSize(7);
-      const FOOT_LH=12, FOOT_Y=pageHeight-22;
-      doc.text('Caterair Serviços de Bordo e Hotelaria LTDA - Base GIG', marginLeft, FOOT_Y - (FOOT_LH * 2));
-      doc.text('CNPJ 33.375.601/0001-38',                                marginLeft, FOOT_Y - (FOOT_LH * 1));
-      doc.text('Rua P, S/N, Área de Apoio do Aeroporto Internacional do Rio de Janeiro - Ilha do Governador - RJ', marginLeft, FOOT_Y);
-      doc.setFont('helvetica','italic'); doc.setFontSize(8);
-      const text = `Página ${pageNumber} de ${totalPages}`;
-      doc.text(text, pageWidth - marginRight, FOOT_Y + 2, { align:'right' });
-    }
-
-    const head = [['Matrícula','Funcionário','Setor','Data de Participação','Assinatura']];
-    const body = base.map(r => [ r.Matricula||'', r.Nome||'', r.Setor||'', (typeof formatTimestamp==='function'? formatTimestamp(r.Timestamp): String(r.Timestamp||'')), '' ]);
-
-    doc.autoTable({ startY: marginTop + LINE*4, head, body, margin:{ left:marginLeft, right:marginRight, top:marginTop, bottom:marginBottom }, tableWidth: usableWidth, styles:{ font:'helvetica', fontSize:8, cellPadding:4, valign:'middle', overflow:'linebreak' }, headStyles:{ fillColor:[33,150,243], textColor:255, halign:'center' }, didParseCell:(d)=>{ if(d.section==='body' && d.column.index===4){ d.cell.height = Math.max(d.cell.height, 56);} }, didDrawCell:(d)=>{ if(d.section==='body' && d.column.index===4){ const i=d.row.index; const sig=base[i].AssinaturaPNG; if(sig){ const pad=2; const x=d.cell.x+pad, y=d.cell.y+pad; const w=d.cell.width-pad*2, h=d.cell.height-pad*2; try{ doc.addImage(sig,'PNG',x,y,w,h);}catch(e){} } } }, didDrawPage:(hk)=>{ const pageNumber = (hk && hk.pageNumber) ? hk.pageNumber : (doc.internal.getCurrentPageInfo && doc.internal.getCurrentPageInfo().pageNumber) || 1; const totalPages=doc.internal.getNumberOfPages(); drawHeaderFooter(pageNumber, totalPages); } });
-
-    doc.save(typeof nomeArquivo==='function' ? nomeArquivo('pdf') : 'DSS_GIG_Relatorio.pdf');
-  };
-
-  window.gerarPacoteOffline = async function(){
-    try{
-      if(!window.JSZip){ alert('JSZip não carregou.'); return; }
-      const baseSource = (window.registrosFiltrados && window.registrosFiltrados.length) ? window.registrosFiltrados : (window.registros||[]);
-      if(!baseSource || !baseSource.length){ alert('Nenhum dado para empacotar. Faça uma busca primeiro.'); return; }
-      const base = [...baseSource].sort((a,b)=> String(a.Nome||'').localeCompare(String(b.Nome||''),'pt-BR',{sensitivity:'base'}));
-      const { tituloSemana, assuntosCabecalho } = await headerData(base);
-      const payload = { base, tituloSemana, assuntosCabecalho };
-
-      const zip = new JSZip();
-      const folder = zip.folder('DSS_GIG_offline');
+      // Monta o ZIP
+      var zip = new JSZip(); var folder = zip.folder('DSS_GIG_offline');
+      var payload = { base: base, tituloSemana: tituloSemana, assuntosCabecalho: assuntosCabecalho };
       folder.file('data.json', JSON.stringify(payload, null, 2), {compression:'DEFLATE'});
-      if (window.LOGO_DATAURL){ const blobLogo = b64ToBlob(window.LOGO_DATAURL, 'image/png'); folder.file('logo.png', blobLogo); }
 
-      // libs locais (baixadas agora)
-      const fetchText = async (url)=>{ const r=await fetch(url); return await r.text(); };
-      const jspdfTxt = await fetchText('https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js');
-      const autoTxt  = await fetchText('https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js');
-      const vendor = folder.folder('vendor'); vendor.file('jspdf.umd.min.js', jspdfTxt); vendor.file('jspdf.plugin.autotable.min.js', autoTxt);
+      // Salva logo
+      if(window.LOGO_DATAURL){ var b64 = window.LOGO_DATAURL.split(',')[1]||window.LOGO_DATAURL; var byteChars = atob(b64); var arr = new Uint8Array(byteChars.length); for(var k=0;k<byteChars.length;k++){ arr[k]=byteChars.charCodeAt(k);} var blobLogo = new Blob([arr], {type:'image/png'}); folder.file('logo.png', blobLogo); }
 
-      const offlineHTML = '<!DOCTYPE html>\n<html lang="pt-BR"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>\n<title>DSS GIG — Relatório Offline</title>\n<style>body{font-family:system-ui,Segoe UI,Roboto,Arial,sans-serif;margin:24px;} .btn{padding:10px 14px;border-radius:8px;border:1px solid #ddd;cursor:pointer;} .muted{color:#6b7280}</style>\n<script src="vendor/jspdf.umd.min.js"><\\/script>\n<script src="vendor/jspdf.plugin.autotable.min.js"><\\/script>\n</head>\n<body>\n<h1>Relatório Offline — DSS GIG</h1>\n<p class="muted">Este pacote foi gerado a partir de um snapshot. Você pode gerar o PDF abaixo, sem internet.</p>\n<button id="btnGerar" class="btn">Gerar PDF</button>\n<script>\n(function(){\n  function pad(n){ return String(n).padStart(2,\'0\'); }\n  async function loadLogo(){ try{ const r=await fetch(\'logo.png\'); if(!r.ok) return null; const b=await r.blob(); return await new Promise(res=>{ const fr=new FileReader(); fr.onload=()=>res(fr.result); fr.readAsDataURL(b); }); }catch(e){ return null; } }\n  document.getElementById(\'btnGerar\').onclick = async function(){\n    const res = await fetch(\'data.json\'); const snap = await res.json();\n    const base = Array.isArray(snap.base)? snap.base : []; const tituloSemana = snap.tituloSemana || \'-\'; const assuntosCabecalho = snap.assuntosCabecalho || \'\';\n    const { jsPDF } = window.jspdf; const doc = new jsPDF({ orientation:\'portrait\', unit:\'pt\', format:\'a4\' });\n    const marginLeft=48, marginRight=48, marginTop=120, marginBottom=88;\n    const pageWidth=doc.internal.pageSize.getWidth(), pageHeight=doc.internal.pageSize.getHeight();\n    const usableWidth=pageWidth - marginLeft - marginRight; const LOGO_W=120, LOGO_H=52; const LINE=12; const SIG_MIN_H=56;\n    const LOGO = await loadLogo();\n    function drawHeaderFooter(pageNumber,totalPages){\n      try{ if(LOGO) doc.addImage(LOGO,\'PNG\', pageWidth - marginRight - LOGO_W, 28, LOGO_W, LOGO_H);}catch(e){}\n      doc.setFont(\'helvetica\',\'bold\'); doc.setFontSize(18); doc.text(\'Diálogo Semanal de Segurança\', marginLeft, 48);\n      doc.setFont(\'helvetica\',\'bold\'); doc.setFontSize(14);\n      const semanaText=\'Semana: \'+(tituloSemana||\'-\'); const semanaLines=doc.splitTextToSize(semanaText, usableWidth - (LOGO_W + 12)); const ySemana=78; doc.text(semanaLines, marginLeft, ySemana);\n      let y = ySemana + LINE * Math.max(1, semanaLines.length) + LINE;\n      if(assuntosCabecalho && assuntosCabecalho.length){ doc.setFont(\'helvetica\',\'normal\'); doc.setFontSize(11); const as=doc.splitTextToSize(\'Assuntos: \'+assuntosCabecalho, usableWidth); doc.text(as, marginLeft, y); y += LINE * Math.max(1, as.length); }\n      const now=new Date(); const dataStr=\\`Data do relatório: \\${pad(now.getDate())}/\\${pad(now.getMonth()+1)}/\\${now.getFullYear()}\\`; const horaStr=\\`Hora do relatório: \\${pad(now.getHours())}:\\${pad(now.getMinutes())}\\`;\n      doc.setFont(\'helvetica\',\'normal\'); doc.setFontSize(10); doc.text(dataStr, marginLeft, y + LINE); doc.text(horaStr, marginLeft, y + LINE*2);\n      doc.setFont(\'helvetica\',\'normal\'); doc.setFontSize(7); const FOOT_LH=12, FOOT_Y=pageHeight-22;\n      doc.text(\'Caterair Serviços de Bordo e Hotelaria LTDA - Base GIG\', marginLeft, FOOT_Y - (FOOT_LH * 2));\n      doc.text(\'CNPJ 33.375.601/0001-38\', marginLeft, FOOT_Y - (FOOT_LH * 1));\n      doc.text(\'Rua P, S/N, Área de Apoio do Aeroporto Internacional do Rio de Janeiro - Ilha do Governador - RJ\', marginLeft, FOOT_Y);\n      doc.setFont(\'helvetica\',\'italic\'); doc.setFontSize(8); const txt=\\`Página \\${pageNumber} de \\${totalPages}\\`; doc.text(txt, pageWidth - marginRight, FOOT_Y + 2, {align:\'right\'});\n    }\n    const head = [[\'Matrícula\',\'Funcionário\',\'Setor\',\'Data de Participação\',\'Assinatura\']];\n    const body = base.map(r=>[ r.Matricula||\'\', r.Nome||\'\', r.Setor||\'\', r.Timestamp||\'\', \'\' ]);\n    doc.autoTable({ startY: marginTop + LINE*4, head, body, margin:{ left:marginLeft, right:marginRight, top:marginTop, bottom:marginBottom }, tableWidth: usableWidth, styles:{ font:\'helvetica\', fontSize:8, cellPadding:4, valign:\'middle\', overflow:\'linebreak\' }, headStyles:{ fillColor:[33,150,243], textColor:255, halign:\'center\' }, didParseCell:(d)=>{ if(d.section===\'body\' && d.column.index===4){ d.cell.height=Math.max(d.cell.height, SIG_MIN_H);} }, didDrawCell:(d)=>{ if(d.section===\'body\' && d.column.index===4){ const i=d.row.index; const sig=base[i].AssinaturaPNG; if(sig){ const pad=2; const x=d.cell.x+pad, y=d.cell.y+pad; const w=d.cell.width-pad*2, h=d.cell.height-pad*2; try{ doc.addImage(sig,\'PNG\',x,y,w,h);}catch(e){} } } }, didDrawPage:(hk)=>{ const pageNumber = (hk && hk.pageNumber) ? hk.pageNumber : (doc.internal.getCurrentPageInfo && doc.internal.getCurrentPageInfo().pageNumber) || 1; const totalPages=doc.internal.getNumberOfPages(); drawHeaderFooter(pageNumber, totalPages); } });\n    doc.save(\'DSS_GIG_Relatorio_OFFLINE.pdf\');\n  };\n})();\n<\\/script>\n</body></html>' ;
-      folder.file('gestor_offline.html', offlineHTML);
+      // Baixa libs da CDN para vendor/
+      function fetchText(url){ return fetch(url).then(function(r){ return r.text(); }); }
+      Promise.all([
+        fetchText('https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js'),
+        fetchText('https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js')
+      ]).then(function(arrTxt){
+        var vendor = folder.folder('vendor');
+        vendor.file('jspdf.umd.min.js', arrTxt[0]);
+        vendor.file('jspdf.plugin.autotable.min.js', arrTxt[1]);
 
-      const blob = await zip.generateAsync({type:'blob'});
-      const stamp = `${new Date().getFullYear()}${pad(new Date().getMonth()+1)}${pad(new Date().getDate())}_${pad(new Date().getHours())}${pad(new Date().getMinutes())}`;
-      saveAs(blob, `DSS_GIG_offline_${stamp}.zip`);
-    }catch(err){ console.error(err); alert('Falha ao gerar o pacote offline.'); }
-  };
+        // HTML Offline simples sem backticks
+        var offlineHTML = ''+
+          '<!DOCTYPE html>\n'+
+          '<html lang="pt-BR"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/>'+
+          '<title>DSS GIG — Relatório Offline</title>'+
+          '<style>body{font-family:system-ui,Segoe UI,Roboto,Arial,sans-serif;margin:24px;} .btn{padding:10px 14px;border-radius:8px;border:1px solid #ddd;cursor:pointer;} .muted{color:#6b7280}</style>'+
+          '<script src="vendor/jspdf.umd.min.js"><\/script>'+
+          '<script src="vendor/jspdf.plugin.autotable.min.js"><\/script>'+
+          '</head>'+
+          '<body>'+
+          '<h1>Relatório Offline — DSS GIG</h1>'+
+          '<p class="muted">Este pacote foi gerado a partir de um snapshot. Você pode gerar o PDF abaixo, sem internet.</p>'+
+          '<button id="btnGerar" class="btn">Gerar PDF</button>'+
+          '<script>'+
+          '(function(){'+
+            'function pad(n){ return String(n).padStart(2,\'0\'); }'+
+            'function loadLogo(cb){ fetch(\'logo.png\').then(function(r){ if(!r.ok) return cb(null); return r.blob(); }).then(function(b){ if(!b) return cb(null); var fr=new FileReader(); fr.onload=function(){ cb(fr.result); }; fr.readAsDataURL(b); }).catch(function(){ cb(null); }); }'+
+            'document.getElementById(\'btnGerar\').onclick = function(){ fetch(\'data.json\').then(function(res){ return res.json(); }).then(function(snap){ var base = Array.isArray(snap.base)? snap.base : []; var tituloSemana = snap.tituloSemana || \"-\"; var assuntosCabecalho = snap.assuntosCabecalho || \"\"; var jsPDF = window.jspdf.jsPDF; var doc = new jsPDF({ orientation:\'portrait\', unit:\'pt\', format:\'a4\' }); var marginLeft=48, marginRight=48, marginTop=120, marginBottom=88; var pageWidth=doc.internal.pageSize.getWidth(), pageHeight=doc.internal.pageSize.getHeight(); var usableWidth=pageWidth - marginLeft - marginRight; var LOGO_W=120, LOGO_H=52; var LINE=12; var SIG_MIN_H=56; function drawHeaderFooter(pageNumber,totalPages,LOGO){ try{ if(LOGO) doc.addImage(LOGO,\'PNG\', pageWidth - marginRight - LOGO_W, 28, LOGO_W, LOGO_H);}catch(e){} doc.setFont(\'helvetica\',\'bold\'); doc.setFontSize(18); doc.text(\'Diálogo Semanal de Segurança\', marginLeft, 48); doc.setFont(\'helvetica\',\'bold\'); doc.setFontSize(14); var semanaText=\'Semana: \'+(tituloSemana||\'-\'); var semanaLines=doc.splitTextToSize(semanaText, usableWidth - (LOGO_W + 12)); var ySemana=78; doc.text(semanaLines, marginLeft, ySemana); var y = ySemana + LINE * Math.max(1, semanaLines.length) + LINE; if(assuntosCabecalho && assuntosCabecalho.length){ doc.setFont(\'helvetica\',\'normal\'); doc.setFontSize(11); var as=doc.splitTextToSize(\'Assuntos: \'+assuntosCabecalho, usableWidth); doc.text(as, marginLeft, y); y += LINE * Math.max(1, as.length); } var now=new Date(); var dataStr=\'Data do relatório: \'+pad(now.getDate())+\'\/\'+pad(now.getMonth()+1)+\'\/\'+now.getFullYear(); var horaStr=\'Hora do relatório: \'+pad(now.getHours())+\':\'+pad(now.getMinutes()); doc.setFont(\'helvetica\',\'normal\'); doc.setFontSize(10); doc.text(dataStr, marginLeft, y + LINE); doc.text(horaStr, marginLeft, y + LINE*2); doc.setFont(\'helvetica\',\'normal\'); doc.setFontSize(7); var FOOT_LH=12, FOOT_Y=pageHeight-22; doc.text(\'Caterair Serviços de Bordo e Hotelaria LTDA - Base GIG\', marginLeft, FOOT_Y - (FOOT_LH * 2)); doc.text(\'CNPJ 33.375.601/0001-38\', marginLeft, FOOT_Y - (FOOT_LH * 1)); doc.text(\'Rua P, S/N, Área de Apoio do Aeroporto Internacional do Rio de Janeiro - Ilha do Governador - RJ\', marginLeft, FOOT_Y); doc.setFont(\'helvetica\',\'italic\'); doc.setFontSize(8); var txt=\'Página \'+pageNumber+\' de \'+totalPages; doc.text(txt, pageWidth - marginRight, FOOT_Y + 2, {align:\'right\'}); } var head=[[\'Matrícula\',\'Funcionário\',\'Setor\',\'Data de Participação\',\'Assinatura\']]; var body=base.map(function(r){ return [ r.Matricula||\'\', r.Nome||\'\', r.Setor||\'\', r.Timestamp||\'\', \"\" ]; }); loadLogo(function(LOGO){ doc.autoTable({ startY: marginTop + LINE*4, head: head, body: body, margin:{ left:marginLeft, right:marginRight, top:marginTop, bottom:marginBottom }, tableWidth: usableWidth, styles:{ font:\'helvetica\', fontSize:8, cellPadding:4, valign:\'middle\', overflow:\'linebreak\' }, headStyles:{ fillColor:[33,150,243], textColor:255, halign:\'center\' }, didParseCell:function(d){ if(d.section===\'body\' && d.column.index===4){ d.cell.height=Math.max(d.cell.height, SIG_MIN_H);} }, didDrawCell:function(d){ if(d.section===\'body\' && d.column.index===4){ var i=d.row.index; var sig=base[i].AssinaturaPNG; if(sig){ var pad2=2; var x=d.cell.x+pad2, y2=d.cell.y+pad2; var w=d.cell.width-pad2*2, h=d.cell.height-pad2*2; try{ doc.addImage(sig,\'PNG\',x,y2,w,h);}catch(e){} } } }, didDrawPage:function(hk){ var pageNumber=(hk && hk.pageNumber)? hk.pageNumber : (doc.internal.getCurrentPageInfo && doc.internal.getCurrentPageInfo().pageNumber) || 1; var totalPages=doc.internal.getNumberOfPages(); drawHeaderFooter(pageNumber,totalPages,LOGO); } }); doc.save(\'DSS_GIG_Relatorio_OFFLINE.pdf\'); }); }); };'+
+          '})();'+
+          '<\/script>'+
+          '</body></html>';
 
-  // Rebind
-  const btnPDF = document.getElementById('btnPDF'); if (btnPDF) btnPDF.onclick = (e)=>{ e.preventDefault(); window.gerarPDF(); };
-  const btnZIP = document.getElementById('btnZIP'); if (btnZIP) btnZIP.onclick = (e)=>{ e.preventDefault(); window.gerarPacoteOffline(); };
+        folder.file('gestor_offline.html', offlineHTML);
+
+        zip.generateAsync({type:'blob'}).then(function(blob){
+          function pad(n){return String(n).padStart(2,'0');}
+          var now = new Date();
+          var stamp = now.getFullYear()+''+pad(now.getMonth()+1)+''+pad(now.getDate())+'_'+pad(now.getHours())+''+pad(now.getMinutes());
+          saveAs(blob, 'DSS_GIG_offline_'+stamp+'.zip');
+        });
+      }).catch(function(err){ console.error(err); alert('Falha ao gerar o pacote offline.'); });
+    });
+  }
+
+  // ====== Novo funcionário (prompt simples) ======
+  function novoFuncionarioViaPrompt(){
+    var status = document.getElementById('status');
+    try{
+      var mRaw = prompt('Nova matrícula (5 dígitos, apenas números):'); if(mRaw===null) return; mRaw=(mRaw||'').replace(/\D/g,'');
+      while(!/^\d{5}$/.test(mRaw)){ mRaw = prompt('Matrícula inválida. Informe 5 dígitos (ex.: 12345):', mRaw); if(mRaw===null) return; mRaw=(mRaw||'').replace(/\D/g,''); }
+      var matricula = mRaw;
+      var nome = prompt('Nome completo:'); if(nome===null) return; nome=(nome||'').trim(); if(!nome){ alert('Nome é obrigatório.'); return; }
+      var setor = prompt('Setor (opcional):'); if (setor===null) setor=''; setor=(setor||'').trim();
+      var ok = confirm('Confirmar cadastro?\n\nMatrícula: '+matricula+'\nNome: '+nome+'\nSetor: '+(setor||'-')+'\nAtivo: TRUE'); if(!ok){ status.innerHTML='<div class="warn">Operação cancelada.</div>'; return; }
+      var payload = { matricula: matricula, nome: nome, setor: setor, ativo: true };
+      status.innerHTML = '<div class="warn">Enviando novo funcionário...</div>';
+      fetch('/api/gas?action=addFuncionario',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) })
+      .then(function(r){ return r.json(); })
+      .then(function(data){ if(!data || !data.ok) throw new Error('Falha'); status.innerHTML = '<div class="ok">Funcionário incluído com sucesso.</div>'; })
+      .catch(function(){ status.innerHTML = '<div class="error">Erro ao incluir funcionário.</div>'; });
+    }catch(err){ status.innerHTML = '<div class="error">Erro inesperado.</div>'; }
+  }
+
+  // ====== Eventos ======
+  document.getElementById('btnBuscar').addEventListener('click', buscar);
+  document.getElementById('btnXLS').addEventListener('click', gerarXLS);
+  document.getElementById('btnPDF').addEventListener('click', gerarPDF);
+  document.getElementById('btnZIP').addEventListener('click', gerarPacoteOffline);
+  document.getElementById('btnAddFunc').addEventListener('click', novoFuncionarioViaPrompt);
+  ['fMat','fNome','fDataInicio','fDataFinal','fSemanaTitulo'].forEach(function(id){ var el=document.getElementById(id); el.addEventListener('keydown', function(e){ if(e.key==='Enter'){ e.preventDefault(); buscar(); } });});
+
+  // ====== Inicialização ======
+  popularSemanas();
 })();
 </script>
-
 </body>
 </html>
