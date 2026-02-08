@@ -319,6 +319,10 @@
     const usableWidth = pageWidth - marginLeft - marginRight;
     const LOGO_W = 120, LOGO_H = 52;
 
+    const FOOT_LH = 14; // espaçamento entre linhas do rodapé (em pt)
+    const FOOT_Y  = pageHeight - 22; // base do bloco do rodapé
+    const paginationY = FOOT_Y + 4;
+
     function drawHeaderFooter(){
       try{ if(LOGO_DATAURL) doc.addImage(LOGO_DATAURL,'PNG', pageWidth - marginRight - LOGO_W, 28, LOGO_W, LOGO_H); }catch(e){}
       doc.setFont('helvetica','bold'); doc.setFontSize(18);
