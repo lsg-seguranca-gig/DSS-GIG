@@ -38,8 +38,7 @@ async function gerarPDF(){
   // Data e hora (duas linhas separadas)
   function pad(n){ return String(n).padStart(2,'0'); }
   const now = new Date();
-  const dataStr = `Data do relatório: ${pad(now.getDate())}/${pad(now.getMonth()+1)}/${now.getFullYear()}`;
-  const horaStr = `Hora do relatório: ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+  const geradoStr = `Gerado em: ${pad(now.getDate())}/${pad(now.getMonth()+1)}/${now.getFullYear()} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
 
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ orientation:'portrait', unit:'pt', format:'a4' });
@@ -79,10 +78,10 @@ async function gerarPDF(){
       y += LINE * Math.max(1, assLines.length);
     }
 
-    // Duas linhas: Data e Hora
-    doc.setFont('helvetica','normal'); doc.setFontSize(10);
-    doc.text(dataStr, marginLeft, y + LINE);     // linha 1
-    doc.text(horaStr, marginLeft, y + LINE*2);   // linha 2
+    // Uma linha: Data e Hora
+    doc.setFont('helvetica','normal');
+    doc.setFontSize(10);
+    doc.text(geradoStr, marginLeft, y + LINE);   // linha 2
 
     // Rodapé (3 linhas) — texto institucional
     doc.setFont('helvetica','normal'); doc.setFontSize(7);
@@ -428,9 +427,8 @@ async function gerarPDF(){
 
     // === Data e Hora do relatório (duas linhas) ===
     function pad(n){ return String(n).padStart(2,'0'); }
-    const now = new Date();
-    const dataStr = `Data do relatório: ${pad(now.getDate())}/${pad(now.getMonth()+1)}/${now.getFullYear()}`;
-    const horaStr = `Hora do relatório: ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+  const now = new Date();
+  const geradoStr = `Gerado em: ${pad(now.getDate())}/${pad(now.getMonth()+1)}/${now.getFullYear()} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
 
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ orientation:'portrait', unit:'pt', format:'a4' });
