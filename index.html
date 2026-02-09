@@ -82,7 +82,6 @@
       <button id="btnRegistrar" class="primary hidden">Registrar</button>
       <button id="btnTrocarVideo" class="secondary">Trocar vídeo</button>
     </div>
-
     <div id="mensagem" class="message"></div>
   </section>
 </main>
@@ -92,43 +91,134 @@
   const API_BASE = '/api/gas';
   let funcionario=null, treinamentos=[], selectedVideo=null, player=null, signaturePad=null, videoEnded=false;
 
-  function extractYouTubeId(url){ try{ const u=new URL(url); if(u.hostname.includes('youtu.be')) return u.pathname.slice(1); if(u.searchParams.get('v')) return u.searchParams.get('v'); const m=url.match(/embed\/([\w\-]+)/); if(m) return m[1]; }catch(e){} return null; }
-  async function fetchTreinamentos(){ const res=await fetch(API_BASE+'?action=treinamentos'); try{ return await res.json(); }catch{ return {ok:false,error:'Resposta não-JSON',status:res.status} } }
-  async function fetchFuncionario(m){ const res=await fetch(API_BASE+'?action=funcionario&matricula='+encodeURIComponent(m)); try{ return await res.json(); }catch{ return {ok:false,error:'Resposta não-JSON',status:res.status} } }
+  function extractYouTubeId(url){
+    try{
+      const u=new URL(url);
+      if(u.hostname.includes('youtu.be')) return u.pathname.slice(1);
+      if(u.searchParams.get('v')) return u.searchParams.get('v');
+      const m=url.match(/embed\/([\w\-]+)/);
+      if(m) return m[1];
+    }catch(e){}
+    return null;
+  }
+
+  async function fetchTreinamentos(){
+    const res=await fetch(API_BASE+'?action=treinamentos');
+    try{ return await res.json(); }
+    catch{ return {ok:false,error:'Resposta não-JSON',status:res.status} }
+  }
+
+  // NOVO: buscar registros por matrícula
+  async function fetchRegistros(m){
+    const res=await fetch(API_BASE+'?action=registros&matricula='+encodeURIComponent(m));
+    try{ return await res.json(); }
+    catch{ return {ok:false,error:'Resposta não-JSON',status:res.status} }
+  }
+
+  async function fetchFuncionario(m){
+    const res=await fetch(API_BASE+'?action=funcionario&matricula='+encodeURIComponent(m));
+    try{ return await res.json(); }
+    catch{ return {ok:false,error:'Resposta não-JSON',status:res.status} }
+  }
 
   document.getElementById('btnBuscar').addEventListener('click', async ()=>{
     const m=document.getElementById('matricula').value.trim();
-    const info=document.getElementById('funcInfo'); info.classList.add('hidden'); info.innerHTML='';
-    if(!m){ info.classList.remove('hidden'); info.innerHTML='<div class="warn">Informe a matrícula.</div>'; return }
+    const info=document.getElementById('funcInfo');
+    info.classList.add('hidden'); info.innerHTML='';
+
+    if(!m){
+      info.classList.remove('hidden');
+      info.innerHTML='<div class="warn">Informe a matrícula.</div>';
+      return;
+    }
+
     const resp=await fetchFuncionario(m);
-    if(!resp||!resp.ok){ const d=resp&&resp.error?` (${resp.error}${resp.status?' - status '+resp.status:''})`:''; info.classList.remove('hidden'); info.innerHTML=`<div class="error">Falha ao consultar funcionário${d}.</div>`; return }
-    if(resp.found===false){ info.classList.remove('hidden'); info.innerHTML='<div class="error">Funcionário não encontrado ou inativo.</div>'; return }
-    funcionario=resp.data; info.classList.remove('hidden'); info.innerHTML=`<div class="ok">Olá, <strong>${funcionario.Nome}</strong> — Setor: <strong>${funcionario.Setor||'-'}</strong>.</div>`;
-    const tResp=await fetchTreinamentos(); if(!tResp||!tResp.ok){ const d=tResp&&tResp.error?` (${tResp.error}${tResp.status?' - status '+tResp.status:''})`:''; info.classList.remove('hidden'); info.innerHTML+=`<div class="error">Falha ao carregar treinamentos${d}.</div>`; return }
-    treinamentos=tResp.data||[]; renderListaVideos(treinamentos); document.getElementById('secVideos').classList.remove('hidden'); document.getElementById('secPlayer').classList.add('hidden');
+    if(!resp || !resp.ok){
+      const d=resp && resp.error?` (${resp.error}${resp.status?' - status '+resp.status:''})`:'';
+      info.classList.remove('hidden');
+      info.innerHTML=`<div class="error">Falha ao consultar funcionário${d}.</div>`;
+      return;
+    }
+    if(resp.found===false){
+      info.classList.remove('hidden');
+      info.innerHTML='<div class="error">Funcionário não encontrado ou inativo.</div>';
+      return;
+    }
+
+    funcionario=resp.data;
+    info.classList.remove('hidden');
+    info.innerHTML=`<div class="ok">Olá, <strong>${funcionario.Nome}</strong> — Setor: <strong>${funcionario.Setor||'-'}</strong>.</div>`;
+
+    // 1) Carregar treinamentos (como já faz hoje)
+    const tResp=await fetchTreinamentos();
+    if(!tResp || !tResp.ok){
+      const d=tResp && tResp.error?` (${tResp.error}${tResp.status?' - status '+tResp.status:''})`:'';
+      info.innerHTML+=`<div class="error">Falha ao carregar treinamentos${d}.</div>`;
+      return;
+    }
+    const todosTreinamentos=tResp.data||[];
+
+    // 2) NOVO: Carregar registros dessa matrícula para filtrar por SemanaISO+Titulo
+    const rResp=await fetchRegistros(funcionario.Matricula);
+    if(!rResp || !rResp.ok){
+      const d=rResp && rResp.error?` (${rResp.error}${rResp.status?' - status '+rResp.status:''})`:'';
+      info.innerHTML+=`<div class="warn">Não foi possível conferir vídeos já assistidos${d}. Mostrando todos por segurança.</div>`;
+      treinamentos=todosTreinamentos; // fallback
+    }else{
+      const registros=rResp.data||[];
+      // CHAVE = SemanaISO + Titulo
+      const watchedKey = new Set(registros.map(r => `${r.SemanaISO}@@${r.TituloVideo}`));
+      const naoAssistidos = todosTreinamentos.filter(t => !watchedKey.has(`${t.SemanaISO}@@${t.Titulo}`));
+      treinamentos = naoAssistidos;
+    }
+
+    renderListaVideos(treinamentos);
+    document.getElementById('secVideos').classList.remove('hidden');
+    document.getElementById('secPlayer').classList.add('hidden');
   });
 
   function renderListaVideos(list){
-    const c=document.getElementById('listaVideos'); c.innerHTML='';
-    if(!list||list.length===0){ c.innerHTML='<div class="warn">Nenhum vídeo disponível no momento.</div>'; return }
-    list.forEach((t,idx)=>{ const card=document.createElement('div'); card.className='video-card'; card.innerHTML=`<div class="video-meta"><h3>${t.Titulo}</h3><p><strong>Semana:</strong> ${t.SemanaISO}</p></div><button class="secondary" data-idx="${idx}">Assistir</button>`; card.querySelector('button').addEventListener('click',()=>selectVideo(idx)); c.appendChild(card); });
+    const c=document.getElementById('listaVideos');
+    c.innerHTML='';
+    if(!list || list.length===0){
+      c.innerHTML='<div class="ok">Parabéns! Você já assistiu todos os vídeos disponíveis.</div>';
+      return;
+    }
+    list.forEach((t,idx)=>{
+      const card=document.createElement('div');
+      card.className='video-card';
+      card.innerHTML=`
+        <div class="video-meta">
+          <h3>${t.Titulo}</h3>
+          <p><strong>Semana:</strong> ${t.SemanaISO}</p>
+        </div>
+        <button class="secondary" data-idx="${idx}">Assistir</button>
+      `;
+      card.querySelector('button').addEventListener('click',()=>selectVideo(idx));
+      c.appendChild(card);
+    });
   }
 
   function selectVideo(idx){
-    selectedVideo=treinamentos[idx]; videoEnded=false;
+    selectedVideo=treinamentos[idx];
+    videoEnded=false;
     document.getElementById('videoTitle').textContent=selectedVideo.Titulo;
     document.getElementById('semanaISO').textContent=selectedVideo.SemanaISO;
     document.getElementById('btnRegistrar').classList.add('hidden');
     document.getElementById('signatureBlock').classList.add('hidden');
     document.getElementById('mensagem').innerHTML='';
-    const vid=extractYouTubeId(selectedVideo.URL); if(!vid){ document.getElementById('mensagem').innerHTML='<div class="error">URL do vídeo inválida.</div>'; return }
+
+    const vid=extractYouTubeId(selectedVideo.URL);
+    if(!vid){
+      document.getElementById('mensagem').innerHTML='<div class="error">URL do vídeo inválida.</div>';
+      return;
+    }
 
     const init=()=>{
       if(player){ player.loadVideoById(vid); return }
-      if(!window.YT||!YT.Player){ setTimeout(init,200); return }
+      if(!window.YT || !YT.Player){ setTimeout(init,200); return }
       player=new YT.Player('ytplayer',{
-        height:'100%',   // responsivo: preenche o container 16:9
-        width:'100%',
+        height:'100%', width:'100%',
         videoId:vid,
         playerVars:{ controls:0, disablekb:1, fs:0, rel:0, modestbranding:1, playsinline:1 },
         events:{ 'onStateChange': onPlayerStateChange }
@@ -140,16 +230,23 @@
     if(playBtn){ playBtn.onclick=()=>{ if(player&&player.playVideo) player.playVideo(); }; }
 
     document.getElementById('secPlayer').classList.remove('hidden');
+
     const canvas=document.getElementById('signaturePad');
     signaturePad=new SignaturePad(canvas,{minWidth:1,maxWidth:2});
     document.getElementById('btnLimpar').addEventListener('click',()=>signaturePad.clear());
   }
 
   function onPlayerStateChange(e){
-    const btn=document.getElementById('btnPlayOverlay'); if(!btn) return;
+    const btn=document.getElementById('btnPlayOverlay');
+    if(!btn) return;
     if(e.data===YT.PlayerState.PLAYING){ btn.classList.add('hidden'); }
     else if(e.data===YT.PlayerState.PAUSED || e.data===YT.PlayerState.CUED){ btn.classList.remove('hidden'); }
-    if(e.data===YT.PlayerState.ENDED){ videoEnded=true; btn.classList.remove('hidden'); document.getElementById('signatureBlock').classList.remove('hidden'); document.getElementById('btnRegistrar').classList.remove('hidden'); }
+    if(e.data===YT.PlayerState.ENDED){
+      videoEnded=true;
+      btn.classList.remove('hidden');
+      document.getElementById('signatureBlock').classList.remove('hidden');
+      document.getElementById('btnRegistrar').classList.remove('hidden');
+    }
   }
 
   document.getElementById('btnTrocarVideo').addEventListener('click',()=>{
@@ -161,17 +258,37 @@
 
   document.getElementById('btnRegistrar').addEventListener('click', async ()=>{
     const msg=document.getElementById('mensagem'); msg.innerHTML='';
-    if(!funcionario||!selectedVideo){ msg.innerHTML='<div class="error">Dados incompletos.</div>'; return }
+    if(!funcionario || !selectedVideo){ msg.innerHTML='<div class="error">Dados incompletos.</div>'; return }
     if(!videoEnded){ msg.innerHTML='<div class="warn">O vídeo ainda não foi concluído.</div>'; return }
-    if(!signaturePad||signaturePad.isEmpty()){ msg.innerHTML='<div class="warn">Por favor, assine antes de registrar.</div>'; return }
+    if(!signaturePad || signaturePad.isEmpty()){ msg.innerHTML='<div class="warn">Por favor, assine antes de registrar.</div>'; return }
+
     const assinaturaPNG=signaturePad.toDataURL('image/png');
-    const payload={ matricula:String(funcionario.Matricula), semanaISO:String(selectedVideo.SemanaISO), tituloVideo:String(selectedVideo.Titulo), urlVideo:String(selectedVideo.URL), assinaturaPNG, deviceInfo:navigator.userAgent };
+    const payload={
+      matricula:String(funcionario.Matricula),
+      semanaISO:String(selectedVideo.SemanaISO),
+      tituloVideo:String(selectedVideo.Titulo),
+      urlVideo:String(selectedVideo.URL),
+      assinaturaPNG,
+      deviceInfo:navigator.userAgent
+    };
+
     try{
       const res = await fetch(API_BASE+'?action=registrar',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
       let data; try{ data=await res.json() } catch{ data={ok:false,error:'Resposta não-JSON',status:res.status} }
-      if(data.ok){ msg.innerHTML='<div class="ok">Registro realizado com sucesso!</div>'; document.getElementById('btnRegistrar').disabled=true }
-      else { msg.innerHTML='<div class="error">Falha ao registrar: '+(data.error||'Erro')+'</div>' }
-    }catch(err){ msg.innerHTML='<div class="error">Erro de conexão ao salvar o registro.</div>' }
+      if(data.ok){
+        msg.innerHTML='<div class="ok">Registro realizado com sucesso!</div>';
+        document.getElementById('btnRegistrar').disabled=true;
+
+        // Remover da lista local pela CHAVE SemanaISO+Titulo
+        treinamentos = treinamentos.filter(t => !(t.SemanaISO===selectedVideo.SemanaISO && t.Titulo===selectedVideo.Titulo));
+        renderListaVideos(treinamentos);
+        document.getElementById('secPlayer').classList.add('hidden');
+      } else {
+        msg.innerHTML='<div class="error">Falha ao registrar: '+(data.error||'Erro')+'</div>';
+      }
+    }catch(err){
+      msg.innerHTML='<div class="error">Erro de conexão ao salvar o registro.</div>';
+    }
   });
 </script>
 </body>
