@@ -589,7 +589,7 @@ didDrawCell: (data) => {
     try {
       const instrutores = await fetchInstrutores();
       const instrutoresResolved = await resolveInstructorSignatures(instrutores);
-      if (Array.isArray(instrutoresResolved) && (instrutoresResolved.length) {
+      if (Array.isArray(instrutoresResolved) && instrutoresResolved.length) {
         await desenharCartoesInstrutores(doc, instrutoresResolved, yStartFirstPage, {
           pageWidth, pageHeight, usableWidth,
           M_LEFT, M_RIGHT, M_BOTTOM,
