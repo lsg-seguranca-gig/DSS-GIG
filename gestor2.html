@@ -320,8 +320,7 @@ async function loadInstrutoresAsJPEG(src, maxW = 1100, maxH = 450, quality = 0.8
   });
 }
 
-  
-async function gerarPDF(){
+  async function gerarPDF(){
   await loadLogoAsDataURL();
 
   const baseSource = (Array.isArray(registrosFiltrados) && registrosFiltrados.length) ? registrosFiltrados : registros;
@@ -384,7 +383,6 @@ async function gerarPDF(){
     const footerY = pageHeight - M_BOTTOM;
     const generatedAt = new Date().toLocaleString('pt-BR');
 
-    // Subimos uma linha cada texto para abrir espaço para a paginação
     doc.setFont('helvetica','italic'); doc.setFontSize(9);
     doc.text('Gerado em: ' + generatedAt, M_LEFT, footerY - 4*L_H);
 
@@ -394,14 +392,11 @@ async function gerarPDF(){
     doc.text('Rua P, S/N, Área de Apoio do Aeroporto Internacional do Rio de Janeiro - Ilha do Governador - RJ',
              M_LEFT, footerY - 1*L_H);
 
-    // Paginação CENTRALIZADA na linha logo abaixo do endereço
     const pagText = `Página ${pageNumber} de ${totalPagesText}`;
-    const w = doc.getTextWidth(pagText);
-    const xCenter = (pageWidth - w) / 2;
-    doc.text(pagText, xCenter, footerY);
+    doc.setFont('helvetica','normal'); doc.setFontSize(9);
+    doc.text(pagText, pageWidth/2, footerY, { align:'center' });
   }
 
-  // Tabela
   const columns = [
     { header:'Matrícula', dataKey:'Matricula' },
     { header:'Funcionário', dataKey:'Nome' },
@@ -424,13 +419,13 @@ async function gerarPDF(){
   const yStartFirstPageMin = M_TOP + 20 + 6*L_H;
   if (yStartFirstPage < yStartFirstPageMin) yStartFirstPage = yStartFirstPageMin;
 
-  // DEMAIS páginas: calcula considerando A ALTURA DO LOGO + respiro
-  const yStartOtherPages = M_TOP + LOGO_H + 3*L_H; // <- evita sobreposição
+  // DEMAIS páginas: âncora segura abaixo do logo + respiro
+  const yStartOtherPages = M_TOP + LOGO_H + 5*L_H;
 
   doc.autoTable({
     startY: yStartFirstPage,
-    // Reserva espaço extra no rodapé para a nova linha da paginação
-    margin: { left:M_LEFT, right:M_RIGHT, top:M_TOP, bottom:M_BOTTOM + 60 },
+    // top define o ponto inicial nas páginas 2+ (evita sobreposição do cabeçalho)
+    margin: { left:M_LEFT, right:M_RIGHT, top:yStartOtherPages, bottom:M_BOTTOM + 60 },
     pageBreak: 'auto',
     tableWidth: usableWidth,
     columns,
@@ -440,12 +435,14 @@ async function gerarPDF(){
     columnStyles: {
       Matricula:{ halign:'left' },
       Nome: { halign:'left' },
-      Setor: { halign:'left' },
+      // ↓ Setor um pouco menor
+      Setor: { halign:'left',  cellWidth: 120 },
       DataFmt: { halign:'left' },
-      _sig: { halign:'center' }
+      // ↑ Assinatura um pouco maior
+      _sig:  { halign:'center', cellWidth: 150 }
     },
 
-    // Limpa texto da célula de assinatura (evita Base64 impresso)
+    // limpa texto da célula de assinatura (evita Base64 impresso)
     didParseCell: (data) => {
       if (data.section === 'body' && data.column.dataKey === '_sig') {
         data.cell.text = [''];
@@ -456,7 +453,7 @@ async function gerarPDF(){
       drawHeader(data.pageNumber);
       drawFooter(data.pageNumber, totalPagesExp);
 
-      // Se a tabela tentar subir acima do cabeçalho nas páginas 2+, ancoramos no y calculado
+      // guarda extra: ancora o cursor nas páginas 2+
       if (data.pageNumber > 1 && data.cursor && data.cursor.y < yStartOtherPages) {
         data.cursor.y = yStartOtherPages;
       }
@@ -470,8 +467,8 @@ async function gerarPDF(){
           const pad = 3;
           const cellW = Math.max(0, data.cell.width - 2*pad);
           const cellH = Math.max(0, data.cell.height - 2*pad);
-          const maxW = Math.min(130, cellW);
-          const maxH = Math.min(40, cellH);
+          const maxW = Math.min(150, cellW); // acompanha o cellWidth maior
+          const maxH = Math.min(42,  cellH);
           const x = data.cell.x + (data.cell.width - maxW) / 2;
           const y = data.cell.y + (data.cell.height - maxH) / 2;
           doc.addImage(sig, 'PNG', x, y, maxW, maxH);
@@ -480,7 +477,7 @@ async function gerarPDF(){
     }
   });
 
-  // Bloco "Instrutores"
+  // "Instrutores"
   let yInstrutores = (doc.lastAutoTable && doc.lastAutoTable.finalY ? doc.lastAutoTable.finalY : yStartFirstPage) + 3*L_H;
   let instrutoresImg = null;
   try { if (typeof loadInstrutoresAsJPEG === 'function') {
@@ -493,7 +490,6 @@ async function gerarPDF(){
       const current = doc.getNumberOfPages();
       drawHeader(current);
       drawFooter(current, totalPagesExp);
-      // Respeita o cabeçalho na nova página
       yInstrutores = yStartOtherPages;
     }
     doc.setFont('helvetica','bold'); doc.setFontSize(14);
