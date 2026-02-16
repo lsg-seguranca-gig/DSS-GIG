@@ -400,8 +400,7 @@ async function loadPNGAsDataURL(src, maxW = 1200, maxH = 400){
   _assinCache.set(src, dataURL);
   return dataURL;
 }
-function isDataURLImage(v){ return typeof v==='string' && /^data:image\\/(png|jpeg|jpg);base64,/i.test(v.trim()); }
-
+function isDataURLImage(v){ return typeof v==='string' && /^data:image\/(png|jpeg|jpg);base64,/i.test(v.trim()); }
 async function gerarPDF(){
   await loadLogoAsDataURL();
 
@@ -689,7 +688,7 @@ doc.save('Relatorio_Dialogo_Semanal_de_Seguranca.pdf');
     .replace(/&/g,'&amp;')
     .replace(/</g,'&lt;')
     .replace(/>/g,'&gt;')
-    .replace(/"/g,'&quot;')
+    .replace(/\"/g,'&quot;')
     .replace(/'/g,'&#39;');
 }
 function nomeArquivo(ext){
