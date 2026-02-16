@@ -291,6 +291,34 @@
     }catch(e){ return []; }
   }
 
+// Converte instrutores.png para JPEG compacto para uso no PDF
+function loadInstrutoresAsJPEG(src, maxW = 1100, maxH = 450, quality = 0.80) {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => {
+      try {
+        const ratio = Math.min(maxW / img.width, maxH / img.height, 1);
+        const nw = Math.round(img.width * ratio);
+        const nh = Math.round(img.height * ratio);
+
+        const c = document.createElement("canvas");
+        c.width = nw;
+        c.height = nh;
+
+        const ctx = c.getContext("2d");
+        ctx.drawImage(img, 0, 0, nw, nh);
+
+        resolve(c.toDataURL("image/jpeg", quality));
+      } catch (e) {
+        resolve("");
+      }
+    };
+
+    img.onerror = () => resolve("");
+    img.src = src;
+  });
+}
+
 async function gerarPDF() {
 
   await loadLogoAsDataURL();
