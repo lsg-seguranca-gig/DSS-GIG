@@ -303,7 +303,7 @@ async function gerarPDF() {
   // ================================
   // COLETA DOS DADOS DA SEMANA
   // ================================
-  const filtroISO = (document.getElementById("fSem").value || "").trim();
+  const filtroISO = (document.getElementById("fSemanaTitulo").value || "").trim();
   const semanasEncontradas = [...new Set(registros.map(r => r.SemanaISO).filter(Boolean))];
   const semanaISO = filtroISO || (semanasEncontradas.join(", ") || "-");
 
