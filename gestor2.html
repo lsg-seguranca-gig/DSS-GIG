@@ -371,6 +371,15 @@ async function loadSVGAsPNG(src, maxW = 1100, maxH = 450, bgColor = 'transparent
   });
 }
 
+async function fetchInstrutores(){
+  try{
+    const res = await fetch(API_BASE + "?action=instrutores");
+    const data = await res.json();
+    if (data && data.ok && Array.isArray(data.data)) return data.data;
+  }catch(e){}
+  return [];
+}
+
 async function gerarPDF(){
   await loadLogoAsDataURL();
 
@@ -525,34 +534,98 @@ async function gerarPDF(){
     }
   });
 
-  // ===== "Instrutores" — agora via instrutores.svg (rasterizado para PNG) =====
-  let yInstrutores = (doc.lastAutoTable && doc.lastAutoTable.finalY ? doc.lastAutoTable.finalY : yStartFirstPage) + 3*L_H;
+  // ===== INSTRUTORES (cards) =====
+// Cada item esperado: { nome, funcao1, funcao2, assinaturaPng }
+let instrutores = [];
+try { instrutores = await fetchInstrutores(); } catch(e){ instrutores = []; }
 
-  let instrutoresImg = null;
-  try {
-    // Carrega o SVG e converte p/ PNG (DataURL) nas dimensões alvo
-    instrutoresImg = await loadSVGAsPNG('instrutores.svg', 312, 142, 'transparent');
-  } catch(e){}
+if (Array.isArray(instrutores) && instrutores.length) {
+  const grid = {
+    cols: 2,
+    gap: 12,
+    cardW: Math.min((usableWidth - 12) / 2, 280),
+    cardH: 150,
+    sigH: 52,
+    fontSize: 10
+  };
+  const totalGridW = grid.cols * grid.cardW + (grid.cols - 1) * grid.gap;
+  const xStart = (pageWidth - totalGridW) / 2;
 
-  if (instrutoresImg && instrutoresImg.dataUrl) {
-    if (yInstrutores + 142 > pageHeight - M_BOTTOM) {
-      doc.addPage();
-      const current = doc.getNumberOfPages();
-      drawHeader(current);
-      drawFooter(current, totalPagesExp);
-      yInstrutores = yStartOtherPages;
+  let y = (doc.lastAutoTable && doc.lastAutoTable.finalY ? doc.lastAutoTable.finalY : yStartFirstPage) + 3*L_H;
+  const blocoMin = 16 + grid.cardH;
+  if (y + blocoMin > pageHeight - M_BOTTOM) {
+    doc.addPage();
+    const current = doc.getNumberOfPages();
+    drawHeader(current);
+    drawFooter(current, totalPagesExp);
+    y = yStartOtherPages;
+  }
+  doc.setFont('helvetica','bold'); doc.setFontSize(14);
+  doc.text('INSTRUTORES RESPONSÁVEIS:', M_LEFT, y);
+  y += 16;
+
+  doc.setFont('helvetica','normal'); doc.setFontSize(grid.fontSize);
+
+  instrutores.forEach((inst, idx) => {
+    const col = idx % grid.cols;
+    const isFirstCol = (col === 0);
+
+    if (isFirstCol && idx > 0) {
+      if (y + grid.cardH > pageHeight - M_BOTTOM) {
+        doc.addPage();
+        const current = doc.getNumberOfPages();
+        drawHeader(current);
+        drawFooter(current, totalPagesExp);
+        y = yStartOtherPages;
+      } else {
+        y += grid.gap;
+      }
     }
-    doc.setFont('helvetica','bold'); doc.setFontSize(14);
-    doc.text('INSTRUTORES RESPONSÁVEIS:', M_LEFT, yInstrutores);
-    yInstrutores += 16;
-    try { doc.addImage(instrutoresImg.dataUrl, 'PNG', M_LEFT, yInstrutores, 312, 142); } catch(e){}
-  }
 
-  if (typeof doc.putTotalPages === 'function') {
-    doc.putTotalPages(totalPagesExp);
-  }
+    const x = xStart + col * (grid.cardW + grid.gap);
 
-  doc.save('Relatorio_Dialogo_Semanal_de_Seguranca.pdf');
+    doc.setDrawColor(200);
+    doc.rect(x, y, grid.cardW, grid.cardH);
+
+    if (inst.assinaturaPng) {
+      try {
+        const pad = 6;
+        const boxW = grid.cardW - 2*pad;
+        const boxH = grid.sigH;
+        const maxW = boxW;
+        const maxH = boxH;
+        const sigX = x + (grid.cardW - maxW) / 2;
+        const sigY = y + pad;
+        doc.addImage(inst.assinaturaPng, 'PNG', sigX, sigY, maxW, maxH);
+      } catch(e){}
+    }
+
+    const textPadX = 8;
+    const textX = x + textPadX;
+    let textY = y + grid.sigH + 2*L_H*0.6;
+    const wrapW = grid.cardW - 2*textPadX;
+
+    const writeLine = (label, value, bold=false) => {
+      if (!value) return;
+      doc.setFont('helvetica', bold ? 'bold' : 'normal');
+      const txt = doc.splitTextToSize(`${label}${String(value)}`, wrapW);
+      doc.text(txt, textX, textY);
+      textY += txt.length * (grid.fontSize + 2);
+    };
+
+    // Ordem: Assinatura, Nome, Função 1, Função 2
+    writeLine('Nome: ',    inst.nome || '', true);
+    writeLine('Função 1: ', inst.funcao1 || '');
+    writeLine('Função 2: ', inst.funcao2 || '');
+  });
+}
+// ===== FIM INSTRUTORES (cards) =====
+
+if (typeof doc.putTotalPages === 'function') {
+  doc.putTotalPages(totalPagesExp);
+}
+
+doc.save('Relatorio_Dialogo_Semanal_de_Seguranca.pdf');
 }
 
   async function novoFuncionarioViaPrompt(){
