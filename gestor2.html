@@ -375,17 +375,21 @@ async function loadInstrutoresAsJPEG(src, maxW = 1100, maxH = 450, quality = 0.8
   const pageHeight = doc.internal.pageSize.getHeight();
   const usableWidth = pageWidth - M_LEFT - M_RIGHT;
 
-  // Instrutores já com a resolução final de 11cm × 5cm
+  // Instrutores em 11 cm × 5 cm (≈ 312 × 142 pt)
   const instrutores = await loadInstrutoresAsJPEG("instrutores.png", 312, 142, 0.80);
 
   const LOGO_W = 120, LOGO_H = 52;
   const L_H = 14;
 
+  // Pré-calcular as linhas de "Assuntos" para definirmos o startY real da tabela
+  const assuntosLines = assuntos
+    ? doc.splitTextToSize("Assuntos: " + assuntos, usableWidth)
+    : [];
+
   // ============================
   // CABEÇALHO
   // ============================
   function drawHeader(pageNumber) {
-
     // Logo
     try {
       if (LOGO_DATAURL)
@@ -408,11 +412,10 @@ async function loadInstrutoresAsJPEG(src, maxW = 1100, maxH = 450, quality = 0.8
       doc.setFontSize(14);
       doc.text("Semana: " + semanaTexto, M_LEFT, M_TOP + 20 + 2 * L_H);
 
-      if (assuntos) {
+      if (assuntosLines.length) {
         doc.setFont("helvetica", "normal");
         doc.setFontSize(12);
-        const assuntoLines = doc.splitTextToSize("Assuntos: " + assuntos, usableWidth);
-        doc.text(assuntoLines, M_LEFT, M_TOP + 20 + 4 * L_H);
+        doc.text(assuntosLines, M_LEFT, M_TOP + 20 + 4 * L_H);
       }
     }
   }
@@ -421,9 +424,7 @@ async function loadInstrutoresAsJPEG(src, maxW = 1100, maxH = 450, quality = 0.8
   // RODAPÉ / PAGINAÇÃO
   // ============================
   function drawFooter(pageNumber, totalPages) {
-
     const footerY = pageHeight - M_BOTTOM;
-
     const data = new Date().toLocaleString("pt-BR");
 
     doc.setFont("helvetica", "italic");
@@ -439,121 +440,122 @@ async function loadInstrutoresAsJPEG(src, maxW = 1100, maxH = 450, quality = 0.8
       footerY
     );
 
-    // ========== PAGINAÇÃO ==========
+    // Paginação
     const pagText = `Página ${pageNumber} de ${totalPages}`;
     const w = doc.getTextWidth(pagText);
     doc.text(pagText, pageWidth - M_RIGHT - w, footerY - 2 * L_H);
   }
 
   // ============================
-  // TABELA
+  // TABELA — linhas-objeto (columns + body)
   // ============================
-
   const columns = [
-  { header: "Matrícula", dataKey: "Matricula" },
-  { header: "Funcionário", dataKey: "Nome" },
-  { header: "Setor", dataKey: "Setor" },
-  { header: "Data de Participação", dataKey: "DataFmt" },
-  { header: "Assinatura", dataKey: "_sig" }
-];
+    { header: "Matrícula",              dataKey: "Matricula" },
+    { header: "Funcionário",            dataKey: "Nome" },
+    { header: "Setor",                  dataKey: "Setor" },
+    { header: "Data de Participação",   dataKey: "DataFmt" },
+    { header: "Assinatura",             dataKey: "_sig" }
+  ];
 
-const rows = base.map(r => ({
-  Matricula: r.Matricula || "",
-  Nome:      r.Nome      || "",
-  Setor:     r.Setor     || "",
-  DataFmt:   formatTimestamp(r.Timestamp) || "",
-  _sig:      r.AssinaturaPNG || ""   // assinatura vem aqui
-}));
+  const rows = base.map(r => ({
+    Matricula: r.Matricula || "",
+    Nome:      r.Nome      || "",
+    Setor:     r.Setor     || "",
+    DataFmt:   formatTimestamp(r.Timestamp) || "",
+    _sig:      r.AssinaturaPNG || ""
+  }));
 
-console.log('rows no PDF:', rows.length, rows[0]);
+  // (Opcional) Log de verificação
+  // console.log('rows no PDF:', rows.length, rows[0]);
 
-  // Página 1 → tabela começa abaixo do Assuntos  
-  const yStartFirstPage = M_TOP + 20 + 6 * L_H;
+  // === Cálculo DINÂMICO do startY da TABELA na 1ª página ===
+  // Título (M_TOP+20)  + 2L (gap p/ "Semana") + 1L (altura de "Semana") +
+  // 2L (gap p/ "Assuntos") + L*linhas (altura de "Assuntos") + 2L (gap p/ tabela)
+  let yStartFirstPage = M_TOP + 20 + 2*L_H + L_H + 2*L_H + (assuntosLines.length * L_H) + 2*L_H;
 
-  // Páginas seguintes → tabela começa apenas 2 linhas abaixo do título
+  // Garante um mínimo confortável caso não haja assuntos
+  const minFirstStart = M_TOP + 20 + 6 * L_H; // valor que você usava
+  if (yStartFirstPage < minFirstStart) yStartFirstPage = minFirstStart;
+
+  // Páginas seguintes → tabela começa 2 linhas abaixo do título
   const yStartOtherPages = M_TOP + 20 + 2 * L_H;
 
-doc.autoTable({
-  startY: yStartFirstPage,
+  doc.autoTable({
+    startY: yStartFirstPage,
 
-  margin: { 
-    left:  M_LEFT, 
-    right: M_RIGHT, 
-    top:   M_TOP,
-    bottom: M_BOTTOM + 60  // reserva p/ rodapé -> não invade mais
-  },
+    margin: { 
+      left:  M_LEFT, 
+      right: M_RIGHT, 
+      top:   M_TOP,
+      bottom: M_BOTTOM + 60  // reserva p/ rodapé
+    },
 
-  pageBreak: 'auto',
+    pageBreak: 'auto',
+    columns,
+    body: rows,
+    tableWidth: usableWidth,
 
-  // ✅ Correção: use body: rows
-  columns,
-  body: rows,
+    styles: {
+      font: 'helvetica',
+      fontSize: 10,
+      cellPadding: 4,
+      valign: 'middle'
+    },
 
-  tableWidth: usableWidth,
+    headStyles: {
+      fillColor: [33,150,243],
+      textColor: 255,
+      halign: 'center'
+    },
 
-  styles: {
-    font: 'helvetica',
-    fontSize: 10,
-    cellPadding: 4,
-    valign: 'middle'
-  },
+    columnStyles: {
+      Matricula: { halign:'left'  },
+      Nome:      { halign:'left'  },
+      Setor:     { halign:'left'  },
+      DataFmt:   { halign:'left'  },
+      _sig:      { halign:'center'}
+    },
 
-  headStyles: {
-    fillColor: [33,150,243],
-    textColor: 255,
-    halign: 'center'
-  },
+    didDrawPage: function (data) {
+      const page = data.pageNumber;
+      drawHeader(page);
+      drawFooter(page, doc.getNumberOfPages());
 
-  // (opcional) por chave — mais explícito
-  columnStyles: {
-    Matricula: { halign:'left'  },
-    Nome:      { halign:'left'  },
-    Setor:     { halign:'left'  },
-    DataFmt:   { halign:'left'  },
-    _sig:      { halign:'center'}
-  },
+      // A partir da 2ª página, deixar a região útil começar 2 linhas abaixo do título
+      if (page > 1 && data.cursor && data.cursor.y < yStartOtherPages) {
+        data.cursor.y = yStartOtherPages;
+      }
+    },
 
-  didDrawPage: function (data) {
-    const page = data.pageNumber;
-    drawHeader(page);
-    drawFooter(page, doc.getNumberOfPages());
+    // Desenho da assinatura, centralizada e dentro da célula
+    didDrawCell: function (data) {
+      if (data.section === "body" && data.column.dataKey === "_sig") {
+        const sig = data.row.raw && data.row.raw._sig;
+        if (!sig) return;
 
-    // A partir da 2ª página, começar 2 linhas abaixo do título
-    if (page > 1 && data.cursor && data.cursor.y < yStartOtherPages) {
-      data.cursor.y = yStartOtherPages;
+        try {
+          const pad = 3;
+          const cellW = Math.max(0, data.cell.width  - 2*pad);
+          const cellH = Math.max(0, data.cell.height - 2*pad);
+
+          const maxW = Math.min(130, cellW);
+          const maxH = Math.min(40,  cellH);
+
+          const x = data.cell.x + (data.cell.width  - maxW) / 2;
+          const y = data.cell.y + (data.cell.height - maxH) / 2;
+
+          doc.addImage(sig, "PNG", x, y, maxW, maxH);
+        } catch (e) {}
+      }
     }
-  },
-
-  didDrawCell: function (data) {
-    if (data.section === "body" && data.column.dataKey === "_sig") {
-      const sig = data.row.raw && data.row.raw._sig;
-      if (!sig) return;
-
-      try {
-        const pad = 3;
-        const cellW = Math.max(0, data.cell.width  - 2*pad);
-        const cellH = Math.max(0, data.cell.height - 2*pad);
-
-        const maxW = Math.min(130, cellW);
-        const maxH = Math.min(40,  cellH);
-
-        const x = data.cell.x + (data.cell.width  - maxW) / 2;
-        const y = data.cell.y + (data.cell.height - maxH) / 2;
-
-        doc.addImage(sig, "PNG", x, y, maxW, maxH);
-      } catch (e) {}
-    }
-  }
-});
+  });
 
   // ============================
   // IMAGEM DOS INSTRUTORES
   // ============================
-
   let yInstrutores = doc.lastAutoTable.finalY + 3 * L_H;
 
   if (instrutores && instrutores.dataUrl) {
-
     if (yInstrutores + 142 > pageHeight - M_BOTTOM) {
       doc.addPage();
       yInstrutores = yStartOtherPages;
