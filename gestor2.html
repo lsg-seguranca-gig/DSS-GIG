@@ -563,10 +563,27 @@ async function resolveInstructorSignatures(list){
           data.cursor.y = yStartOtherPages;
         }
       },
-      didDrawCell: (data) => {
-        // espaço para desenhar imagens na célula se necessário
-      }
-    });
+didDrawCell: (data) => {
+  if (data.section === 'body' && data.column && data.column.dataKey === '_sig') {
+    const val = data.row?.raw?._sig || '';
+    if (typeof val === 'string' && /^data:image\/(png|jpeg|jpg);base64,/i.test(val)) {
+      try {
+        const props   = doc.getImageProperties(val);
+        const wPtNat  = props.width  * 72/96;  // px->pt
+        const hPtNat  = props.height * 72/96;
+        const pad     = 4;
+        const maxW    = data.cell.width  - pad*2;
+        const maxH    = data.cell.height - pad*2;
+        const scale   = Math.min(maxW / wPtNat, maxH / hPtNat, 1); // nunca amplia
+        const w       = wPtNat * scale;
+        const h       = hPtNat * scale;
+        const x       = data.cell.x + (data.cell.width  - w)/2;
+        const y       = data.cell.y + (data.cell.height - h)/2;
+        doc.addImage(val, props.fileType || 'PNG', x, y, w, h);
+      } catch(e) { /* silencioso */ }
+    }
+  }
+}
 
     // ===== INSTRUTORES (cards) =====
     try {
