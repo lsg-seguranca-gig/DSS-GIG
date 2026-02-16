@@ -449,14 +449,21 @@ async function loadInstrutoresAsJPEG(src, maxW = 1100, maxH = 450, quality = 0.8
   // TABELA
   // ============================
 
-  const head = [["Matrícula","Funcionário","Setor","Data de Participação","Assinatura"]];
-  const body = base.map(r => [
-    r.Matricula || "",
-    r.Nome || "",
-    r.Setor || "",
-    formatTimestamp(r.Timestamp) || "",
-    ""
-  ]);
+  const columns = [
+  { header: "Matrícula", dataKey: "Matricula" },
+  { header: "Funcionário", dataKey: "Nome" },
+  { header: "Setor", dataKey: "Setor" },
+  { header: "Data de Participação", dataKey: "DataFmt" },
+  { header: "Assinatura", dataKey: "_sig" }
+];
+
+const rows = base.map(r => ({
+  Matricula: r.Matricula || "",
+  Nome:      r.Nome      || "",
+  Setor:     r.Setor     || "",
+  DataFmt:   formatTimestamp(r.Timestamp) || "",
+  _sig:      r.AssinaturaPNG || ""   // assinatura vem aqui
+}));
 
   // Página 1 → tabela começa abaixo do Assuntos  
   const yStartFirstPage = M_TOP + 20 + 6 * L_H;
@@ -511,26 +518,26 @@ async function loadInstrutoresAsJPEG(src, maxW = 1100, maxH = 450, quality = 0.8
       }
     },
 
-    didDrawCell: function (data) {
-      if (data.section === "body" && data.column.index === 4) {
+  didDrawCell: function (data) {
+  if (data.section === "body" && data.column.dataKey === "_sig") {
+    const sig = data.row.raw._sig;
+    if (!sig) return;
 
-        const sig = base[data.row.index].AssinaturaPNG;
-        if (!sig) return;
+    try {
+      const pad = 3;
+      const cellW = data.cell.width - pad * 2;
+      const cellH = data.cell.height - pad * 2;
 
-        try {
-          const cellW = data.cell.width - 6;
-          const cellH = data.cell.height - 6;
+      const maxW = Math.min(130, cellW);
+      const maxH = Math.min(40, cellH);
 
-          const maxW = Math.min(130, cellW);
-          const maxH = Math.min(40, cellH);
+      const x = data.cell.x + (data.cell.width - maxW) / 2;
+      const y = data.cell.y + (data.cell.height - maxH) / 2;
 
-          const x = data.cell.x + (data.cell.width - maxW) / 2;
-          const y = data.cell.y + (data.cell.height - maxH) / 2;
-
-          doc.addImage(sig, "PNG", x, y, maxW, maxH);
-        } catch (e) {}
-      }
-    }
+      doc.addImage(sig, "PNG", x, y, maxW, maxH);
+    } catch (e) {}
+  }
+}
   });
 
   // ============================
