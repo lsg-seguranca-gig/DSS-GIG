@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>DSS GIG — Painel do Gestor</title>
+  <link rel="icon" href="data:;base64,iVBORw0KGgo" />
+  <link rel="stylesheet" href="styles.css" />
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
+  <style>
+    .filters-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    @media (max-width:640px){ .filters-grid { grid-template-columns:1fr; } }
+    @media print {
+      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .site-header { box-shadow: none; }
+      .card { box-shadow: none; border:1px solid #999; }
+      .actions button { display:none; }
+    }
+  </style>
+  <link rel="shortcut icon" href="icone lsg.ico">
+</head>
+<body>
+<header class="site-header">
+  <img src="logo lsg.png" alt="logo LSG">
+  <h1>Painel do Gestor — DSS GIG</h1>
+  <p class="subtitle">Busque e gere relatórios em PDF (otimizado para impressão em papel)</p>
+</header>
+<main class="container">
+  <section class="card">
+    <h2>Filtros</h2>
+    <div class="filters-grid">
+      <div class="row">
+        <label for="fMat">Matrícula</label>
+        <input type="text" id="fMat" placeholder="Ex.: 12345" />
+      </div>
+      <div class="row">
+        <label for="fNome">Nome</label>
+        <input type="text" id="fNome" placeholder="Nome do colaborador" />
+      </div>
+      <div class="row">
+        <label for="fSem">Semana (YYYY-Www)</label>
+        <input type="text" id="fSem" placeholder="Ex.: 2026-W03" />
+      </div>
+    </div>
+    <div class="actions">
+      <button id="btnBuscar" class="primary">Buscar</button>
+      <button id="btnPDF" class="secondary">Gerar PDF</button>
+      <button id="btnAddFunc" class="primary">Novo Funcionário</button>
+    </div>
+    <div id="status" class="message"></div>
+  </section>
+  <section class="card">
+    <h2>Resultados</h2>
+    <div class="table-wrapper">
+      <table id="tbl" class="table">
+        <thead>
+          <tr>
+            <th>Matrícula</th>
+            <th>Funcionário</th>
+            <th>Setor</th>
+            <th>Semana</th>
+            <th>Data de participação</th>
+            <th>Assinatura</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+  </section>
+</main>
+<footer class="site-footer">
+  <small>© Caterair Serviços de Bordo e Hotelaria LTDA - Base GIG</small>
+</footer>
+<script>
+  const API_BASE = '/api/gas';
+  let registros = [];
+
+  // Logo p/ PDF
+  const LOGO_SRC = 'logo lsg.png';
+  let LOGO_DATAURL = '';
+  function loadLogoAsDataURL() {
+    return new Promise(resolve => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        try {
+          const c = document.createElement('canvas');
+          c.width = img.width; c.height = img.height;
+          c.getContext('2d').drawImage(img, 0, 0);
+          LOGO_DATAURL = c.toDataURL('image/png');
+          resolve(LOGO_DATAURL);
+        } catch(e){ resolve(LOGO_DATAURL || ''); }
+      };
+      img.onerror = () => resolve(LOGO_DATAURL || '');
+      img.src = LOGO_SRC;
+    });
+  }
+
+  document.getElementById('btnBuscar').addEventListener('click', buscar);
+  document.getElementById('btnPDF').addEventListener('click', gerarPDF);
+  document.getElementById('btnAddFunc').addEventListener('click', novoFuncionarioViaPrompt);
+
+  async function buscar(){
+    const status = document.getElementById('status'); status.innerHTML='';
+    const fMat = document.getElementById('fMat').value.trim();
+    const fNome = document.getElementById('fNome').value.trim();
+    const fSem = document.getElementById('fSem').value.trim();
+    const qs = new URLSearchParams({ action:'registros' });
+    if (fMat) qs.append('matricula', fMat);
+    if (fNome) qs.append('nome', fNome);
+    if (fSem) qs.append('semana', fSem);
+    try{
+      const res = await fetch(API_BASE + '?' + qs.toString());
+      let data; try{ data = await res.json(); }catch{ data = { ok:false, error:'Resposta não-JSON do proxy', status:res.status }; }
+      if (!data.ok) throw new Error(data.error || 'Erro ao buscar');
+      registros = data.data || [];
+      renderTabela(registros);
+      status.innerHTML = '<div class="ok">Busca concluída: ' + registros.length + ' registro(s).</div>';
+    }catch(err){ status.innerHTML = '<div class="error">Falha na consulta.</div>'; }
+  }
+
+  function renderTabela(list){
+    const tbody = document.getElementById('tbody'); tbody.innerHTML='';
+    if(!list || list.length===0){ tbody.innerHTML='<tr><td colspan="6" class="muted">Sem resultados</td></tr>'; return; }
+    list.forEach(r=>{
+      const tr=document.createElement('tr');
+      const dataPart = formatTimestamp(r.Timestamp);
+      tr.innerHTML = `
+        <td>${r.Matricula || ''}</td>
+        <td>${r.Nome || ''}</td>
+        <td>${r.Setor || ''}</td>
+        <td>${r.SemanaISO || ''}</td>
+        <td>${dataPart}</td>
+        <td>${r.AssinaturaPNG ? '<img class="sig-img" src="'+r.AssinaturaPNG+'" alt="Assinatura" />' : '-'}</td>`;
+      tbody.appendChild(tr);
+    });
+  }
+
+  function formatTimestamp(ts){
+    try{ const d=new Date(ts); if(!isNaN(d.getTime())) return d.toLocaleString('pt-BR'); }
+    catch(e){}
+    return String(ts||'');
+  }
+
+  async function fetchTreinamentos(){
+    try{
+      const res = await fetch(API_BASE + '?action=treinamentos');
+      const data = await res.json();
+      if (!data.ok) return [];
+      return Array.isArray(data.data) ? data.data : [];
+    }catch(e){ return []; }
+  }
+
+  async function gerarPDF(){
+    await loadLogoAsDataURL();
+    if(!registros || registros.length===0){ alert('Nenhum dado para gerar PDF.'); return; }
+
+    // Semana (ISO e titulo para cruzar com Treinamentos)
+    const filtroISO = (document.getElementById('fSem').value || '').trim();
+    const semanasEncontradas = [...new Set(registros.map(r=>r.SemanaISO).filter(Boolean))];
+    const semanaISO = filtroISO || (semanasEncontradas.join(', ') || '-');
+
+    // Preferência do título: TituloVideo (ex.: "02/02/2026 a 08/02/2026")
+    const titulos = [...new Set(registros.map(r=>r.TituloVideo).filter(Boolean))];
+    const tituloSemana = titulos.length ? titulos.join('; ') : '-';
+
+    // Busca 'Assuntos' na aba Treinamentos (supõe coluna 'Assuntos')
+    const treinamentos = await fetchTreinamentos();
+    // Casamento por SemanaISO OU por Titulo (fallback)
+    let assuntos = '';
+    if (treinamentos && treinamentos.length){
+      // tenta casar por qualquer semana das encontradas
+      const setISO = new Set(semanasEncontradas);
+      let hit = treinamentos.find(t => setISO.has(String(t['SemanaISO'])));
+      if (!hit && tituloSemana && tituloSemana !== '-') {
+        hit = treinamentos.find(t => String(t['Titulo']).trim() === titulos[0]);
+      }
+      assuntos = hit && hit['Assuntos'] ? String(hit['Assuntos']) : '';
+    }
+
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ orientation:'portrait', unit:'pt', format:'a4' });
+
+    const marginLeft = 48, marginRight = 48, marginTop = 150, marginBottom = 88; // mais espaço p/ assuntos
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const usableWidth = pageWidth - marginLeft - marginRight;
+
+    const LOGO_W = 120, LOGO_H = 52;
+    function drawHeaderFooter(){
+      // Logo (direita)
+      try{ if(LOGO_DATAURL) doc.addImage(LOGO_DATAURL,'PNG', pageWidth - marginRight - LOGO_W, 28, LOGO_W, LOGO_H); }catch(e){}
+      // Título
+      doc.setFont('helvetica','bold'); doc.setFontSize(18);
+      doc.text('Diálogo Semanal de Segurança', marginLeft, 48);
+      // Semana (usa TituloVideo) + abaixo Assuntos (se houver)
+      doc.setFont('helvetica','bold'); doc.setFontSize(16);
+      const headerText = 'Semana: ' + (tituloSemana || '-');
+      doc.text(doc.splitTextToSize(headerText, usableWidth - (LOGO_W + 12)), marginLeft, 72);
+
+      if (assuntos) {
+        doc.setFont('helvetica','normal'); doc.setFontSize(12);
+        const lines = doc.splitTextToSize('Assuntos: ' + assuntos, usableWidth);
+        doc.text(lines, marginLeft, 140); // ocupa o espaço antes da tabela
+      }
+
+      // Rodapé (4 linhas)
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const lineH = 14; const startY = pageHeight - marginBottom + 10;
+      const generatedAt = new Date().toLocaleString('pt-BR');
+      doc.setFont('helvetica','italic'); doc.setFontSize(9);
+      doc.text('Gerado em: ' + generatedAt, marginLeft, startY);
+      doc.setFont('helvetica','normal'); doc.setFontSize(9);
+      doc.text('Caterair Serviços de Bordo e Hotelaria LTDA - Base GIG', marginLeft, startY + lineH);
+      doc.text('CNPJ 33.375.601/0001-38', marginLeft, startY + 2*lineH);
+      doc.text('Rua P, S/N, Área de Apoio do Aeroporto Internacional do Rio de Janeiro - Ilha do Governador - RJ', marginLeft, startY + 3*lineH);
+    }
+
+    // Tabela
+    const head = [['Matrícula','Funcionário','Setor','Data de Participação','Assinatura']];
+    const body = registros.map(r=>[
+      r.Matricula||'', r.Nome||'', r.Setor||'', formatTimestamp(r.Timestamp)||'', ''
+    ]);
+
+    const weights = { matricula:0.12, funcionario:0.32, setor:0.18, data:0.22, assinatura:0.16 };
+    const norm = Object.values(weights).reduce((a,b)=>a+b,0) || 1;
+    const W = {
+      matricula  : Math.floor((weights.matricula  / norm) * usableWidth),
+      funcionario: Math.floor((weights.funcionario/ norm) * usableWidth),
+      setor      : Math.floor((weights.setor      / norm) * usableWidth),
+      data       : Math.floor((weights.data       / norm) * usableWidth),
+      assinatura : Math.floor((weights.assinatura / norm) * usableWidth),
+    };
+    const sumW = W.matricula + W.funcionario + W.setor + W.data + W.assinatura;
+    if (sumW !== usableWidth) W.assinatura += (usableWidth - sumW);
+
+    doc.autoTable({
+      startY: marginTop,
+      head, body,
+      margin: { left: marginLeft, right: marginRight, top: marginTop, bottom: marginBottom },
+      tableWidth: usableWidth,
+      styles: { font:'helvetica', fontSize:9, cellPadding:4, valign:'middle', overflow:'linebreak' },
+      headStyles: { fillColor:[33,150,243], textColor:255, halign:'center' },
+      columnStyles: {
+        0: { cellWidth: W.matricula,   halign:'left' },
+        1: { cellWidth: W.funcionario, halign:'left' },
+        2: { cellWidth: W.setor,       halign:'left' },
+        3: { cellWidth: W.data,        halign:'left' },
+        4: { cellWidth: W.assinatura,  halign:'center' }
+      },
+      didDrawPage: drawHeaderFooter,
+      didDrawCell: function (data) {
+        if (data.section === 'body' && data.column.index === 4) {
+          const i = data.row.index; const sig = registros[i].AssinaturaPNG;
+          if (sig) {
+            try {
+              const maxW = Math.min(90, data.cell.width - 8);
+              const maxH = 24;
+              const x = data.cell.x + (data.cell.width - maxW)/2;
+              const yImg = data.cell.y + (data.cell.height - maxH)/2;
+              doc.addImage(sig, 'PNG', x, yImg, maxW, maxH);
+            } catch(e) {}
+          }
+        }
+      }
+    });
+
+    doc.save('Relatorio_Dialogo_Semanal_de_Seguranca.pdf');
+  }
+
+  // Inclusão de novo funcionário (máscara + confirmação)
+  async function novoFuncionarioViaPrompt(){
+    const status = document.getElementById('status');
+    try{
+      let mRaw = prompt('Nova matrícula (5 dígitos, apenas números):');
+      if (mRaw === null) return;
+      mRaw = (mRaw || '').replace(/\D/g,'');
+      while (!/^\d{5}$/.test(mRaw)) {
+        mRaw = prompt('Matrícula inválida. Informe 5 dígitos (ex.: 12345):', mRaw);
+        if (mRaw === null) return;
+        mRaw = (mRaw || '').replace(/\D/g,'');
+      }
+      const matricula = mRaw;
+
+      let nome = prompt('Nome completo:');
+      if (nome === null) return;
+      nome = (nome || '').trim();
+      if (!nome) { alert('Nome é obrigatório.'); return; }
+
+      let setor = prompt('Setor (opcional):');
+      if (setor === null) setor = '';
+      setor = (setor || '').trim();
+
+      const ok = confirm(`Confirmar cadastro?\n\nMatrícula: ${matricula}\nNome: ${nome}\nSetor: ${setor || '-'}\nAtivo: TRUE`);
+      if (!ok) { status.innerHTML = '<div class="warn">Operação cancelada.</div>'; return; }
+
+      const payload = { matricula, nome, setor, ativo: true };
+      status.innerHTML = '<div class="warn">Enviando novo funcionário...</div>';
+      const res = await fetch(API_BASE+'?action=addFuncionario',{
+        method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)
+      });
+      let data; try{ data = await res.json(); } catch{ data = { ok:false, error:'Resposta não-JSON', status: res.status }; }
+      if(!data.ok) throw new Error(data.error || 'Falha ao incluir funcionário');
+
+      status.innerHTML = '<div class="ok">Funcionário incluído com sucesso.</div>';
+    }catch(err){
+      status.innerHTML = '<div class="error">'+ (err && err.message ? err.message : 'Erro ao incluir funcionário') +'</div>';
+    }
+  }
+</script>
+</body>
+</html>
