@@ -465,80 +465,86 @@ const rows = base.map(r => ({
   _sig:      r.AssinaturaPNG || ""   // assinatura vem aqui
 }));
 
+console.log('rows no PDF:', rows.length, rows[0]);
+
   // Página 1 → tabela começa abaixo do Assuntos  
   const yStartFirstPage = M_TOP + 20 + 6 * L_H;
 
   // Páginas seguintes → tabela começa apenas 2 linhas abaixo do título
   const yStartOtherPages = M_TOP + 20 + 2 * L_H;
 
-  doc.autoTable({
-    startY: yStartFirstPage,
+doc.autoTable({
+  startY: yStartFirstPage,
 
-    margin: { 
-      left: M_LEFT, 
-      right: M_RIGHT, 
-      top: M_TOP,
-      bottom: M_BOTTOM + 60  // reserva p/ rodapé -> não invade mais
-    },
+  margin: { 
+    left:  M_LEFT, 
+    right: M_RIGHT, 
+    top:   M_TOP,
+    bottom: M_BOTTOM + 60  // reserva p/ rodapé -> não invade mais
+  },
 
-    pageBreak: 'auto',
-    columns, rows,
-    tableWidth: usableWidth,
+  pageBreak: 'auto',
 
-    styles: {
-      font: 'helvetica',
-      fontSize: 10,
-      cellPadding: 4,
-      valign: 'middle'
-    },
+  // ✅ Correção: use body: rows
+  columns,
+  body: rows,
 
-    headStyles: {
-      fillColor: [33,150,243],
-      textColor: 255,
-      halign: 'center'
-    },
+  tableWidth: usableWidth,
 
-    columnStyles: {
-      0:{ halign:'left'  },
-      1:{ halign:'left'  },
-      2:{ halign:'left'  },
-      3:{ halign:'left'  },
-      4:{ halign:'center'}
-    },
+  styles: {
+    font: 'helvetica',
+    fontSize: 10,
+    cellPadding: 4,
+    valign: 'middle'
+  },
 
-    didDrawPage: function (data) {
-      const page = data.pageNumber;
+  headStyles: {
+    fillColor: [33,150,243],
+    textColor: 255,
+    halign: 'center'
+  },
 
-      drawHeader(page);
-      drawFooter(page, doc.getNumberOfPages());
+  // (opcional) por chave — mais explícito
+  columnStyles: {
+    Matricula: { halign:'left'  },
+    Nome:      { halign:'left'  },
+    Setor:     { halign:'left'  },
+    DataFmt:   { halign:'left'  },
+    _sig:      { halign:'center'}
+  },
 
-      // Se não é primeira página → mover tabela para 2 linhas abaixo do título
-      if (page > 1) {
-        doc.autoTable.previous.finalY = yStartOtherPages;
-      }
-    },
+  didDrawPage: function (data) {
+    const page = data.pageNumber;
+    drawHeader(page);
+    drawFooter(page, doc.getNumberOfPages());
+
+    // A partir da 2ª página, começar 2 linhas abaixo do título
+    if (page > 1 && data.cursor && data.cursor.y < yStartOtherPages) {
+      data.cursor.y = yStartOtherPages;
+    }
+  },
 
   didDrawCell: function (data) {
-  if (data.section === "body" && data.column.dataKey === "_sig") {
-    const sig = data.row.raw._sig;
-    if (!sig) return;
+    if (data.section === "body" && data.column.dataKey === "_sig") {
+      const sig = data.row.raw && data.row.raw._sig;
+      if (!sig) return;
 
-    try {
-      const pad = 3;
-      const cellW = data.cell.width - pad * 2;
-      const cellH = data.cell.height - pad * 2;
+      try {
+        const pad = 3;
+        const cellW = Math.max(0, data.cell.width  - 2*pad);
+        const cellH = Math.max(0, data.cell.height - 2*pad);
 
-      const maxW = Math.min(130, cellW);
-      const maxH = Math.min(40, cellH);
+        const maxW = Math.min(130, cellW);
+        const maxH = Math.min(40,  cellH);
 
-      const x = data.cell.x + (data.cell.width - maxW) / 2;
-      const y = data.cell.y + (data.cell.height - maxH) / 2;
+        const x = data.cell.x + (data.cell.width  - maxW) / 2;
+        const y = data.cell.y + (data.cell.height - maxH) / 2;
 
-      doc.addImage(sig, "PNG", x, y, maxW, maxH);
-    } catch (e) {}
+        doc.addImage(sig, "PNG", x, y, maxW, maxH);
+      } catch (e) {}
+    }
   }
-}
-  });
+});
 
   // ============================
   // IMAGEM DOS INSTRUTORES
