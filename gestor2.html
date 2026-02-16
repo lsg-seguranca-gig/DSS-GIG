@@ -323,10 +323,13 @@ async function loadInstrutoresAsJPEG(src, maxW = 1100, maxH = 450, quality = 0.8
   
 async function gerarPDF(){
   await loadLogoAsDataURL();
+
   const baseSource = (Array.isArray(registrosFiltrados) && registrosFiltrados.length) ? registrosFiltrados : registros;
   if (!baseSource || !baseSource.length) { alert('Nenhum dado para gerar PDF.'); return; }
 
-  const base = [...baseSource].sort((a,b)=> String(a.Nome??'').localeCompare(String(b.Nome??''),'pt-BR',{sensitivity:'base'}));
+  const base = [...baseSource].sort(
+    (a,b)=> String(a.Nome??'').localeCompare(String(b.Nome??''),'pt-BR',{sensitivity:'base'})
+  );
 
   const titulos = [...new Set(base.map(r => r.TituloVideo).filter(Boolean))];
   const tituloSemana = titulos.length ? titulos.join('; ') : '-';
@@ -353,12 +356,19 @@ async function gerarPDF(){
   const LOGO_W = 120, LOGO_H = 52;
   const L_H = 14;
 
-  const assuntosLines = assuntosCabecalho ? doc.splitTextToSize('Assuntos: ' + assuntosCabecalho, usableWidth) : [];
+  const assuntosLines = assuntosCabecalho
+    ? doc.splitTextToSize('Assuntos: ' + assuntosCabecalho, usableWidth)
+    : [];
 
   function drawHeader(pageNumber){
-    try{ if (LOGO_DATAURL) { doc.addImage(LOGO_DATAURL,'PNG', pageWidth - M_RIGHT - LOGO_W, M_TOP, LOGO_W, LOGO_H); } }catch(e){}
+    try {
+      if (LOGO_DATAURL) {
+        doc.addImage(LOGO_DATAURL,'PNG', pageWidth - M_RIGHT - LOGO_W, M_TOP, LOGO_W, LOGO_H);
+      }
+    } catch(e){}
     doc.setFont('helvetica','bold'); doc.setFontSize(18);
     doc.text('DIÁLOGO SEMANAL DE SEGURANÇA', M_LEFT, M_TOP + 20);
+
     if (pageNumber === 1){
       doc.setFont('helvetica','bold'); doc.setFontSize(14);
       doc.text('Semana: ' + (tituloSemana||'-'), M_LEFT, M_TOP + 20 + 2*L_H);
@@ -369,20 +379,29 @@ async function gerarPDF(){
     }
   }
 
+  // Rodapé com paginação CENTRALIZADA abaixo do endereço
   function drawFooter(pageNumber, totalPagesText){
     const footerY = pageHeight - M_BOTTOM;
     const generatedAt = new Date().toLocaleString('pt-BR');
+
+    // Subimos uma linha cada texto para abrir espaço para a paginação
     doc.setFont('helvetica','italic'); doc.setFontSize(9);
-    doc.text('Gerado em: ' + generatedAt, M_LEFT, footerY - 3*L_H);
+    doc.text('Gerado em: ' + generatedAt, M_LEFT, footerY - 4*L_H);
+
     doc.setFont('helvetica','normal'); doc.setFontSize(9);
-    doc.text('Caterair Serviços de Bordo e Hotelaria LTDA - Base GIG', M_LEFT, footerY - 2*L_H);
-    doc.text('CNPJ 33.375.601/0001-38', M_LEFT, footerY - 1*L_H);
-    doc.text('Rua P, S/N, Área de Apoio do Aeroporto Internacional do Rio de Janeiro - Ilha do Governador - RJ', M_LEFT, footerY);
+    doc.text('Caterair Serviços de Bordo e Hotelaria LTDA - Base GIG', M_LEFT, footerY - 3*L_H);
+    doc.text('CNPJ 33.375.601/0001-38', M_LEFT, footerY - 2*L_H);
+    doc.text('Rua P, S/N, Área de Apoio do Aeroporto Internacional do Rio de Janeiro - Ilha do Governador - RJ',
+             M_LEFT, footerY - 1*L_H);
+
+    // Paginação CENTRALIZADA na linha logo abaixo do endereço
     const pagText = `Página ${pageNumber} de ${totalPagesText}`;
     const w = doc.getTextWidth(pagText);
-    doc.text(pagText, pageWidth - M_RIGHT - w, footerY - 2*L_H);
+    const xCenter = (pageWidth - w) / 2;
+    doc.text(pagText, xCenter, footerY);
   }
 
+  // Tabela
   const columns = [
     { header:'Matrícula', dataKey:'Matricula' },
     { header:'Funcionário', dataKey:'Nome' },
@@ -400,13 +419,17 @@ async function gerarPDF(){
 
   const totalPagesExp = '{total_pages_count_string}';
 
+  // 1ª página: abaixo do bloco de "Semana/Assuntos"
   let yStartFirstPage = M_TOP + 20 + 2*L_H + (assuntosLines.length ? (2*L_H + assuntosLines.length*L_H) : 0) + 2*L_H;
   const yStartFirstPageMin = M_TOP + 20 + 6*L_H;
   if (yStartFirstPage < yStartFirstPageMin) yStartFirstPage = yStartFirstPageMin;
-  const yStartOtherPages = M_TOP + 20 + 2*L_H;
+
+  // DEMAIS páginas: calcula considerando A ALTURA DO LOGO + respiro
+  const yStartOtherPages = M_TOP + LOGO_H + 3*L_H; // <- evita sobreposição
 
   doc.autoTable({
     startY: yStartFirstPage,
+    // Reserva espaço extra no rodapé para a nova linha da paginação
     margin: { left:M_LEFT, right:M_RIGHT, top:M_TOP, bottom:M_BOTTOM + 60 },
     pageBreak: 'auto',
     tableWidth: usableWidth,
@@ -414,17 +437,26 @@ async function gerarPDF(){
     body: rows,
     styles: { font:'helvetica', fontSize:10, cellPadding:4, valign:'middle', overflow:'linebreak', minCellHeight: 28 },
     headStyles: { fillColor:[33,150,243], textColor:255, halign:'center' },
-    columnStyles: { Matricula:{ halign:'left' }, Nome:{ halign:'left' }, Setor:{ halign:'left' }, DataFmt:{ halign:'left' }, _sig:{ halign:'center' } },
+    columnStyles: {
+      Matricula:{ halign:'left' },
+      Nome: { halign:'left' },
+      Setor: { halign:'left' },
+      DataFmt: { halign:'left' },
+      _sig: { halign:'center' }
+    },
 
+    // Limpa texto da célula de assinatura (evita Base64 impresso)
     didParseCell: (data) => {
       if (data.section === 'body' && data.column.dataKey === '_sig') {
-        data.cell.text = ['']; // não imprimir base64 como texto
+        data.cell.text = [''];
       }
     },
 
     didDrawPage: (data) => {
       drawHeader(data.pageNumber);
       drawFooter(data.pageNumber, totalPagesExp);
+
+      // Se a tabela tentar subir acima do cabeçalho nas páginas 2+, ancoramos no y calculado
       if (data.pageNumber > 1 && data.cursor && data.cursor.y < yStartOtherPages) {
         data.cursor.y = yStartOtherPages;
       }
@@ -448,9 +480,12 @@ async function gerarPDF(){
     }
   });
 
+  // Bloco "Instrutores"
   let yInstrutores = (doc.lastAutoTable && doc.lastAutoTable.finalY ? doc.lastAutoTable.finalY : yStartFirstPage) + 3*L_H;
   let instrutoresImg = null;
-  try { if (typeof loadInstrutoresAsJPEG === 'function') { instrutoresImg = await loadInstrutoresAsJPEG('instrutores.png', 312, 142, 0.80); } } catch(e){}
+  try { if (typeof loadInstrutoresAsJPEG === 'function') {
+    instrutoresImg = await loadInstrutoresAsJPEG('instrutores.png', 312, 142, 0.80);
+  } } catch(e){}
 
   if (instrutoresImg && instrutoresImg.dataUrl) {
     if (yInstrutores + 142 > pageHeight - M_BOTTOM) {
@@ -458,6 +493,7 @@ async function gerarPDF(){
       const current = doc.getNumberOfPages();
       drawHeader(current);
       drawFooter(current, totalPagesExp);
+      // Respeita o cabeçalho na nova página
       yInstrutores = yStartOtherPages;
     }
     doc.setFont('helvetica','bold'); doc.setFontSize(14);
@@ -472,7 +508,6 @@ async function gerarPDF(){
 
   doc.save('Relatorio_Dialogo_Semanal_de_Seguranca.pdf');
 }
-
 
   async function novoFuncionarioViaPrompt(){
     const status = document.getElementById('status');
