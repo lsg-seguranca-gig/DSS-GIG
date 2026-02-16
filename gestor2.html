@@ -389,6 +389,19 @@ async function fetchInstrutores(){
   ];
 }
 
+
+// Cache global de assinaturas carregadas (PNG -> DataURL)
+const _assinCache = new Map();
+async function loadPNGAsDataURL(src, maxW = 1200, maxH = 400){
+  if (_assinCache.has(src)) return _assinCache.get(src);
+  const dataURL = await new Promise(resolve=>{
+    try{ const img=new Image(); img.onload=()=>{ try{ const ratio=Math.min(maxW/img.width, maxH/img.height, 1); const nw=Math.round(img.width*ratio); const nh=Math.round(img.height*ratio); const c=document.createElement('canvas'); c.width=nw; c.height=nh; c.getContext('2d').drawImage(img,0,0,nw,nh); resolve(c.toDataURL('image/png')); }catch(e){ resolve(''); } }; img.onerror=()=>resolve(''); img.src=src; }catch(e){ resolve(''); }
+  });
+  _assinCache.set(src, dataURL);
+  return dataURL;
+}
+function isDataURLImage(v){ return typeof v==='string' && /^data:image\\/(png|jpeg|jpg);base64,/i.test(v.trim()); }
+
 async function gerarPDF(){
   await loadLogoAsDataURL();
 
@@ -461,9 +474,9 @@ async function gerarPDF(){
     doc.text('Rua P, S/N, Área de Apoio do Aeroporto Internacional do Rio de Janeiro - Ilha do Governador - RJ',
              M_LEFT, footerY - 1*L_H);
 
-    const pagText = `Página ${pageNumber} de ${totalPagesText}`;
-    doc.setFont('helvetica','normal'); doc.setFontSize(9);
-    doc.text(pagText, pageWidth/2, footerY, { align:'center' });
+   const pagText = (`Página ${pageNumber} de ${totalPagesText}`).trim();
+   doc.setFont('helvetica','normal'); doc.setFontSize(9);
+   doc.text(pagText, pageWidth/2, footerY, { align:'center' });
   }
 
   const columns = [
@@ -493,7 +506,7 @@ async function gerarPDF(){
 
   doc.autoTable({
     startY: yStartFirstPage,
-    margin: { left:M_LEFT, right:M_RIGHT, top:yStartOtherPages, bottom:M_BOTTOM + 60 },
+    margin: { left:M_LEFT, right:M_RIGHT, top:yStartOtherPages, bottom: M_BOTTOM + 80 },
     pageBreak: 'auto',
     tableWidth: usableWidth,
     columns,
@@ -526,22 +539,7 @@ async function gerarPDF(){
     },
 
     didDrawCell: (data) => {
-      if (data.section === 'body' && data.column.dataKey === '_sig') {
-        const sig = data.row.raw && data.row.raw._sig;
-        if (!sig) return;
-        try{
-          const pad = 3;
-          const cellW = Math.max(0, data.cell.width - 2*pad);
-          const cellH = Math.max(0, data.cell.height - 2*pad);
-          const maxW = Math.min(150, cellW); // acompanha a largura maior
-          const maxH = Math.min(42,  cellH);
-          const x = data.cell.x + (data.cell.width - maxW) / 2;
-          const y = data.cell.y + (data.cell.height - maxH) / 2;
-          doc.addImage(sig, 'PNG', x, y, maxW, maxH);
-        }catch(e){}
-      }
-    }
-  });
+      
 
 // ===== INSTRUTORES (cards) =====
 // 1) Obtenha as informações dos instrutores:
