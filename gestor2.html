@@ -513,7 +513,7 @@ async function resolveInstructorSignatures(list){
       { header:'Data de Participação', dataKey:'DataFmt' },
       { header:'Assinatura', dataKey:'_sig' }
     ];
-    let rows = base.map(r => ({
+    let rows = base.map(r => ({{
       Matricula: r.Matricula ?? '',
       Nome: r.Nome ?? '',
       Setor: r.Setor ?? '',
