@@ -400,6 +400,40 @@
     return typeof v==='string' && /^data:image\/(png|jpeg|jpg);base64,/i.test(v.trim());
   }
 
+// ===== Fallback assíncrono: converte URL de imagem -> DataURL, sem XHR síncrono =====
+const __dataUrlCache = new Map();
+async function urlToDataURL(url){
+  try{
+    if (__dataUrlCache.has(url)) return __dataUrlCache.get(url);
+    const res = await fetch(url, { mode: 'cors' });
+    const blob = await res.blob();
+    const dataUrl = await new Promise((resolve)=>{ const fr = new FileReader(); fr.onload=()=>resolve(fr.result); fr.onerror=()=>resolve(''); fr.readAsDataURL(blob); });
+    __dataUrlCache.set(url, dataUrl || '');
+    return dataUrl || '';
+  }catch(e){ return ''; }
+}
+async function ensureDataURLImage(v){
+  if (!v) return '';
+  if (isDataURLImage(v)) return v;
+  return await urlToDataURL(v);
+}
+async function resolveRowSignatures(rows){
+  const out = [];
+  for (const r of rows){
+    const sig = await ensureDataURLImage(r._sig || r.AssinaturaPNG || '');
+    out.push({ ...r, _sig: sig });
+  }
+  return out;
+}
+async function resolveInstructorSignatures(list){
+  const out = [];
+  for (const inst of (list || [])){
+    const sig = await ensureDataURLImage(inst.assinaturaPng || '');
+    out.push({ ...inst, assinaturaPng: sig });
+  }
+  return out;
+}
+
   async function gerarPDF(){
     await loadLogoAsDataURL();
 
@@ -487,6 +521,8 @@
       _sig: r.AssinaturaPNG ?? ''
     }));
 
+    const rows = await resolveRowSignatures(rowsRaw);
+
     const totalPagesExp = '{total_pages_count_string}';
 
     let yStartFirstPage = M_TOP + 20 + 2*L_H + (assuntosLines.length ? (2*L_H + assuntosLines.length*L_H) : 0) + 2*L_H;
@@ -514,6 +550,10 @@
       didParseCell: (data) => {
         if (data.section === 'body' && data.column.dataKey === '_sig') {
           data.cell.text = [''];
+          // Oculta a linha/borda das células de assinatura
+          if (data.cell && data.cell.styles) {
+            data.cell.styles.lineWidth = 0;
+          }
         }
       },
       didDrawPage: (data) => {
@@ -531,8 +571,9 @@
     // ===== INSTRUTORES (cards) =====
     try {
       const instrutores = await fetchInstrutores();
-      if (Array.isArray(instrutores) && instrutores.length) {
-        await desenharCartoesInstrutores(doc, instrutores, yStartFirstPage, {
+      const instrutoresResolved = await resolveInstructorSignatures(instrutores);
+      if (Array.isArray(instrutoresResolved) && instrutoresResolved.length) {
+        await desenharCartoesInstrutores(doc, instrutoresResolved, yStartFirstPage, {
           pageWidth, pageHeight, usableWidth,
           M_LEFT, M_RIGHT, M_BOTTOM,
           L_H, yStartOtherPages, totalPagesExp,
@@ -576,7 +617,7 @@
     doc.text('INSTRUTORES RESPONSÁVEIS:', M_LEFT, y);
     y += 16;
 
-    doc.setFont('helvetica','normal'); doc.setFontSize(grid.fontSize);
+    doc.setFont('helvetica','normal'); doc.setFontSize(grid.fontSize); doc.setTextColor(0);
 
     for (let idx=0; idx<instrutores.length; idx++) {
       const inst = instrutores[idx];
@@ -609,12 +650,20 @@
           const maxH = boxH;
           const sigX = x + (grid.cardW - maxW) / 2;
           const sigY = y + pad;
-          doc.addImage(inst.assinaturaPng, 'PNG', sigX, sigY, maxW, maxH);
+          const props = doc.getImageProperties(inst.assinaturaPng);
+const wPtNat = props.width * 72/96;
+const hPtNat = props.height * 72/96;
+const scaleSig = Math.min((maxW) / wPtNat, (maxH) / hPtNat, 1);
+const wSig = wPtNat * scaleSig;
+const hSig = hPtNat * scaleSig;
+const xSig = x + (grid.cardW - wSig) / 2;
+const ySig = y + pad + (maxH - hSig)/2;
+doc.addImage(inst.assinaturaPng, props.fileType || 'PNG', xSig, ySig, wSig, hSig);
         } catch(e){}
       }
 
       const textPadX = 8;
-      const textX = x + textPadX;
+      const xCenter = x + grid.cardW/2;
       let textY = y + grid.sigH + 2*L_H*0.6;
       const wrapW = grid.cardW - 2*textPadX;
 
@@ -622,7 +671,10 @@
         if (!value) return;
         doc.setFont('helvetica', bold ? 'bold' : 'normal');
         const txt = doc.splitTextToSize(`${label}${String(value)}`, wrapW);
-        doc.text(txt, textX, textY);
+        // escreve centralizado no cartão
+        txt.forEach((line, i) => {
+          doc.text(line, xCenter, textY + i*(grid.fontSize+2), { align: 'center' });
+        });
         textY += txt.length * (grid.fontSize + 2);
       };
 
