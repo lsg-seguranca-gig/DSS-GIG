@@ -320,7 +320,58 @@ async function loadInstrutoresAsJPEG(src, maxW = 1100, maxH = 450, quality = 0.8
   });
 }
 
-  async function gerarPDF(){
+// Util: carrega um SVG e rasteriza para PNG (DataURL) com as dimensões solicitadas
+async function loadSVGAsPNG(src, maxW = 1100, maxH = 450, bgColor = 'transparent') {
+  return new Promise(resolve => {
+    try {
+      fetch(src)
+        .then(r => r.text())
+        .then(svgText => {
+          // Cria um blob do SVG para preservar o mesmo domínio/origem
+          const blob = new Blob([svgText], { type: 'image/svg+xml' });
+          const url = URL.createObjectURL(blob);
+
+          const img = new Image();
+          img.onload = () => {
+            try {
+              const ratio = Math.min(maxW / img.width, maxH / img.height, 1);
+              const nw = Math.round(img.width * ratio);
+              const nh = Math.round(img.height * ratio);
+
+              const c = document.createElement('canvas');
+              c.width = nw; c.height = nh;
+              const ctx = c.getContext('2d');
+
+              // fundo opcional (se quiser branco, troque 'transparent' por '#fff')
+              if (bgColor && bgColor !== 'transparent') {
+                ctx.fillStyle = bgColor;
+                ctx.fillRect(0, 0, nw, nh);
+              }
+
+              ctx.drawImage(img, 0, 0, nw, nh);
+              const dataUrl = c.toDataURL('image/png', 1.0);
+
+              URL.revokeObjectURL(url);
+              resolve({ dataUrl, w: nw, h: nh });
+            } catch (e) {
+              URL.revokeObjectURL(url);
+              resolve({ dataUrl: '', w: 0, h: 0 });
+            }
+          };
+          img.onerror = () => {
+            URL.revokeObjectURL(url);
+            resolve({ dataUrl: '', w: 0, h: 0 });
+          };
+          img.src = url;
+        })
+        .catch(() => resolve({ dataUrl: '', w: 0, h: 0 }));
+    } catch {
+      resolve({ dataUrl: '', w: 0, h: 0 });
+    }
+  });
+}
+
+async function gerarPDF(){
   await loadLogoAsDataURL();
 
   const baseSource = (Array.isArray(registrosFiltrados) && registrosFiltrados.length) ? registrosFiltrados : registros;
@@ -424,7 +475,6 @@ async function loadInstrutoresAsJPEG(src, maxW = 1100, maxH = 450, quality = 0.8
 
   doc.autoTable({
     startY: yStartFirstPage,
-    // top define o ponto inicial nas páginas 2+ (evita sobreposição do cabeçalho)
     margin: { left:M_LEFT, right:M_RIGHT, top:yStartOtherPages, bottom:M_BOTTOM + 60 },
     pageBreak: 'auto',
     tableWidth: usableWidth,
@@ -452,8 +502,6 @@ async function loadInstrutoresAsJPEG(src, maxW = 1100, maxH = 450, quality = 0.8
     didDrawPage: (data) => {
       drawHeader(data.pageNumber);
       drawFooter(data.pageNumber, totalPagesExp);
-
-      // guarda extra: ancora o cursor nas páginas 2+
       if (data.pageNumber > 1 && data.cursor && data.cursor.y < yStartOtherPages) {
         data.cursor.y = yStartOtherPages;
       }
@@ -467,7 +515,7 @@ async function loadInstrutoresAsJPEG(src, maxW = 1100, maxH = 450, quality = 0.8
           const pad = 3;
           const cellW = Math.max(0, data.cell.width - 2*pad);
           const cellH = Math.max(0, data.cell.height - 2*pad);
-          const maxW = Math.min(150, cellW); // acompanha o cellWidth maior
+          const maxW = Math.min(150, cellW); // acompanha a largura maior
           const maxH = Math.min(42,  cellH);
           const x = data.cell.x + (data.cell.width - maxW) / 2;
           const y = data.cell.y + (data.cell.height - maxH) / 2;
@@ -477,12 +525,14 @@ async function loadInstrutoresAsJPEG(src, maxW = 1100, maxH = 450, quality = 0.8
     }
   });
 
-  // "Instrutores"
+  // ===== "Instrutores" — agora via instrutores.svg (rasterizado para PNG) =====
   let yInstrutores = (doc.lastAutoTable && doc.lastAutoTable.finalY ? doc.lastAutoTable.finalY : yStartFirstPage) + 3*L_H;
+
   let instrutoresImg = null;
-  try { if (typeof loadInstrutoresAsJPEG === 'function') {
-    instrutoresImg = await loadInstrutoresAsJPEG('instrutores.png', 312, 142, 0.80);
-  } } catch(e){}
+  try {
+    // Carrega o SVG e converte p/ PNG (DataURL) nas dimensões alvo
+    instrutoresImg = await loadSVGAsPNG('instrutores.svg', 312, 142, 'transparent');
+  } catch(e){}
 
   if (instrutoresImg && instrutoresImg.dataUrl) {
     if (yInstrutores + 142 > pageHeight - M_BOTTOM) {
@@ -495,7 +545,7 @@ async function loadInstrutoresAsJPEG(src, maxW = 1100, maxH = 450, quality = 0.8
     doc.setFont('helvetica','bold'); doc.setFontSize(14);
     doc.text('INSTRUTORES RESPONSÁVEIS:', M_LEFT, yInstrutores);
     yInstrutores += 16;
-    try { doc.addImage(instrutoresImg.dataUrl, 'JPEG', M_LEFT, yInstrutores, 312, 142); } catch(e){}
+    try { doc.addImage(instrutoresImg.dataUrl, 'PNG', M_LEFT, yInstrutores, 312, 142); } catch(e){}
   }
 
   if (typeof doc.putTotalPages === 'function') {
