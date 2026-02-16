@@ -320,158 +320,184 @@ async function loadInstrutoresAsJPEG(src, maxW = 1100, maxH = 450, quality = 0.8
   });
 }
 
-  async function gerarPDF() {
+async function gerarPDF() {
+
   await loadLogoAsDataURL();
 
-  // Base: usa registrosFiltrados (após Buscar) ou, se vazio, os registros carregados
-  const base = (Array.isArray(registrosFiltrados) && registrosFiltrados.length) ? registrosFiltrados : registros;
+  const base = (Array.isArray(registrosFiltrados) && registrosFiltrados.length)
+               ? registrosFiltrados 
+               : registros;
 
   if (!base || !base.length) {
-    alert('Nenhum dado para gerar PDF.');
+    alert("Nenhum dado para gerar PDF.");
     return;
   }
 
-  // Semana escolhida pelo gestor (preferência: fSemanaTitulo; fallback: fSem se existir)
-  const inpSemana = document.getElementById('fSemanaTitulo') || document.getElementById('fSem');
-  const semanaDigitada = inpSemana ? (inpSemana.value || '').trim() : '';
+  const inpSemana = document.getElementById("fSemanaTitulo") || document.getElementById("fSem");
+  const semanaDigitada = inpSemana ? (inpSemana.value || "").trim() : "";
 
-  // Coleta de contexto a partir da base filtrada
   const semanasEncontradas = [...new Set(base.map(r => r.SemanaISO).filter(Boolean))];
-  const titulos = [...new Set(base.map(r => r.TituloVideo).filter(Boolean))]; // ex.: "dd/mm/aaaa a dd/mm/aaaa"
-  const semanaPorTitulo = titulos.length ? titulos.join('; ') : '';
-  const semanaISO = semanasEncontradas.join(', ') || '';
-  const semanaTexto = semanaDigitada || semanaPorTitulo || semanaISO || '-';
+  const titulos = [...new Set(base.map(r => r.TituloVideo).filter(Boolean))];
+  const semanaPorTitulo = titulos.length ? titulos.join("; ") : "";
+  const semanaISO = semanasEncontradas.join(", ") || "";
+  const semanaTexto = semanaDigitada || semanaPorTitulo || semanaISO || "-";
 
-  // Assuntos (opcional) via Treinamentos
   const treinamentos = await fetchTreinamentos();
-  let assuntos = '';
+  let assuntos = "";
   if (treinamentos && treinamentos.length) {
     const setISO = new Set(semanasEncontradas.map(String));
-    let hit = treinamentos.find(t => setISO.has(String(t['SemanaISO'])));
-    if (!hit && semanaPorTitulo) hit = treinamentos.find(t => String(t['Titulo']).trim() === titulos[0]);
-    assuntos = (hit && hit['Assuntos']) ? String(hit['Assuntos']) : '';
+    let hit = treinamentos.find(t => setISO.has(String(t.SemanaISO)));
+    if (!hit && semanaPorTitulo) hit = treinamentos.find(t => String(t.Titulo).trim() === titulos[0]);
+    assuntos = hit && hit.Assuntos ? String(hit.Assuntos) : "";
   }
 
-  // ===== PDF no modelo do anexo: A4, margens 1cm, cabeçalho, tabela, instrutores, rodapé + paginação =====
   const { jsPDF } = window.jspdf;
-  const MARGIN = 28.35; // 1 cm
-  const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4', compress: true });
 
-  const pageWidth  = doc.internal.pageSize.getWidth();
+  const M_TOP = 28.35;       // 1 cm
+  const M_BOTTOM = 28.35;    // 1 cm
+  const M_LEFT = 14.17;      // 0.5 cm
+  const M_RIGHT = 14.17;     // 0.5 cm
+
+  const doc = new jsPDF({
+    orientation: "portrait",
+    unit: "pt",
+    format: "a4",
+    compress: true
+  });
+
+  const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
-  const usableWidth = pageWidth - 2 * MARGIN;
+  const usableWidth = pageWidth - M_LEFT - M_RIGHT;
 
-  // Pré-carrega a imagem dos instrutores (para inserir 3 linhas abaixo do fim da tabela)
-  const instrutores = await loadInstrutoresAsJPEG('instrutores.png', Math.round(usableWidth), 320, 0.80);
+  const instrutores = await loadInstrutoresAsJPEG("instrutores.png", 312, 142, 0.80);
 
-  // Cabeçalho + Rodapé (sem paginação aqui)
   const LOGO_W = 120, LOGO_H = 52;
-  const lineH = 14;
+  const L_H = 14;
 
-  function drawHeaderFooterBase() {
-    // Logo à direita (topo)
-    try { if (LOGO_DATAURL) doc.addImage(LOGO_DATAURL, 'PNG', pageWidth - MARGIN - LOGO_W, MARGIN, LOGO_W, LOGO_H); } catch(e) {}
+  function drawHeader(pageNumber) {
 
-    // Título em maiúsculo
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(18);
-    doc.text('DIÁLOGO SEMANAL DE SEGURANÇA', MARGIN, MARGIN + 20);
+    try {
+      if (LOGO_DATAURL)
+        doc.addImage(LOGO_DATAURL, "PNG",
+          pageWidth - M_RIGHT - LOGO_W,
+          M_TOP,
+          LOGO_W,
+          LOGO_H
+        );
+    } catch (e) {}
 
-    // 2 linhas abaixo: Semana
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(14);
-    doc.text('Semana: ' + (semanaTexto || '-'), MARGIN, MARGIN + 20 + 2*lineH);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(18);
+    doc.text("DIÁLOGO SEMANAL DE SEGURANÇA", M_LEFT, M_TOP + 20);
 
-    // 2 linhas abaixo: Assuntos
-    const yAssuntos = MARGIN + 20 + 4*lineH;
-    if (assuntos) {
-      doc.setFont('helvetica', 'normal'); doc.setFontSize(12);
-      const txt = doc.splitTextToSize('Assuntos: ' + assuntos, usableWidth);
-      doc.text(txt, MARGIN, yAssuntos);
+    if (pageNumber === 1) {
+      doc.setFontSize(14);
+      doc.text("Semana: " + semanaTexto, M_LEFT, M_TOP + 20 + 2 * L_H);
+
+      if (assuntos) {
+        doc.setFontSize(12);
+        const assuntoLines = doc.splitTextToSize("Assuntos: " + assuntos, usableWidth);
+        doc.text(assuntoLines, M_LEFT, M_TOP + 20 + 4 * L_H);
+      }
     }
-
-    // Rodapé (preservado) – sem paginação aqui
-    const footerY = pageHeight - MARGIN + 5;
-    const generatedAt = new Date().toLocaleString('pt-BR');
-
-    doc.setFont('helvetica', 'italic'); doc.setFontSize(9);
-    doc.text('Gerado em: ' + generatedAt, MARGIN, footerY);
-
-    doc.setFont('helvetica', 'normal'); doc.setFontSize(9);
-    doc.text('Caterair Serviços de Bordo e Hotelaria LTDA - Base GIG', MARGIN, footerY + lineH);
-    doc.text('CNPJ 33.375.601/0001-38', MARGIN, footerY + 2*lineH);
-    doc.text('Rua P, S/N, Área de Apoio do Aeroporto Internacional do Rio de Janeiro - Ilha do Governador - RJ', MARGIN, footerY + 3*lineH);
   }
 
-  // A tabela começa 2 linhas abaixo dos Assuntos
-  const yTableStart = MARGIN + 20 + 4*lineH + 2*lineH;
+  function drawFooter(pageNumber, total) {
+    const footerY = pageHeight - M_BOTTOM;
 
-  const head = [['Matrícula','Funcionário','Setor','Data de Participação','Assinatura']];
+    const data = new Date().toLocaleString("pt-BR");
+
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(9);
+    doc.text("Gerado em: " + data, M_LEFT, footerY - 3 * L_H);
+
+    doc.setFont("helvetica", "normal");
+    doc.text("Caterair Serviços de Bordo e Hotelaria LTDA - Base GIG", M_LEFT, footerY - 2 * L_H);
+    doc.text("CNPJ 33.375.601/0001-38", M_LEFT, footerY - L_H);
+    doc.text(
+      "Rua P, S/N, Área de Apoio do Aeroporto Internacional do Rio de Janeiro - Ilha do Governador - RJ",
+      M_LEFT,
+      footerY
+    );
+
+    const pagText = `Página ${pageNumber} de ${total}`;
+    const pagWidth = doc.getTextWidth(pagText);
+    doc.text(pagText, pageWidth - M_RIGHT - pagWidth, footerY - L_H);
+  }
+
+  const head = [["Matrícula","Funcionário","Setor","Data de Participação","Assinatura"]];
   const body = base.map(r => [
-    r.Matricula || '',
-    r.Nome || '',
-    r.Setor || '',
-    formatTimestamp(r.Timestamp) || '',
-    '' // assinatura vai no didDrawCell
+    r.Matricula || "",
+    r.Nome || "",
+    r.Setor || "",
+    formatTimestamp(r.Timestamp) || "",
+    ""
   ]);
 
+  let startTableY = M_TOP + 20 + 6 * L_H;
+
   doc.autoTable({
-    startY: yTableStart,
-    head, body,
-    margin: { left: MARGIN, right: MARGIN },
+    startY: startTableY,
+    head,
+    body,
+    margin: { left: M_LEFT, right: M_RIGHT },
     tableWidth: usableWidth,
-    styles: { font:'helvetica', fontSize:10, cellPadding:4, valign:'middle' },
-    headStyles: { fillColor:[33,150,243], textColor:255, halign:'center' },
-    columnStyles: { 0:{halign:'left'}, 1:{halign:'left'}, 2:{halign:'left'}, 3:{halign:'left'}, 4:{halign:'center'} },
-    didDrawPage: () => drawHeaderFooterBase(),
-    didDrawCell: (data) => {
-      if (data.section === 'body' && data.column.index === 4) {
-        const sig = base[data.row.index] && base[data.row.index].AssinaturaPNG;
-        if (sig) {
-          try {
-            const maxW = Math.min(160, data.cell.width - 8);
-            const maxH = 50;
-            const x = data.cell.x + (data.cell.width - maxW) / 2;
-            const y = data.cell.y + (data.cell.height - maxH) / 2;
-            doc.addImage(sig, 'PNG', x, y, maxW, maxH);
-          } catch(e) {}
-        }
+
+    styles: { font: "helvetica", fontSize: 10, cellPadding: 4, valign: "middle" },
+    headStyles: { fillColor: [33, 150, 243], textColor: 255, halign: "center" },
+    columnStyles: {
+      0: { halign: "left" },
+      1: { halign: "left" },
+      2: { halign: "left" },
+      3: { halign: "left" },
+      4: { halign: "center" }
+    },
+
+    didDrawPage: function (data) {
+      drawHeader(data.pageNumber);
+      drawFooter(data.pageNumber, doc.getNumberOfPages());
+    },
+
+    didDrawCell: function (data) {
+      if (data.section === "body" && data.column.index === 4) {
+        const sig = base[data.row.index].AssinaturaPNG;
+        if (!sig) return;
+
+        try {
+          const cellW = data.cell.width - 6;
+          const cellH = data.cell.height - 6;
+
+          const maxW = Math.min(140, cellW);
+          const maxH = Math.min(45, cellH);
+
+          const x = data.cell.x + (data.cell.width - maxW) / 2;
+          const y = data.cell.y + (data.cell.height - maxH) / 2;
+
+          doc.addImage(sig, "PNG", x, y, maxW, maxH);
+        } catch (e) {}
       }
     }
   });
 
-  // 3 linhas abaixo da tabela: imagem dos instrutores à esquerda
-  if (instrutores && instrutores.dataUrl) {
-    let y = (doc.lastAutoTable && doc.lastAutoTable.finalY ? doc.lastAutoTable.finalY : yTableStart) + 3*lineH;
+  let yInstrutores = doc.lastAutoTable.finalY + 3 * L_H;
 
-    if (y + instrutores.h > pageHeight - MARGIN) {
+  if (instrutores && instrutores.dataUrl) {
+    if (yInstrutores + 142 > pageHeight - M_BOTTOM) {
       doc.addPage();
-      y = MARGIN + 20;
+      yInstrutores = M_TOP + 20;
     }
 
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(14);
-    doc.text('INSTRUTORES RESPONSÁVEIS:', MARGIN, y);
-    y += lineH;
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(14);
+    doc.text("INSTRUTORES RESPONSÁVEIS:", M_LEFT, yInstrutores);
+    yInstrutores += 14;
 
     try {
-      const drawW = Math.min(instrutores.w, usableWidth);
-      const ratio = drawW / (instrutores.w || drawW);
-      const drawH = Math.round((instrutores.h || 200) * (ratio || 1));
-      doc.addImage(instrutores.dataUrl, 'JPEG', MARGIN, y, drawW, drawH);
-    } catch(e) {}
+      doc.addImage(instrutores.dataUrl, "JPEG", M_LEFT, yInstrutores, 312, 142);
+    } catch (e) {}
   }
 
-  // Paginação à direita, sem sobrescrever o rodapé existente
-  const total = doc.getNumberOfPages();
-  for (let i = 1; i <= total; i++) {
-    doc.setPage(i);
-    const text = `Página ${i} de ${total}`;
-    const w = doc.getTextWidth(text);
-    const yPag = pageHeight - MARGIN + 5 + 2*lineH; // mesma linha do CNPJ
-    doc.setFont('helvetica','normal'); doc.setFontSize(9);
-    doc.text(text, pageWidth - MARGIN - w, yPag);
-  }
-
-  // Salvar
-  doc.save('Relatorio_Dialogo_Semanal_de_Seguranca.pdf');
+  doc.save("Relatorio_Dialogo_Semanal_de_Seguranca.pdf");
 }
 
   async function novoFuncionarioViaPrompt(){
