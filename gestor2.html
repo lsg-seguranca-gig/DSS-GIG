@@ -291,8 +291,7 @@
     }catch(e){ return []; }
   }
 
-// Converte instrutores.png para JPEG compacto para uso no PDF
-function loadInstrutoresAsJPEG(src, maxW = 1100, maxH = 450, quality = 0.80) {
+async function loadInstrutoresAsJPEG(src, maxW = 1100, maxH = 450, quality = 0.80) {
   return new Promise(resolve => {
     const img = new Image();
     img.onload = () => {
@@ -304,17 +303,19 @@ function loadInstrutoresAsJPEG(src, maxW = 1100, maxH = 450, quality = 0.80) {
         const c = document.createElement("canvas");
         c.width = nw;
         c.height = nh;
+        c.getContext("2d").drawImage(img, 0, 0, nw, nh);
 
-        const ctx = c.getContext("2d");
-        ctx.drawImage(img, 0, 0, nw, nh);
-
-        resolve(c.toDataURL("image/jpeg", quality));
+        resolve({
+          dataUrl: c.toDataURL("image/jpeg", quality),
+          w: nw,
+          h: nh
+        });
       } catch (e) {
-        resolve("");
+        resolve({ dataUrl: "", w: 0, h: 0 });
       }
     };
 
-    img.onerror = () => resolve("");
+    img.onerror = () => resolve({ dataUrl: "", w: 0, h: 0 });
     img.src = src;
   });
 }
