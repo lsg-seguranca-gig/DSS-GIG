@@ -514,9 +514,7 @@ async function gerarPDF(){
     .replace(/"/g,'&quot;')
     .replace(/'/g,'&#39;');
 }
-[s]));
-  }
-  function nomeArquivo(ext){
+function nomeArquivo(ext){
     const hoje = new Date();
     const pad = (n)=>String(n).padStart(2,'0');
     return `DSS_GIG_Relatorio_${hoje.getFullYear()}-${pad(hoje.getMonth()+1)}-${pad(hoje.getDate())}.${ext}`;
