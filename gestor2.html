@@ -7,10 +7,10 @@
   <link rel="icon" href="data:;base64,iVBORw0KGgo" />
   <link rel="stylesheet" href="styles.css" />
   <!-- jsPDF + AutoTable -->
-  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
   <!-- XLSX (SheetJS) para gerar Excel -->
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <style>
     /* Fonte única na página (mantém tamanhos atuais do layout) */
     html, body, button, input, select, table, th, td, label, .card, .site-header {
@@ -165,6 +165,107 @@
       img.onerror = () => resolve(LOGO_DATAURL = '');
       img.src = LOGO_SRC;
     });
+// ===== INSTRUTORES (cards) =====
+// 1) Obtenha as informações dos instrutores:
+//    Cada item: { nome, funcao1, funcao2, assinaturaPng }
+let instrutores = [];
+try {
+  instrutores = await fetchInstrutores(); // deve retornar 2 itens
+} catch(e){ instrutores = []; }
+
+// Se houver pelo menos 1 instrutor, desenha os cartões
+if (Array.isArray(instrutores) && instrutores.length) {
+
+  // 2) Parâmetros visuais (2 colunas / lado a lado / centralizado)
+  const grid = {
+    cols: 2,                 // 2 cartões por linha, lado a lado
+    gap: 12,                 // espaçamento entre cartões (horizontal e vertical)
+    cardW: Math.min((usableWidth - 12) / 2, 280), // largura do cartão (coluna)
+    cardH: 150,              // altura total do cartão (aumentei um pouco p/ 4 linhas de texto confortáveis)
+    sigH: 52,                // altura máxima (em pt) da assinatura dentro do cartão
+    fontSize: 10             // tamanho da fonte do corpo
+  };
+  const totalGridW = grid.cols * grid.cardW + (grid.cols - 1) * grid.gap;
+  const xStart = (pageWidth - totalGridW) / 2;   // centraliza
+
+  // 3) Título da seção
+  let y = (doc.lastAutoTable && doc.lastAutoTable.finalY ? doc.lastAutoTable.finalY : yStartFirstPage) + 3*L_H;
+
+  // Se não couber título + 1ª linha de cartões, cria nova página
+  const blocoMin = 16 + grid.cardH;
+  if (y + blocoMin > pageHeight - M_BOTTOM) {
+    doc.addPage();
+    const current = doc.getNumberOfPages();
+    drawHeader(current);
+    drawFooter(current, totalPagesExp);
+    y = yStartOtherPages;
+  }
+
+  doc.setFont('helvetica','bold'); doc.setFontSize(14);
+  doc.text('INSTRUTORES RESPONSÁVEIS:', M_LEFT, y);
+  y += 16;
+
+  // 4) Render dos cartões (linhas x colunas), com quebra de página quando necessário
+  doc.setFont('helvetica','normal'); doc.setFontSize(grid.fontSize);
+
+  instrutores.forEach((inst, idx) => {
+    const col = idx % grid.cols;
+    const isFirstCol = (col === 0);
+
+    // Antes de iniciar uma nova linha, verifica se cabe mais uma linha de cartões
+    if (isFirstCol && idx > 0) {
+      if (y + grid.cardH > pageHeight - M_BOTTOM) {
+        doc.addPage();
+        const current = doc.getNumberOfPages();
+        drawHeader(current);
+        drawFooter(current, totalPagesExp);
+        y = yStartOtherPages; // respeita cabeçalho
+      } else {
+        y += grid.gap; // espaço vertical entre as linhas
+      }
+    }
+
+    // Posição do cartão
+    const x = xStart + col * (grid.cardW + grid.gap);
+
+    // Moldura sutil
+    doc.setDrawColor(200);
+    doc.rect(x, y, grid.cardW, grid.cardH);
+
+    // 4.1) Assinatura (PNG) no topo do cartão
+    if (inst.assinaturaPng) {
+      try {
+        const pad = 6;
+        const boxW = grid.cardW - 2*pad;
+        const boxH = grid.sigH;
+        const maxW = boxW;
+        const maxH = boxH;
+        const sigX = x + (grid.cardW - maxW) / 2;
+        const sigY = y + pad;
+        doc.addImage(inst.assinaturaPng, 'PNG', sigX, sigY, maxW, maxH);
+      } catch(e){}
+    }
+
+    // 4.2) Texto (Nome, Função 1, Função 2) — abaixo da assinatura
+    const textPadX = 8;
+    const textX = x + textPadX;
+    let textY = y + grid.sigH + 2*L_H*0.6;
+
+    const wrapW = grid.cardW - 2*textPadX;
+
+    const writeLine = (label, value, bold=false) => {
+      if (!value) return;
+      doc.setFont('helvetica', bold ? 'bold' : 'normal');
+      const txt = doc.splitTextToSize(`${label}${value}`, wrapW);
+      doc.text(txt, textX, textY);
+      textY += txt.length * (grid.fontSize + 2);
+    };
+
+    // Ordem: Assinatura (já desenhada), Nome, Função 1, Função 2
+    writeLine('Nome: ',    String(inst.nome || ''), true);
+    writeLine('Função 1: ', String(inst.funcao1 || ''));
+    writeLine('Função 2: ', String(inst.funcao2 || ''));
+  });
   }
 
   document.getElementById('btnBuscar').addEventListener('click', buscar);
@@ -540,107 +641,7 @@ async function gerarPDF(){
     didDrawCell: (data) => {
       
 
-// ===== INSTRUTORES (cards) =====
-// 1) Obtenha as informações dos instrutores:
-//    Cada item: { nome, funcao1, funcao2, assinaturaPng }
-let instrutores = [];
-try {
-  instrutores = await fetchInstrutores(); // deve retornar 2 itens
-} catch(e){ instrutores = []; }
 
-// Se houver pelo menos 1 instrutor, desenha os cartões
-if (Array.isArray(instrutores) && instrutores.length) {
-
-  // 2) Parâmetros visuais (2 colunas / lado a lado / centralizado)
-  const grid = {
-    cols: 2,                 // 2 cartões por linha, lado a lado
-    gap: 12,                 // espaçamento entre cartões (horizontal e vertical)
-    cardW: Math.min((usableWidth - 12) / 2, 280), // largura do cartão (coluna)
-    cardH: 150,              // altura total do cartão (aumentei um pouco p/ 4 linhas de texto confortáveis)
-    sigH: 52,                // altura máxima (em pt) da assinatura dentro do cartão
-    fontSize: 10             // tamanho da fonte do corpo
-  };
-  const totalGridW = grid.cols * grid.cardW + (grid.cols - 1) * grid.gap;
-  const xStart = (pageWidth - totalGridW) / 2;   // centraliza
-
-  // 3) Título da seção
-  let y = (doc.lastAutoTable && doc.lastAutoTable.finalY ? doc.lastAutoTable.finalY : yStartFirstPage) + 3*L_H;
-
-  // Se não couber título + 1ª linha de cartões, cria nova página
-  const blocoMin = 16 + grid.cardH;
-  if (y + blocoMin > pageHeight - M_BOTTOM) {
-    doc.addPage();
-    const current = doc.getNumberOfPages();
-    drawHeader(current);
-    drawFooter(current, totalPagesExp);
-    y = yStartOtherPages;
-  }
-
-  doc.setFont('helvetica','bold'); doc.setFontSize(14);
-  doc.text('INSTRUTORES RESPONSÁVEIS:', M_LEFT, y);
-  y += 16;
-
-  // 4) Render dos cartões (linhas x colunas), com quebra de página quando necessário
-  doc.setFont('helvetica','normal'); doc.setFontSize(grid.fontSize);
-
-  instrutores.forEach((inst, idx) => {
-    const col = idx % grid.cols;
-    const isFirstCol = (col === 0);
-
-    // Antes de iniciar uma nova linha, verifica se cabe mais uma linha de cartões
-    if (isFirstCol && idx > 0) {
-      if (y + grid.cardH > pageHeight - M_BOTTOM) {
-        doc.addPage();
-        const current = doc.getNumberOfPages();
-        drawHeader(current);
-        drawFooter(current, totalPagesExp);
-        y = yStartOtherPages; // respeita cabeçalho
-      } else {
-        y += grid.gap; // espaço vertical entre as linhas
-      }
-    }
-
-    // Posição do cartão
-    const x = xStart + col * (grid.cardW + grid.gap);
-
-    // Moldura sutil
-    doc.setDrawColor(200);
-    doc.rect(x, y, grid.cardW, grid.cardH);
-
-    // 4.1) Assinatura (PNG) no topo do cartão
-    if (inst.assinaturaPng) {
-      try {
-        const pad = 6;
-        const boxW = grid.cardW - 2*pad;
-        const boxH = grid.sigH;
-        const maxW = boxW;
-        const maxH = boxH;
-        const sigX = x + (grid.cardW - maxW) / 2;
-        const sigY = y + pad;
-        doc.addImage(inst.assinaturaPng, 'PNG', sigX, sigY, maxW, maxH);
-      } catch(e){}
-    }
-
-    // 4.2) Texto (Nome, Função 1, Função 2) — abaixo da assinatura
-    const textPadX = 8;
-    const textX = x + textPadX;
-    let textY = y + grid.sigH + 2*L_H*0.6;
-
-    const wrapW = grid.cardW - 2*textPadX;
-
-    const writeLine = (label, value, bold=false) => {
-      if (!value) return;
-      doc.setFont('helvetica', bold ? 'bold' : 'normal');
-      const txt = doc.splitTextToSize(`${label}${value}`, wrapW);
-      doc.text(txt, textX, textY);
-      textY += txt.length * (grid.fontSize + 2);
-    };
-
-    // Ordem: Assinatura (já desenhada), Nome, Função 1, Função 2
-    writeLine('Nome: ',    String(inst.nome || ''), true);
-    writeLine('Função 1: ', String(inst.funcao1 || ''));
-    writeLine('Função 2: ', String(inst.funcao2 || ''));
-  });
 }
 // ===== FIM INSTRUTORES (cards) =====
 
