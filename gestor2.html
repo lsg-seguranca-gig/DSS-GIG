@@ -1,783 +1,879 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="pt-BR">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>DSS GIG — Painel do Gestor</title>
-  <link rel="icon" href="data:;base64,iVBORw0KGgo" />
-  <link rel="stylesheet" href="styles.css" />
-  <!-- jsPDF + AutoTable -->
-  <script defer src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
-  <script defer src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
-  <!-- XLSX (SheetJS) para gerar Excel -->
-  <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <style>
-    /* Fonte única na página (mantém tamanhos atuais do layout) */
-    html, body, button, input, select, table, th, td, label, .card, .site-header {
-      font-family: system-ui, -apple-system, Segoe UI, Roboto, 'Helvetica Neue', Arial, 'Noto Sans', 'Liberation Sans', sans-serif;
-    }
-    /* ===== Layout dos Filtros (igual ao mock) ===== */
-    .filters-wrap { display:flex; flex-direction:column; gap:14px; }
-    /* Linha 1: 2 colunas (Matrícula  Nome) */
-    .filters-row-1 { display:grid; grid-template-columns: 1fr 1fr; gap:24px; }
-    /* Linha 2: 3 colunas (Semana  Data Inicial  Data Final) */
-    .filters-row-2 { display:grid; grid-template-columns: 1fr 1fr 1fr; gap:24px; }
-    /* Campos consistentes */
-    .filters-wrap .row { display:flex; flex-direction:column; }
-    .filters-wrap label { font-size:14px; margin-bottom:6px; color:#374151; }
-    .filters-wrap input[type="text"],
-    .filters-wrap input[type="date"],
-    .filters-wrap select { height:40px; padding:10px 12px; border:1px solid var(--border); border-radius:8px; background:#fff; color:#111827; box-sizing:border-box; width:100%; }
-    /* Ações: três à esquerda, "Novo Funcionário" separado à direita */
-    .actions{ display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; margin-top:6px; }
-    .actions-left{ display:flex; gap:8px; flex-wrap:wrap; }
-    .actions-right{ display:flex; gap:8px; }
-    /* Responsivo */
-    @media (max-width: 900px){
-      .filters-row-1{ grid-template-columns: 1fr; }
-      .filters-row-2{ grid-template-columns: 1fr; }
-      .actions{ justify-content:flex-start; gap:8px; }
-      .actions-right{ margin-top:6px; }
-    }
-    /* Tabela/print mantidos */
-    .sig-img { height:48px; object-fit:contain; }
-    @media print {
-      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-      .site-header { box-shadow: none; }
-      .card { box-shadow: none; border:1px solid #999; }
-      .actions button { display:none; }
-    }
-  </style>
-  <link rel="shortcut icon" href="icone lsg.ico">
-</head>
-<body>
-<header class="site-header">
-  <img src="logo lsg.png" alt="logo LSG" />
-  <h1>Painel do Gestor — DSS GIG</h1>
-  <p class="subtitle">Busque e gere relatórios em PDF/XLS (otimizado para impressão)</p>
-</header>
-<main class="container">
-  <section class="card">
-    <h2>Filtros</h2>
-    <div class="filters-wrap">
-      <!-- Linha 1 -->
-      <div class="filters-row-1">
-        <div class="row">
-          <label for="fMat">Matrícula</label>
-          <input type="text" id="fMat" placeholder="Ex.: 12345" />
-        </div>
-        <div class="row">
-          <label for="fNome">Nome</label>
-          <input type="text" id="fNome" placeholder="Nome do colaborador" />
-        </div>
-      </div>
-      <!-- Linha 2 -->
-      <div class="filters-row-2">
-        <div class="row">
-          <label for="fSemanaTitulo">Semana</label>
-          <select id="fSemanaTitulo">
-            <option value="">Todas</option>
-          </select>
-        </div>
-        <div class="row">
-          <label for="fDataInicio">Data Inicial</label>
-          <input type="date" id="fDataInicio" />
-        </div>
-        <div class="row">
-          <label for="fDataFinal">Data Final</label>
-          <input type="date" id="fDataFinal" />
-        </div>
-      </div>
-      <!-- Botões (esquerda: 3 / direita: Novo Funcionário) -->
-      <div class="actions">
-        <div class="actions-left">
-          <button id="btnBuscar" class="primary">Buscar</button>
-          <button id="btnXLS" class="secondary">Gerar XLS</button>
-          <button id="btnPDF" class="secondary">Gerar PDF</button>
-        </div>
-        <div class="actions-right">
-          <button id="btnAddFunc" class="secondary">Novo Funcionário</button>
-        </div>
-      </div>
-      <div id="status" class="message"></div>
-    </div>
-  </section>
-  <section class="card">
-    <h2>Resultados</h2>
-    <div class="table-wrapper">
-      <table id="tbl" class="table">
-        <thead>
-          <tr>
-            <th>Matrícula</th>
-            <th>Funcionário</th>
-            <th>Setor</th>
-            <th>Semana</th>
-            <th>Título do Vídeo</th>
-            <th>Data de participação</th>
-            <th>Assinatura</th>
-          </tr>
-        </thead>
-        <tbody id="tbody"></tbody>
-      </table>
-    </div>
-  </section>
-</main>
-<footer class="site-footer">
-  <small>© Caterair Serviços de Bordo e Hotelaria LTDA - Base GIG</small>
-</footer>
-<script>
-  const API_BASE = '/api/gas';
-  const LOGO_SRC = 'logo lsg.png';
-  let LOGO_DATAURL = '';
-
-  // Estado
-  let registros = [];
-  let registrosFiltrados = [];
-
-  function loadLogoAsDataURL() {
-    return new Promise(resolve => {
-      const img = new Image();
-      img.crossOrigin = 'anonymous';
-      img.onload = () => {
-        try {
-          const c = document.createElement('canvas');
-          c.width = img.width; c.height = img.height;
-          c.getContext('2d').drawImage(img, 0, 0);
-          LOGO_DATAURL = c.toDataURL('image/png');
-          resolve(LOGO_DATAURL);
-        } catch(e){ resolve(LOGO_DATAURL = ''); }
-      };
-      img.onerror = () => resolve(LOGO_DATAURL = '');
-      img.src = LOGO_SRC;
-    });
-  }
-
-  // ====== Eventos dos botões / filtros ======
-  document.getElementById('btnBuscar').addEventListener('click', buscar);
-  document.getElementById('btnPDF').addEventListener('click', gerarPDF);
-  document.getElementById('btnXLS').addEventListener('click', gerarXLS);
-  document.getElementById('btnAddFunc').addEventListener('click', novoFuncionarioViaPrompt);
-
-  ['fMat','fNome','fDataInicio','fDataFinal','fSemanaTitulo'].forEach(id=>{
-    const el = document.getElementById(id);
-    el.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') { e.preventDefault(); buscar(); }
-    });
-  });
-
-  // Popular títulos no filtro "Semana"
-  (async function popularTitulos(){
-    try{
-      const res = await fetch(API_BASE + '?action=registros');
-      const data = await res.json();
-      if (!data.ok) return;
-      const all = Array.isArray(data.data) ? data.data : [];
-      const titulos = Array.from(
-        new Set(all.map(r => (r.TituloVideo ?? '').trim()).filter(Boolean))
-      ).sort((a,b)=>a.localeCompare(b,'pt-BR',{sensitivity:'base'}));
-      const sel = document.getElementById('fSemanaTitulo');
-      sel.innerHTML = '<option value="">Todas</option>' +
-        titulos.map(t => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join('');
-    }catch(e){}
-  })();
-
-  async function buscar(){
-    const status = document.getElementById('status'); status.innerHTML='';
-    const fMat = document.getElementById('fMat').value.trim();
-    const fNome = document.getElementById('fNome').value.trim();
-    const fTitulo = document.getElementById('fSemanaTitulo').value.trim();
-    const fDataI = document.getElementById('fDataInicio').value;
-    const fDataF = document.getElementById('fDataFinal').value;
-
-    const qs = new URLSearchParams({ action:'registros' });
-    if (fMat) qs.append('matricula', fMat);
-    if (fNome) qs.append('nome', fNome);
-
-    try{
-      const res = await fetch(API_BASE + '?' + qs.toString());
-      let data; try{ data = await res.json(); }catch{ data = { ok:false, error:'Resposta não-JSON do proxy', status:res.status }; }
-      if (!data.ok) throw new Error(data.error ?? 'Erro ao buscar');
-
-      registros = Array.isArray(data.data) ? data.data : [];
-
-      const di = normalizarDataInput(fDataI);
-      const df = fimDoDia(normalizarDataInput(fDataF));
-      let lista = registros.filter(r => {
-        const ts = parseTimestamp(r.Timestamp);
-        if (!ts) return false;
-        if (di && ts < di) return false;
-        if (df && ts > df) return false;
-        if (fTitulo && (r.TituloVideo ?? '') !== fTitulo) return false;
-        return true;
-      });
-
-      // Dedup por (Matricula, SemanaISO, TituloVideo) mantendo o mais antigo
-      const mapa = new Map();
-      for (const r of lista) {
-        const chave = `${r.Matricula ?? ''}__${r.SemanaISO ?? ''}__${r.TituloVideo ?? ''}`;
-        const atual = mapa.get(chave);
-        const novoTS = parseTimestamp(r.Timestamp);
-        if (!atual) {
-          mapa.set(chave, r);
-        } else {
-          const antigoTS = parseTimestamp(atual.Timestamp);
-          if (novoTS && antigoTS && novoTS < antigoTS) mapa.set(chave, r);
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>DSS GIG — Painel do Gestor</title>
+    <link rel="icon" href="data:;base64,iVBORw0KGgo" />
+    <link rel="stylesheet" href="styles.css" />
+    <!-- jsPDF + AutoTable -->
+    <script
+      defer
+      src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"
+    ></script>
+    <script
+      defer
+      src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"
+    ></script>
+    <!-- XLSX (SheetJS) para gerar Excel -->
+    <script
+      defer
+      src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"
+    ></script>
+    <style>
+      /* Fonte única na página (mantém tamanhos atuais do layout) */
+      html,
+      body,
+      button,
+      input,
+      select,
+      table,
+      th,
+      td,
+      label,
+      .card,
+      .site-header {
+        font-family:
+          system-ui,
+          -apple-system,
+          Segoe UI,
+          Roboto,
+          "Helvetica Neue",
+          Arial,
+          "Noto Sans",
+          "Liberation Sans",
+          sans-serif;
+      }
+      /* ===== Layout dos Filtros (igual ao mock) ===== */
+      .filters-wrap {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+      }
+      /* Linha 1: 2 colunas (Matrícula  Nome) */
+      .filters-row-1 {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 24px;
+      }
+      /* Linha 2: 3 colunas (Semana  Data Inicial  Data Final) */
+      .filters-row-2 {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 24px;
+      }
+      /* Campos consistentes */
+      .filters-wrap .row {
+        display: flex;
+        flex-direction: column;
+      }
+      .filters-wrap label {
+        font-size: 14px;
+        margin-bottom: 6px;
+        color: #374151;
+      }
+      .filters-wrap input[type="text"],
+      .filters-wrap input[type="date"],
+      .filters-wrap select {
+        height: 40px;
+        padding: 10px 12px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: #fff;
+        color: #111827;
+        box-sizing: border-box;
+        width: 100%;
+      }
+      /* Ações: três à esquerda, "Novo Funcionário" separado à direita */
+      .actions {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-top: 6px;
+      }
+      .actions-left {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+      .actions-right {
+        display: flex;
+        gap: 8px;
+      }
+      /* Responsivo */
+      @media (max-width: 900px) {
+        .filters-row-1 {
+          grid-template-columns: 1fr;
+        }
+        .filters-row-2 {
+          grid-template-columns: 1fr;
+        }
+        .actions {
+          justify-content: flex-start;
+          gap: 8px;
+        }
+        .actions-right {
+          margin-top: 6px;
         }
       }
-
-      registrosFiltrados = Array.from(mapa.values())
-        .sort((a,b)=> String(a.Nome ?? '').localeCompare(String(b.Nome ?? ''),'pt-BR',{sensitivity:'base'}));
-
-      renderTabela(registrosFiltrados);
-      status.innerHTML = '<div class="ok">Busca concluída: ' + registrosFiltrados.length + ' registro(s) após deduplicação e ordenação.</div>';
-
-    }catch(err){
-      status.innerHTML = '<div class="error">Falha na consulta.</div>';
-    }
-  }
-
-  function renderTabela(list){
-    const tbody = document.getElementById('tbody'); tbody.innerHTML='';
-    if(!list || list.length===0){
-      tbody.innerHTML='<tr><td colspan="7" class="muted">Sem resultados</td></tr>'; return;
-    }
-    tbody.innerHTML = list.map(r=>{
-      const dataPart = formatTimestamp(r.Timestamp);
-      const assinatura = r.AssinaturaPNG ? '<img class="sig-img" src="'+r.AssinaturaPNG+'" alt="Assinatura" />' : '-';
-      return `
-        <tr>
-          <td>${escapeHtml(r.Matricula ?? '')}</td>
-          <td>${escapeHtml(r.Nome ?? '')}</td>
-          <td>${escapeHtml(r.Setor ?? '')}</td>
-          <td>${escapeHtml(r.SemanaISO ?? '')}</td>
-          <td>${escapeHtml(r.TituloVideo ?? '')}</td>
-          <td>${escapeHtml(dataPart)}</td>
-          <td>${assinatura}</td>
-        </tr>`;
-    }).join('');
-  }
-
-  function gerarXLS(){
-    const base = (registrosFiltrados && registrosFiltrados.length) ? registrosFiltrados : registros;
-    if(!base || !base.length) { alert('Faça uma busca primeiro.'); return; }
-
-    const ordenada = (base===registros ? [...base].sort((a,b)=> String(a.Nome ?? '').localeCompare(String(b.Nome ?? ''),'pt-BR',{sensitivity:'base'})) : base);
-
-    const linhas = ordenada.map(r => ({
-      'Matrícula': r.Matricula ?? '',
-      'Funcionário': r.Nome ?? '',
-      'Setor': r.Setor ?? '',
-      'Semana (ISO)': r.SemanaISO ?? '',
-      'Título do Vídeo': r.TituloVideo ?? '',
-      'Data de participação': formatTimestamp(r.Timestamp)
-    }));
-
-    const wb = XLSX.utils.book_new();
-    const ws = XLSX.utils.json_to_sheet(linhas);
-    XLSX.utils.book_append_sheet(wb, ws, 'Relatório');
-    XLSX.writeFile(wb, nomeArquivo('xlsx'));
-  }
-
-  async function fetchTreinamentos(){
-    try{
-      const res = await fetch(API_BASE + '?action=treinamentos');
-      const data = await res.json();
-      if (!data.ok) return [];
-      return Array.isArray(data.data) ? data.data : [];
-    }catch(e){ return []; }
-  }
-
-  async function loadInstrutoresAsJPEG(src, maxW = 1100, maxH = 450, quality = 0.80) {
-    return new Promise(resolve => {
-      const img = new Image();
-      img.onload = () => {
-        try {
-          const ratio = Math.min(maxW / img.width, maxH / img.height, 1);
-          const nw = Math.round(img.width * ratio);
-          const nh = Math.round(img.height * ratio);
-          const c = document.createElement("canvas");
-          c.width = nw;
-          c.height = nh;
-          c.getContext("2d").drawImage(img, 0, 0, nw, nh);
-          resolve({ dataUrl: c.toDataURL("image/jpeg", quality), w: nw, h: nh });
-        } catch (e) {
-          resolve({ dataUrl: "", w: 0, h: 0 });
+      /* Tabela/print mantidos */
+      .sig-img {
+        height: 48px;
+        object-fit: contain;
+      }
+      @media print {
+        body {
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
         }
-      };
-      img.onerror = () => resolve({ dataUrl: "", w: 0, h: 0 });
-      img.src = src;
-    });
-  }
+        .site-header {
+          box-shadow: none;
+        }
+        .card {
+          box-shadow: none;
+          border: 1px solid #999;
+        }
+        .actions button {
+          display: none;
+        }
+      }
+    </style>
+    <link rel="shortcut icon" href="icone lsg.ico" />
+  </head>
+  <body>
+    <header class="site-header">
+      <img src="logo lsg.png" alt="logo LSG" />
+      <h1>Painel do Gestor — DSS GIG</h1>
+      <p class="subtitle">
+        Busque e gere relatórios em PDF/XLS (otimizado para impressão)
+      </p>
+    </header>
+    <main class="container">
+      <section class="card">
+        <h2>Filtros</h2>
+        <div class="filters-wrap">
+          <!-- Linha 1 -->
+          <div class="filters-row-1">
+            <div class="row">
+              <label for="fMat">Matrícula</label>
+              <input type="text" id="fMat" placeholder="Ex.: 12345" />
+            </div>
+            <div class="row">
+              <label for="fNome">Nome</label>
+              <input type="text" id="fNome" placeholder="Nome do colaborador" />
+            </div>
+          </div>
+          <!-- Linha 2 -->
+          <div class="filters-row-2">
+            <div class="row">
+              <label for="fSemanaTitulo">Semana</label>
+              <select id="fSemanaTitulo">
+                <option value="">Todas</option>
+              </select>
+            </div>
+            <div class="row">
+              <label for="fDataInicio">Data Inicial</label>
+              <input type="date" id="fDataInicio" />
+            </div>
+            <div class="row">
+              <label for="fDataFinal">Data Final</label>
+              <input type="date" id="fDataFinal" />
+            </div>
+          </div>
+          <!-- Botões (esquerda: 3 / direita: Novo Funcionário) -->
+          <div class="actions">
+            <div class="actions-left">
+              <button id="btnBuscar" class="primary">Buscar</button>
+              <button id="btnXLS" class="secondary">Gerar XLS</button>
+              <button id="btnPDF" class="secondary">Gerar PDF</button>
+            </div>
+            <div class="actions-right">
+              <button id="btnAddFunc" class="secondary">
+                Novo Funcionário
+              </button>
+            </div>
+          </div>
+          <div id="status" class="message"></div>
+        </div>
+      </section>
+      <section class="card">
+        <h2>Resultados</h2>
+        <div class="table-wrapper">
+          <table id="tbl" class="table">
+            <thead>
+              <tr>
+                <th>Matrícula</th>
+                <th>Funcionário</th>
+                <th>Setor</th>
+                <th>Semana</th>
+                <th>Título do Vídeo</th>
+                <th>Data de participação</th>
+                <th>Assinatura</th>
+              </tr>
+            </thead>
+            <tbody id="tbody"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+    <footer class="site-footer">
+      <small>© Caterair Serviços de Bordo e Hotelaria LTDA - Base GIG</small>
+    </footer>
+    <script>
+        const API_BASE = '/api/gas';
+        const LOGO_SRC = 'logo lsg.png';
+        let LOGO_DATAURL = '';
 
-  async function loadSVGAsPNG(src, maxW = 1100, maxH = 450, bgColor = 'transparent') {
-    return new Promise(resolve => {
-      try {
-        fetch(src)
-          .then(r => r.text())
-          .then(svgText => {
-            const blob = new Blob([svgText], { type: 'image/svg+xml' });
-            const url = URL.createObjectURL(blob);
+        // Estado
+        let registros = [];
+        let registrosFiltrados = [];
+
+        function loadLogoAsDataURL() {
+          return new Promise(resolve => {
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+            img.onload = () => {
+              try {
+                const c = document.createElement('canvas');
+                c.width = img.width; c.height = img.height;
+                c.getContext('2d').drawImage(img, 0, 0);
+                LOGO_DATAURL = c.toDataURL('image/png');
+                resolve(LOGO_DATAURL);
+              } catch(e){ resolve(LOGO_DATAURL = ''); }
+            };
+            img.onerror = () => resolve(LOGO_DATAURL = '');
+            img.src = LOGO_SRC;
+          });
+        }
+
+        // ====== Eventos dos botões / filtros ======
+        document.getElementById('btnBuscar').addEventListener('click', buscar);
+        document.getElementById('btnPDF').addEventListener('click', gerarPDF);
+        document.getElementById('btnXLS').addEventListener('click', gerarXLS);
+        document.getElementById('btnAddFunc').addEventListener('click', novoFuncionarioViaPrompt);
+
+        ['fMat','fNome','fDataInicio','fDataFinal','fSemanaTitulo'].forEach(id=>{
+          const el = document.getElementById(id);
+          el.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') { e.preventDefault(); buscar(); }
+          });
+        });
+
+        // Popular títulos no filtro "Semana"
+        (async function popularTitulos(){
+          try{
+            const res = await fetch(API_BASE + '?action=registros');
+            const data = await res.json();
+            if (!data.ok) return;
+            const all = Array.isArray(data.data) ? data.data : [];
+            const titulos = Array.from(
+              new Set(all.map(r => (r.TituloVideo ?? '').trim()).filter(Boolean))
+            ).sort((a,b)=>a.localeCompare(b,'pt-BR',{sensitivity:'base'}));
+            const sel = document.getElementById('fSemanaTitulo');
+            sel.innerHTML = '<option value="">Todas</option>' +
+              titulos.map(t => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join('');
+          }catch(e){}
+        })();
+
+        async function buscar(){
+          const status = document.getElementById('status'); status.innerHTML='';
+          const fMat = document.getElementById('fMat').value.trim();
+          const fNome = document.getElementById('fNome').value.trim();
+          const fTitulo = document.getElementById('fSemanaTitulo').value.trim();
+          const fDataI = document.getElementById('fDataInicio').value;
+          const fDataF = document.getElementById('fDataFinal').value;
+
+          const qs = new URLSearchParams({ action:'registros' });
+          if (fMat) qs.append('matricula', fMat);
+          if (fNome) qs.append('nome', fNome);
+
+          try{
+            const res = await fetch(API_BASE + '?' + qs.toString());
+            let data; try{ data = await res.json(); }catch{ data = { ok:false, error:'Resposta não-JSON do proxy', status:res.status }; }
+            if (!data.ok) throw new Error(data.error ?? 'Erro ao buscar');
+
+            registros = Array.isArray(data.data) ? data.data : [];
+
+            const di = normalizarDataInput(fDataI);
+            const df = fimDoDia(normalizarDataInput(fDataF));
+            let lista = registros.filter(r => {
+              const ts = parseTimestamp(r.Timestamp);
+              if (!ts) return false;
+              if (di && ts < di) return false;
+              if (df && ts > df) return false;
+              if (fTitulo && (r.TituloVideo ?? '') !== fTitulo) return false;
+              return true;
+            });
+
+            // Dedup por (Matricula, SemanaISO, TituloVideo) mantendo o mais antigo
+            const mapa = new Map();
+            for (const r of lista) {
+              const chave = `${r.Matricula ?? ''}__${r.SemanaISO ?? ''}__${r.TituloVideo ?? ''}`;
+              const atual = mapa.get(chave);
+              const novoTS = parseTimestamp(r.Timestamp);
+              if (!atual) {
+                mapa.set(chave, r);
+              } else {
+                const antigoTS = parseTimestamp(atual.Timestamp);
+                if (novoTS && antigoTS && novoTS < antigoTS) mapa.set(chave, r);
+              }
+            }
+
+            registrosFiltrados = Array.from(mapa.values())
+              .sort((a,b)=> String(a.Nome ?? '').localeCompare(String(b.Nome ?? ''),'pt-BR',{sensitivity:'base'}));
+
+            renderTabela(registrosFiltrados);
+            status.innerHTML = '<div class="ok">Busca concluída: ' + registrosFiltrados.length + ' registro(s) após deduplicação e ordenação.</div>';
+
+          }catch(err){
+            status.innerHTML = '<div class="error">Falha na consulta.</div>';
+          }
+        }
+
+        function renderTabela(list){
+          const tbody = document.getElementById('tbody'); tbody.innerHTML='';
+          if(!list || list.length===0){
+            tbody.innerHTML='<tr><td colspan="7" class="muted">Sem resultados</td></tr>'; return;
+          }
+          tbody.innerHTML = list.map(r=>{
+            const dataPart = formatTimestamp(r.Timestamp);
+            const assinatura = r.AssinaturaPNG ? '<img class="sig-img" src="'+r.AssinaturaPNG+'" alt="Assinatura" />' : '-';
+            return `
+              <tr>
+                <td>${escapeHtml(r.Matricula ?? '')}</td>
+                <td>${escapeHtml(r.Nome ?? '')}</td>
+                <td>${escapeHtml(r.Setor ?? '')}</td>
+                <td>${escapeHtml(r.SemanaISO ?? '')}</td>
+                <td>${escapeHtml(r.TituloVideo ?? '')}</td>
+                <td>${escapeHtml(dataPart)}</td>
+                <td>${assinatura}</td>
+              </tr>`;
+          }).join('');
+        }
+
+        function gerarXLS(){
+          const base = (registrosFiltrados && registrosFiltrados.length) ? registrosFiltrados : registros;
+          if(!base || !base.length) { alert('Faça uma busca primeiro.'); return; }
+
+          const ordenada = (base===registros ? [...base].sort((a,b)=> String(a.Nome ?? '').localeCompare(String(b.Nome ?? ''),'pt-BR',{sensitivity:'base'})) : base);
+
+          const linhas = ordenada.map(r => ({
+            'Matrícula': r.Matricula ?? '',
+            'Funcionário': r.Nome ?? '',
+            'Setor': r.Setor ?? '',
+            'Semana (ISO)': r.SemanaISO ?? '',
+            'Título do Vídeo': r.TituloVideo ?? '',
+            'Data de participação': formatTimestamp(r.Timestamp)
+          }));
+
+          const wb = XLSX.utils.book_new();
+          const ws = XLSX.utils.json_to_sheet(linhas);
+          XLSX.utils.book_append_sheet(wb, ws, 'Relatório');
+          XLSX.writeFile(wb, nomeArquivo('xlsx'));
+        }
+
+        async function fetchTreinamentos(){
+          try{
+            const res = await fetch(API_BASE + '?action=treinamentos');
+            const data = await res.json();
+            if (!data.ok) return [];
+            return Array.isArray(data.data) ? data.data : [];
+          }catch(e){ return []; }
+        }
+
+        async function loadInstrutoresAsJPEG(src, maxW = 1100, maxH = 450, quality = 0.80) {
+          return new Promise(resolve => {
             const img = new Image();
             img.onload = () => {
               try {
                 const ratio = Math.min(maxW / img.width, maxH / img.height, 1);
                 const nw = Math.round(img.width * ratio);
                 const nh = Math.round(img.height * ratio);
-                const c = document.createElement('canvas');
-                c.width = nw; c.height = nh;
-                const ctx = c.getContext('2d');
-                if (bgColor && bgColor !== 'transparent') {
-                  ctx.fillStyle = bgColor;
-                  ctx.fillRect(0, 0, nw, nh);
-                }
-                ctx.drawImage(img, 0, 0, nw, nh);
-                const dataUrl = c.toDataURL('image/png', 1.0);
-                URL.revokeObjectURL(url);
-                resolve({ dataUrl, w: nw, h: nh });
+                const c = document.createElement("canvas");
+                c.width = nw;
+                c.height = nh;
+                c.getContext("2d").drawImage(img, 0, 0, nw, nh);
+                resolve({ dataUrl: c.toDataURL("image/jpeg", quality), w: nw, h: nh });
               } catch (e) {
-                URL.revokeObjectURL(url);
-                resolve({ dataUrl: '', w: 0, h: 0 });
+                resolve({ dataUrl: "", w: 0, h: 0 });
               }
             };
-            img.onerror = () => {
-              URL.revokeObjectURL(url);
+            img.onerror = () => resolve({ dataUrl: "", w: 0, h: 0 });
+            img.src = src;
+          });
+        }
+
+        async function loadSVGAsPNG(src, maxW = 1100, maxH = 450, bgColor = 'transparent') {
+          return new Promise(resolve => {
+            try {
+              fetch(src)
+                .then(r => r.text())
+                .then(svgText => {
+                  const blob = new Blob([svgText], { type: 'image/svg+xml' });
+                  const url = URL.createObjectURL(blob);
+                  const img = new Image();
+                  img.onload = () => {
+                    try {
+                      const ratio = Math.min(maxW / img.width, maxH / img.height, 1);
+                      const nw = Math.round(img.width * ratio);
+                      const nh = Math.round(img.height * ratio);
+                      const c = document.createElement('canvas');
+                      c.width = nw; c.height = nh;
+                      const ctx = c.getContext('2d');
+                      if (bgColor && bgColor !== 'transparent') {
+                        ctx.fillStyle = bgColor;
+                        ctx.fillRect(0, 0, nw, nh);
+                      }
+                      ctx.drawImage(img, 0, 0, nw, nh);
+                      const dataUrl = c.toDataURL('image/png', 1.0);
+                      URL.revokeObjectURL(url);
+                      resolve({ dataUrl, w: nw, h: nh });
+                    } catch (e) {
+                      URL.revokeObjectURL(url);
+                      resolve({ dataUrl: '', w: 0, h: 0 });
+                    }
+                  };
+                  img.onerror = () => {
+                    URL.revokeObjectURL(url);
+                    resolve({ dataUrl: '', w: 0, h: 0 });
+                  };
+                  img.src = url;
+                })
+                .catch(() => resolve({ dataUrl: '', w: 0, h: 0 }));
+            } catch {
               resolve({ dataUrl: '', w: 0, h: 0 });
-            };
-            img.src = url;
-          })
-          .catch(() => resolve({ dataUrl: '', w: 0, h: 0 }));
-      } catch {
-        resolve({ dataUrl: '', w: 0, h: 0 });
-      }
-    });
-  }
+            }
+          });
+        }
 
-  async function fetchInstrutores(){
-    // Placeholders mantidos; substitua por fetch(...) caso venha de API
-    return [
-      {
-        nome: 'VITOR HUGO TEIXEIRA DA SILVA',
-        funcao1: 'Supervisor de Segurança',
-        funcao2: 'Ramp Safety Owner / AVSEC LSA',
-        assinaturaPng: 'data:image/png;base64,REDACTED1'
-      },
-      {
-        nome: 'FRANCINELE RIBEIRO MACHADO',
-        funcao1: 'Assistente Administrativo',
-        funcao2: 'Ramp Safety Deputy / AVSEC LSA Deputy',
-        assinaturaPng: 'data:image/png;base64,REDACTED2'
-      }
-    ];
-  }
+        async function fetchInstrutores(){
+          // Placeholders mantidos; substitua por fetch(...) caso venha de API
+          return [
+            {
+              nome: 'VITOR HUGO TEIXEIRA DA SILVA',
+              funcao1: 'Supervisor de Segurança',
+              funcao2: 'Ramp Safety Owner / AVSEC LSA',
+              assinaturaPng: 'data:image/png;base64,REDACTED1'
+            },
+            {
+              nome: 'FRANCINELE RIBEIRO MACHADO',
+              funcao1: 'Assistente Administrativo',
+              funcao2: 'Ramp Safety Deputy / AVSEC LSA Deputy',
+              assinaturaPng: 'data:image/png;base64,REDACTED2'
+            }
+          ];
+        }
 
-  // Cache global de assinaturas (PNG -> DataURL)
-  const _assinCache = new Map();
-  async function loadPNGAsDataURL(src, maxW = 1200, maxH = 400){
-    if (_assinCache.has(src)) return _assinCache.get(src);
-    const dataURL = await new Promise(resolve=>{
-      try{
-        const img=new Image();
-        img.onload=()=>{
+        // Cache global de assinaturas (PNG -> DataURL)
+        const _assinCache = new Map();
+        async function loadPNGAsDataURL(src, maxW = 1200, maxH = 400){
+          if (_assinCache.has(src)) return _assinCache.get(src);
+          const dataURL = await new Promise(resolve=>{
+            try{
+              const img=new Image();
+              img.onload=()=>{
+                try{
+                  const ratio=Math.min(maxW/img.width, maxH/img.height, 1);
+                  const nw=Math.round(img.width*ratio);
+                  const nh=Math.round(img.height*ratio);
+                  const c=document.createElement('canvas');
+                  c.width=nw; c.height=nh;
+                  c.getContext('2d').drawImage(img,0,0,nw,nh);
+                  resolve(c.toDataURL('image/png'));
+                }catch(e){ resolve(''); }
+              };
+              img.onerror=()=>resolve('');
+              img.src=src;
+            }catch(e){ resolve(''); }
+          });
+          _assinCache.set(src, dataURL);
+          return dataURL;
+        }
+
+        function isDataURLImage(v){
+          return typeof v==='string' && /^data:image\/(png|jpeg|jpg);base64,/i.test(v.trim());
+        }
+
+      // ===== Fallback assíncrono: converte URL de imagem -> DataURL, sem XHR síncrono =====
+      const __dataUrlCache = new Map();
+      async function urlToDataURL(url){
+        try{
+          if (__dataUrlCache.has(url)) return __dataUrlCache.get(url);
+          const res = await fetch(url, { mode: 'cors' });
+          const blob = await res.blob();
+          const dataUrl = await new Promise((resolve)=>{ const fr = new FileReader(); fr.onload=()=>resolve(fr.result); fr.onerror=()=>resolve(''); fr.readAsDataURL(blob); });
+          __dataUrlCache.set(url, dataUrl || '');
+          return dataUrl || '';
+        }catch(e){ return ''; }
+      }
+      async function ensureDataURLImage(v){
+        if (!v) return '';
+        if (isDataURLImage(v)) return v;
+        return await urlToDataURL(v);
+      }
+      async function resolveRowSignatures(rows){
+        const out = [];
+        for (const r of rows){
+          const sig = await ensureDataURLImage(r._sig || r.AssinaturaPNG || '');
+          out.push({ ...r, _sig: sig });
+        }
+        return out;
+      }
+      async function resolveInstructorSignatures(list){
+        const out = [];
+        for (const inst of (list || [])){
+          const sig = await ensureDataURLImage(inst.assinaturaPng || '');
+          out.push({ ...inst, assinaturaPng: sig });
+        }
+        return out;
+      }
+
+        async function gerarPDF(){
+          await loadLogoAsDataURL();
+
+          const baseSource = (Array.isArray(registrosFiltrados) && registrosFiltrados.length) ? registrosFiltrados : registros;
+          if (!baseSource || !baseSource.length) { alert('Nenhum dado para gerar PDF.'); return; }
+
+          const base = [...baseSource].sort(
+            (a,b)=> String(a.Nome??'').localeCompare(String(b.Nome??''),'pt-BR',{sensitivity:'base'})
+          );
+
+          const titulos = [...new Set(base.map(r => r.TituloVideo).filter(Boolean))];
+          const tituloSemana = titulos.length ? titulos.join('; ') : '-';
+
+          let assuntosCabecalho = '';
           try{
-            const ratio=Math.min(maxW/img.width, maxH/img.height, 1);
-            const nw=Math.round(img.width*ratio);
-            const nh=Math.round(img.height*ratio);
-            const c=document.createElement('canvas');
-            c.width=nw; c.height=nh;
-            c.getContext('2d').drawImage(img,0,0,nw,nh);
-            resolve(c.toDataURL('image/png'));
-          }catch(e){ resolve(''); }
-        };
-        img.onerror=()=>resolve('');
-        img.src=src;
-      }catch(e){ resolve(''); }
-    });
-    _assinCache.set(src, dataURL);
-    return dataURL;
-  }
+            const tList = await fetchTreinamentos();
+            const semanasISO = [...new Set(base.map(r => r.SemanaISO).filter(Boolean))];
+            if (tList && tList.length){
+              const setISO = new Set(semanasISO);
+              let hit = tList.find(t => setISO.has(String(t['SemanaISO'])));
+              if (!hit && titulos.length) hit = tList.find(t => String(t['Titulo']).trim() === titulos[0]);
+              assuntosCabecalho = hit && hit['Assuntos'] ? String(hit['Assuntos']) : '';
+            }
+          }catch(e){}
 
-  function isDataURLImage(v){
-    return typeof v==='string' && /^data:image\/(png|jpeg|jpg);base64,/i.test(v.trim());
-  }
+          const { jsPDF } = window.jspdf;
+          const M_TOP = 28.35, M_BOTTOM = 28.35, M_LEFT = 14.17, M_RIGHT = 14.17;
+          const doc = new jsPDF({ orientation:'portrait', unit:'pt', format:'a4', compress:true });
+          const pageWidth = doc.internal.pageSize.getWidth();
+          const pageHeight = doc.internal.pageSize.getHeight();
+          const usableWidth = pageWidth - M_LEFT - M_RIGHT;
+          const LOGO_W = 120, LOGO_H = 52;
+          const L_H = 14;
 
-// ===== Fallback assíncrono: converte URL de imagem -> DataURL, sem XHR síncrono =====
-const __dataUrlCache = new Map();
-async function urlToDataURL(url){
-  try{
-    if (__dataUrlCache.has(url)) return __dataUrlCache.get(url);
-    const res = await fetch(url, { mode: 'cors' });
-    const blob = await res.blob();
-    const dataUrl = await new Promise((resolve)=>{ const fr = new FileReader(); fr.onload=()=>resolve(fr.result); fr.onerror=()=>resolve(''); fr.readAsDataURL(blob); });
-    __dataUrlCache.set(url, dataUrl || '');
-    return dataUrl || '';
-  }catch(e){ return ''; }
-}
-async function ensureDataURLImage(v){
-  if (!v) return '';
-  if (isDataURLImage(v)) return v;
-  return await urlToDataURL(v);
-}
-async function resolveRowSignatures(rows){
-  const out = [];
-  for (const r of rows){
-    const sig = await ensureDataURLImage(r._sig || r.AssinaturaPNG || '');
-    out.push({ ...r, _sig: sig });
-  }
-  return out;
-}
-async function resolveInstructorSignatures(list){
-  const out = [];
-  for (const inst of (list || [])){
-    const sig = await ensureDataURLImage(inst.assinaturaPng || '');
-    out.push({ ...inst, assinaturaPng: sig });
-  }
-  return out;
-}
+          const assuntosLines = assuntosCabecalho
+            ? doc.splitTextToSize('Assuntos: ' + assuntosCabecalho, usableWidth)
+            : [];
 
-  async function gerarPDF(){
-    await loadLogoAsDataURL();
+          function drawHeader(pageNumber){
+            try {
+              if (LOGO_DATAURL) {
+                doc.addImage(LOGO_DATAURL,'PNG', pageWidth - M_RIGHT - LOGO_W, M_TOP, LOGO_W, LOGO_H);
+              }
+            } catch(e){}
+            doc.setFont('helvetica','bold'); doc.setFontSize(18);
+            doc.text('DIÁLOGO SEMANAL DE SEGURANÇA', M_LEFT, M_TOP + 20);
 
-    const baseSource = (Array.isArray(registrosFiltrados) && registrosFiltrados.length) ? registrosFiltrados : registros;
-    if (!baseSource || !baseSource.length) { alert('Nenhum dado para gerar PDF.'); return; }
+            if (pageNumber === 1){
+              doc.setFont('helvetica','bold'); doc.setFontSize(14);
+              doc.text('Semana: ' + (tituloSemana ?? '-'), M_LEFT, M_TOP + 20 + 2*L_H);
+              if (assuntosLines.length){
+                doc.setFont('helvetica','normal'); doc.setFontSize(12);
+                doc.text(assuntosLines, M_LEFT, M_TOP + 20 + 4*L_H);
+              }
+            }
+          }
 
-    const base = [...baseSource].sort(
-      (a,b)=> String(a.Nome??'').localeCompare(String(b.Nome??''),'pt-BR',{sensitivity:'base'})
-    );
+          function drawFooter(pageNumber, totalPagesText){
+            const footerY = pageHeight - M_BOTTOM;
+            const generatedAt = new Date().toLocaleString('pt-BR');
+            doc.setFont('helvetica','italic'); doc.setFontSize(9);
+            doc.text('Gerado em: ' + generatedAt, M_LEFT, footerY - 4*L_H);
+            doc.setFont('helvetica','normal'); doc.setFontSize(9);
+            doc.text('Caterair Serviços de Bordo e Hotelaria LTDA - Base GIG', M_LEFT, footerY - 3*L_H);
+            doc.text('CNPJ 33.375.601/0001-38', M_LEFT, footerY - 2*L_H);
+            doc.text('Rua P, S/N, Área de Apoio do Aeroporto Internacional do Rio de Janeiro - Ilha do Governador - RJ',
+              M_LEFT, footerY - 1*L_H);
+            const pagText = (`Página ${pageNumber} de ${totalPagesText}`).trim();
+            doc.setFont('helvetica','normal'); doc.setFontSize(9);
+            doc.text(pagText, pageWidth/2, footerY, { align:'center' });
+          }
 
-    const titulos = [...new Set(base.map(r => r.TituloVideo).filter(Boolean))];
-    const tituloSemana = titulos.length ? titulos.join('; ') : '-';
+          const columns = [
+            { header:'Matrícula', dataKey:'Matricula' },
+            { header:'Funcionário', dataKey:'Nome' },
+            { header:'Setor', dataKey:'Setor' },
+            { header:'Data de Participação', dataKey:'DataFmt' },
+            { header:'Assinatura', dataKey:'_sig' }
+          ];
+          let rows = base.map(r => ({
+            Matricula: r.Matricula ?? '',
+            Nome: r.Nome ?? '',
+            Setor: r.Setor ?? '',
+            DataFmt: formatTimestamp(r.Timestamp) ?? '',
+            _sig: r.AssinaturaPNG ?? ''
+          }));
 
-    let assuntosCabecalho = '';
-    try{
-      const tList = await fetchTreinamentos();
-      const semanasISO = [...new Set(base.map(r => r.SemanaISO).filter(Boolean))];
-      if (tList && tList.length){
-        const setISO = new Set(semanasISO);
-        let hit = tList.find(t => setISO.has(String(t['SemanaISO'])));
-        if (!hit && titulos.length) hit = tList.find(t => String(t['Titulo']).trim() === titulos[0]);
-        assuntosCabecalho = hit && hit['Assuntos'] ? String(hit['Assuntos']) : '';
-      }
-    }catch(e){}
+          rows = await resolveRowSignatures(rows);
 
-    const { jsPDF } = window.jspdf;
-    const M_TOP = 28.35, M_BOTTOM = 28.35, M_LEFT = 14.17, M_RIGHT = 14.17;
-    const doc = new jsPDF({ orientation:'portrait', unit:'pt', format:'a4', compress:true });
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const pageHeight = doc.internal.pageSize.getHeight();
-    const usableWidth = pageWidth - M_LEFT - M_RIGHT;
-    const LOGO_W = 120, LOGO_H = 52;
-    const L_H = 14;
+          const totalPagesExp = '{total_pages_count_string}';
 
-    const assuntosLines = assuntosCabecalho
-      ? doc.splitTextToSize('Assuntos: ' + assuntosCabecalho, usableWidth)
-      : [];
+          let yStartFirstPage = M_TOP + 20 + 2*L_H + (assuntosLines.length ? (2*L_H + assuntosLines.length*L_H) : 0) + 2*L_H;
+          const yStartFirstPageMin = M_TOP + 20 + 6*L_H;
+          if (yStartFirstPage < yStartFirstPageMin) yStartFirstPage = yStartFirstPageMin;
 
-    function drawHeader(pageNumber){
-      try {
-        if (LOGO_DATAURL) {
-          doc.addImage(LOGO_DATAURL,'PNG', pageWidth - M_RIGHT - LOGO_W, M_TOP, LOGO_W, LOGO_H);
-        }
-      } catch(e){}
-      doc.setFont('helvetica','bold'); doc.setFontSize(18);
-      doc.text('DIÁLOGO SEMANAL DE SEGURANÇA', M_LEFT, M_TOP + 20);
+          const yStartOtherPages = M_TOP + LOGO_H + 5*L_H;
 
-      if (pageNumber === 1){
-        doc.setFont('helvetica','bold'); doc.setFontSize(14);
-        doc.text('Semana: ' + (tituloSemana ?? '-'), M_LEFT, M_TOP + 20 + 2*L_H);
-        if (assuntosLines.length){
-          doc.setFont('helvetica','normal'); doc.setFontSize(12);
-          doc.text(assuntosLines, M_LEFT, M_TOP + 20 + 4*L_H);
-        }
-      }
-    }
-
-    function drawFooter(pageNumber, totalPagesText){
-      const footerY = pageHeight - M_BOTTOM;
-      const generatedAt = new Date().toLocaleString('pt-BR');
-      doc.setFont('helvetica','italic'); doc.setFontSize(9);
-      doc.text('Gerado em: ' + generatedAt, M_LEFT, footerY - 4*L_H);
-      doc.setFont('helvetica','normal'); doc.setFontSize(9);
-      doc.text('Caterair Serviços de Bordo e Hotelaria LTDA - Base GIG', M_LEFT, footerY - 3*L_H);
-      doc.text('CNPJ 33.375.601/0001-38', M_LEFT, footerY - 2*L_H);
-      doc.text('Rua P, S/N, Área de Apoio do Aeroporto Internacional do Rio de Janeiro - Ilha do Governador - RJ',
-        M_LEFT, footerY - 1*L_H);
-      const pagText = (`Página ${pageNumber} de ${totalPagesText}`).trim();
-      doc.setFont('helvetica','normal'); doc.setFontSize(9);
-      doc.text(pagText, pageWidth/2, footerY, { align:'center' });
-    }
-
-    const columns = [
-      { header:'Matrícula', dataKey:'Matricula' },
-      { header:'Funcionário', dataKey:'Nome' },
-      { header:'Setor', dataKey:'Setor' },
-      { header:'Data de Participação', dataKey:'DataFmt' },
-      { header:'Assinatura', dataKey:'_sig' }
-    ];
-    let rows = base.map(r => ({
-      Matricula: r.Matricula ?? '',
-      Nome: r.Nome ?? '',
-      Setor: r.Setor ?? '',
-      DataFmt: formatTimestamp(r.Timestamp) ?? '',
-      _sig: r.AssinaturaPNG ?? ''
-    }));
-
-    rows = await resolveRowSignatures(rows);
-
-    const totalPagesExp = '{total_pages_count_string}';
-
-    let yStartFirstPage = M_TOP + 20 + 2*L_H + (assuntosLines.length ? (2*L_H + assuntosLines.length*L_H) : 0) + 2*L_H;
-    const yStartFirstPageMin = M_TOP + 20 + 6*L_H;
-    if (yStartFirstPage < yStartFirstPageMin) yStartFirstPage = yStartFirstPageMin;
-
-    const yStartOtherPages = M_TOP + LOGO_H + 5*L_H;
-
-    doc.autoTable({
-      startY: yStartFirstPage,
-      margin: { left:M_LEFT, right:M_RIGHT, top:yStartOtherPages, bottom: M_BOTTOM + 80 },
-      pageBreak: 'auto',
-      tableWidth: usableWidth,
-      columns,
-      body: rows,
-      styles: { font:'helvetica', fontSize:10, cellPadding:4, valign:'middle', overflow:'linebreak', minCellHeight: 36 },
-      headStyles: { fillColor:[33,150,243], textColor:255, halign:'center' },
-      columnStyles: {
-        Matricula:{ halign:'left' },
-        Nome: { halign:'left' },
-        Setor: { halign:'left', cellWidth: 120 },
-        DataFmt: { halign:'left' },
-        _sig: { halign:'center', cellWidth: 150 }
-      }},
-      didParseCell: (data) => {
-        if (data.section === 'body' && data.column.dataKey === '_sig') {
-          data.cell.text = [''];
-          // Oculta a linha/borda das células de assinatura
-          if (data.cell && data.cell.styles) {
-            data.cell.styles.lineWidth = 0;
+          doc.autoTable({
+            startY: yStartFirstPage,
+            margin: { left:M_LEFT, right:M_RIGHT, top:yStartOtherPages, bottom: M_BOTTOM + 80 },
+            pageBreak: 'auto',
+            tableWidth: usableWidth,
+            columns,
+            body: rows,
+            styles: { font:'helvetica', fontSize:10, cellPadding:4, valign:'middle', overflow:'linebreak', minCellHeight: 36 },
+            headStyles: { fillColor:[33,150,243], textColor:255, halign:'center' },
+            columnStyles: {
+              Matricula:{ halign:'left' },
+              Nome: { halign:'left' },
+              Setor: { halign:'left', cellWidth: 120 },
+              DataFmt: { halign:'left' },
+              _sig: { halign:'center', cellWidth: 150 }
+            }},
+            didParseCell: (data) => {
+              if (data.section === 'body' && data.column.dataKey === '_sig') {
+                data.cell.text = [''];
+                // Oculta a linha/borda das células de assinatura
+                if (data.cell && data.cell.styles) {
+                  data.cell.styles.lineWidth = 0;
+                }
+              }
+            },
+            didDrawPage: (data) => {
+              drawHeader(data.pageNumber);
+              drawFooter(data.pageNumber, totalPagesExp);
+              if (data.pageNumber > 1 && data.cursor && data.cursor.y < yStartOtherPages) {
+                data.cursor.y = yStartOtherPages;
+              }
+            },
+      didDrawCell: (data) => {
+        if (data.section === 'body' && data.column && data.column.dataKey === '_sig') {
+          const val = data.row?.raw?._sig || '';
+          if (typeof val === 'string' && /^data:image\/(png|jpeg|jpg);base64,/i.test(val)) {
+            try {
+              const props   = doc.getImageProperties(val);
+              const wPtNat  = props.width  * 72/96;  // px->pt
+              const hPtNat  = props.height * 72/96;
+              const pad     = 4;
+              const maxW    = data.cell.width  - pad*2;
+              const maxH    = data.cell.height - pad*2;
+              const scale   = Math.min(maxW / wPtNat, maxH / hPtNat, 1); // nunca amplia
+              const w       = wPtNat * scale;
+              const h       = hPtNat * scale;
+              const x       = data.cell.x + (data.cell.width  - w)/2;
+              const y       = data.cell.y + (data.cell.height - h)/2;
+              doc.addImage(val, props.fileType || 'PNG', x, y, w, h);
+            } catch(e) { /* silencioso */ }
           }
         }
-      },
-      didDrawPage: (data) => {
-        drawHeader(data.pageNumber);
-        drawFooter(data.pageNumber, totalPagesExp);
-        if (data.pageNumber > 1 && data.cursor && data.cursor.y < yStartOtherPages) {
-          data.cursor.y = yStartOtherPages;
+      }
+
+          // ===== INSTRUTORES (cards) =====
+          try {
+            const instrutores = await fetchInstrutores();
+            const instrutoresResolved = await resolveInstructorSignatures(instrutores);
+            if (Array.isArray(instrutoresResolved) && instrutoresResolved.length) {
+              await desenharCartoesInstrutores(doc, instrutoresResolved, yStartFirstPage, {
+                pageWidth, pageHeight, usableWidth,
+                M_LEFT, M_RIGHT, M_BOTTOM,
+                L_H, yStartOtherPages, totalPagesExp,
+                drawHeader, drawFooter
+              });
+            }
+          } catch(e) {}
+
+          if (typeof doc.putTotalPages === 'function') {
+            doc.putTotalPages(totalPagesExp);
+          }
+          doc.save('Relatorio_Dialogo_Semanal_de_Seguranca.pdf');
         }
-      },
-didDrawCell: (data) => {
-  if (data.section === 'body' && data.column && data.column.dataKey === '_sig') {
-    const val = data.row?.raw?._sig || '';
-    if (typeof val === 'string' && /^data:image\/(png|jpeg|jpg);base64,/i.test(val)) {
-      try {
-        const props   = doc.getImageProperties(val);
-        const wPtNat  = props.width  * 72/96;  // px->pt
-        const hPtNat  = props.height * 72/96;
-        const pad     = 4;
-        const maxW    = data.cell.width  - pad*2;
-        const maxH    = data.cell.height - pad*2;
-        const scale   = Math.min(maxW / wPtNat, maxH / hPtNat, 1); // nunca amplia
-        const w       = wPtNat * scale;
-        const h       = hPtNat * scale;
-        const x       = data.cell.x + (data.cell.width  - w)/2;
-        const y       = data.cell.y + (data.cell.height - h)/2;
-        doc.addImage(val, props.fileType || 'PNG', x, y, w, h);
-      } catch(e) { /* silencioso */ }
-    }
-  }
-}
 
-    // ===== INSTRUTORES (cards) =====
-    try {
-      const instrutores = await fetchInstrutores();
-      const instrutoresResolved = await resolveInstructorSignatures(instrutores);
-      if (Array.isArray(instrutoresResolved) && instrutoresResolved.length) {
-        await desenharCartoesInstrutores(doc, instrutoresResolved, yStartFirstPage, {
-          pageWidth, pageHeight, usableWidth,
-          M_LEFT, M_RIGHT, M_BOTTOM,
-          L_H, yStartOtherPages, totalPagesExp,
-          drawHeader, drawFooter
-        });
-      }
-    } catch(e) {}
+        async function desenharCartoesInstrutores(doc, instrutores, yStartFirstPage, env) {
+          const { pageWidth, pageHeight, usableWidth, M_LEFT, M_BOTTOM, L_H, yStartOtherPages, totalPagesExp, drawHeader, drawFooter } = env;
 
-    if (typeof doc.putTotalPages === 'function') {
-      doc.putTotalPages(totalPagesExp);
-    }
-    doc.save('Relatorio_Dialogo_Semanal_de_Seguranca.pdf');
-  }
+          let y = (doc.lastAutoTable && doc.lastAutoTable.finalY ? doc.lastAutoTable.finalY : yStartFirstPage) + 3*L_H;
 
-  async function desenharCartoesInstrutores(doc, instrutores, yStartFirstPage, env) {
-    const { pageWidth, pageHeight, usableWidth, M_LEFT, M_BOTTOM, L_H, yStartOtherPages, totalPagesExp, drawHeader, drawFooter } = env;
+          const grid = {
+            cols: 2,
+            gap: 12,
+            cardW: Math.min((usableWidth - 12) / 2, 280),
+            cardH: 150,
+            sigH: 52,
+            fontSize: 10
+          };
+          const totalGridW = grid.cols * grid.cardW + (grid.cols - 1) * grid.gap;
+          const xStart = (pageWidth - totalGridW) / 2;
 
-    let y = (doc.lastAutoTable && doc.lastAutoTable.finalY ? doc.lastAutoTable.finalY : yStartFirstPage) + 3*L_H;
+          const blocoMin = 16 + grid.cardH;
+          if (y + blocoMin > pageHeight - M_BOTTOM) {
+            doc.addPage();
+            const current = doc.getNumberOfPages();
+            drawHeader(current);
+            drawFooter(current, totalPagesExp);
+            y = yStartOtherPages;
+          }
 
-    const grid = {
-      cols: 2,
-      gap: 12,
-      cardW: Math.min((usableWidth - 12) / 2, 280),
-      cardH: 150,
-      sigH: 52,
-      fontSize: 10
-    };
-    const totalGridW = grid.cols * grid.cardW + (grid.cols - 1) * grid.gap;
-    const xStart = (pageWidth - totalGridW) / 2;
+          doc.setFont('helvetica','bold'); doc.setFontSize(14);
+          doc.text('INSTRUTORES RESPONSÁVEIS:', M_LEFT, y);
+          y += 16;
 
-    const blocoMin = 16 + grid.cardH;
-    if (y + blocoMin > pageHeight - M_BOTTOM) {
-      doc.addPage();
-      const current = doc.getNumberOfPages();
-      drawHeader(current);
-      drawFooter(current, totalPagesExp);
-      y = yStartOtherPages;
-    }
+          doc.setFont('helvetica','normal'); doc.setFontSize(grid.fontSize); doc.setTextColor(0);
 
-    doc.setFont('helvetica','bold'); doc.setFontSize(14);
-    doc.text('INSTRUTORES RESPONSÁVEIS:', M_LEFT, y);
-    y += 16;
+          for (let idx=0; idx<instrutores.length; idx++) {
+            const inst = instrutores[idx];
+            const col = idx % grid.cols;
+            const isFirstCol = (col === 0);
 
-    doc.setFont('helvetica','normal'); doc.setFontSize(grid.fontSize); doc.setTextColor(0);
+            if (isFirstCol && idx > 0) {
+              if (y + grid.cardH > pageHeight - M_BOTTOM) {
+                doc.addPage();
+                const current = doc.getNumberOfPages();
+                drawHeader(current);
+                drawFooter(current, totalPagesExp);
+                y = yStartOtherPages;
+              } else {
+                y += grid.gap;
+              }
+            }
 
-    for (let idx=0; idx<instrutores.length; idx++) {
-      const inst = instrutores[idx];
-      const col = idx % grid.cols;
-      const isFirstCol = (col === 0);
+            const x = xStart + col * (grid.cardW + grid.gap);
 
-      if (isFirstCol && idx > 0) {
-        if (y + grid.cardH > pageHeight - M_BOTTOM) {
-          doc.addPage();
-          const current = doc.getNumberOfPages();
-          drawHeader(current);
-          drawFooter(current, totalPagesExp);
-          y = yStartOtherPages;
-        } else {
-          y += grid.gap;
+            doc.setDrawColor(200);
+            doc.rect(x, y, grid.cardW, grid.cardH);
+
+            if (inst.assinaturaPng) {
+              try {
+                const pad = 6;
+                const boxW = grid.cardW - 2*pad;
+                const boxH = grid.sigH;
+                const maxW = boxW;
+                const maxH = boxH;
+                const sigX = x + (grid.cardW - maxW) / 2;
+                const sigY = y + pad;
+                const props = doc.getImageProperties(inst.assinaturaPng);
+      const wPtNat = props.width * 72/96;
+      const hPtNat = props.height * 72/96;
+      const scaleSig = Math.min((maxW) / wPtNat, (maxH) / hPtNat, 1);
+      const wSig = wPtNat * scaleSig;
+      const hSig = hPtNat * scaleSig;
+      const xSig = x + (grid.cardW - wSig) / 2;
+      const ySig = y + pad + (maxH - hSig)/2;
+      doc.addImage(inst.assinaturaPng, props.fileType || '|| 'PNG', xSig, ySig, wSig, hSig);
+              } catch(e){}
+            }
+
+            const textPadX = 8;
+            const xCenter = x + grid.cardW/2;
+            let textY = y + grid.sigH + 2*L_H*0.6;
+            const wrapW = grid.cardW - 2*textPadX;
+
+            const writeLine = (label, value, bold=false) => {
+              if (!value) return;
+              doc.setFont('helvetica', bold ? 'bold' : 'normal');
+              const txt = doc.splitTextToSize(`${label}${String(value)}`, wrapW);
+              // escreve centralizado no cartão
+              txt.forEach((line, i) => {
+                doc.text(line, xCenter, textY + i*(grid.fontSize+2), { align: 'center' });
+              });
+              textY += txt.length * (grid.fontSize + 2);
+            };
+
+            writeLine('Nome: ', inst.nome ?? '', true);
+            writeLine('Função 1: ', inst.funcao1 ?? '');
+            writeLine('Função 2: ', inst.funcao2 ?? '');
+          }
         }
-      }
 
-      const x = xStart + col * (grid.cardW + grid.gap);
+        async function novoFuncionarioViaPrompt(){
+          const status = document.getElementById('status');
+          try{
+            let mRaw = prompt('Nova matrícula (5 dígitos, apenas números):');
+            if (mRaw === null) return;
+            mRaw = (mRaw ?? '').replace(/\D/g,'');
+            while (!/^\d{5}$/.test(mRaw)) {
+              mRaw = prompt('Matrícula inválida. Informe 5 dígitos (ex.: 12345):', mRaw);
+              if (mRaw === null) return;
+              mRaw = (mRaw ?? '').replace(/\D/g,'');
+            }
+            const matricula = mRaw;
 
-      doc.setDrawColor(200);
-      doc.rect(x, y, grid.cardW, grid.cardH);
+            let nome = prompt('Nome completo:');
+            if (nome === null) return;
+            nome = (nome ?? '').trim();
+            if (!nome) { alert('Nome é obrigatório.'); return; }
 
-      if (inst.assinaturaPng) {
-        try {
-          const pad = 6;
-          const boxW = grid.cardW - 2*pad;
-          const boxH = grid.sigH;
-          const maxW = boxW;
-          const maxH = boxH;
-          const sigX = x + (grid.cardW - maxW) / 2;
-          const sigY = y + pad;
-          const props = doc.getImageProperties(inst.assinaturaPng);
-const wPtNat = props.width * 72/96;
-const hPtNat = props.height * 72/96;
-const scaleSig = Math.min((maxW) / wPtNat, (maxH) / hPtNat, 1);
-const wSig = wPtNat * scaleSig;
-const hSig = hPtNat * scaleSig;
-const xSig = x + (grid.cardW - wSig) / 2;
-const ySig = y + pad + (maxH - hSig)/2;
-doc.addImage(inst.assinaturaPng, props.fileType || '|| 'PNG', xSig, ySig, wSig, hSig);
-        } catch(e){}
-      }
+            let setor = prompt('Setor (opcional):');
+            if (setor === null) setor = '';
+            setor = (setor ?? '').trim();
 
-      const textPadX = 8;
-      const xCenter = x + grid.cardW/2;
-      let textY = y + grid.sigH + 2*L_H*0.6;
-      const wrapW = grid.cardW - 2*textPadX;
+            const ok = confirm(`Confirmar cadastro?\n\nMatrícula: ${matricula}\nNome: ${nome}\nSetor: ${setor ?? '-'}\nAtivo: TRUE`);
+            if (!ok) { status.innerHTML = '<div class="warn">Operação cancelada.</div>'; return; }
 
-      const writeLine = (label, value, bold=false) => {
-        if (!value) return;
-        doc.setFont('helvetica', bold ? 'bold' : 'normal');
-        const txt = doc.splitTextToSize(`${label}${String(value)}`, wrapW);
-        // escreve centralizado no cartão
-        txt.forEach((line, i) => {
-          doc.text(line, xCenter, textY + i*(grid.fontSize+2), { align: 'center' });
-        });
-        textY += txt.length * (grid.fontSize + 2);
-      };
+            const payload = { matricula, nome, setor, ativo: true };
+            status.innerHTML = '<div class="warn">Enviando novo funcionário...</div>';
+            const res = await fetch(API_BASE+'?action=addFuncionario',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+            let data; try{ data = await res.json(); } catch{ data = { ok:false, error:'Resposta não-JSON', status: res.status }; }
+            if(!data.ok) throw new Error(data.error ?? 'Falha ao incluir funcionário');
+            status.innerHTML = '<div class="ok">Funcionário incluído com sucesso.</div>';
+          }catch(err){
+            status.innerHTML = '<div class="error">'+ (err && err.message ? err.message : 'Erro ao incluir funcionário') +'</div>';
+          }
+        }
 
-      writeLine('Nome: ', inst.nome ?? '', true);
-      writeLine('Função 1: ', inst.funcao1 ?? '');
-      writeLine('Função 2: ', inst.funcao2 ?? '');
-    }
-  }
+        function escapeHtml(str){
+          return String(str ?? '')
+            .replace(/&/g,'&amp;')
+            .replace(/</g,'&lt;')
+            .replace(/>/g,'&gt;')
+            .replace(/\x22/g,'&quot;')
+            .replace(/'/g,'&#39;');
+        }
 
-  async function novoFuncionarioViaPrompt(){
-    const status = document.getElementById('status');
-    try{
-      let mRaw = prompt('Nova matrícula (5 dígitos, apenas números):');
-      if (mRaw === null) return;
-      mRaw = (mRaw ?? '').replace(/\D/g,'');
-      while (!/^\d{5}$/.test(mRaw)) {
-        mRaw = prompt('Matrícula inválida. Informe 5 dígitos (ex.: 12345):', mRaw);
-        if (mRaw === null) return;
-        mRaw = (mRaw ?? '').replace(/\D/g,'');
-      }
-      const matricula = mRaw;
+        function nomeArquivo(ext){
+          const hoje = new Date();
+          const pad = (n)=>String(n).padStart(2,'0');
+          return `DSS_GIG_Relatorio_${hoje.getFullYear()}-${pad(hoje.getMonth()+1)}-${pad(hoje.getDate())}.${ext}`;
+        }
 
-      let nome = prompt('Nome completo:');
-      if (nome === null) return;
-      nome = (nome ?? '').trim();
-      if (!nome) { alert('Nome é obrigatório.'); return; }
+        function normalizarDataInput(v) {
+          if (!v) return null; const [yyyy, mm, dd] = v.split('-').map(Number);
+          return new Date(Date.UTC(yyyy, mm - 1, dd, 0, 0, 0));
+        }
 
-      let setor = prompt('Setor (opcional):');
-      if (setor === null) setor = '';
-      setor = (setor ?? '').trim();
+        function fimDoDia(dIniUTC) { if (!dIniUTC) return null; return new Date(dIniUTC.getTime() + 24*60*60*1000 - 1); }
 
-      const ok = confirm(`Confirmar cadastro?\n\nMatrícula: ${matricula}\nNome: ${nome}\nSetor: ${setor ?? '-'}\nAtivo: TRUE`);
-      if (!ok) { status.innerHTML = '<div class="warn">Operação cancelada.</div>'; return; }
+        function parseTimestamp(valor){
+          if (!valor) return null; let d = new Date(valor);
+          if (!Number.isNaN(d.getTime())) return d;
+          const rx = /^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/;
+          const m = String(valor).trim().match(rx);
+          if (m){
+            const dd=+m[1], mm=+m[2], yy=+m[3];
+            const hh=+(m[4]??0), mi=+(m[5]??0), ss=+(m[6]??0);
+            return new Date(yy, mm-1, dd, hh, mi, ss);
+          }
+          return null;
+        }
 
-      const payload = { matricula, nome, setor, ativo: true };
-      status.innerHTML = '<div class="warn">Enviando novo funcionário...</div>';
-      const res = await fetch(API_BASE+'?action=addFuncionario',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
-      let data; try{ data = await res.json(); } catch{ data = { ok:false, error:'Resposta não-JSON', status: res.status }; }
-      if(!data.ok) throw new Error(data.error ?? 'Falha ao incluir funcionário');
-      status.innerHTML = '<div class="ok">Funcionário incluído com sucesso.</div>';
-    }catch(err){
-      status.innerHTML = '<div class="error">'+ (err && err.message ? err.message : 'Erro ao incluir funcionário') +'</div>';
-    }
-  }
-
-  function escapeHtml(str){
-    return String(str ?? '')
-      .replace(/&/g,'&amp;')
-      .replace(/</g,'&lt;')
-      .replace(/>/g,'&gt;')
-      .replace(/\x22/g,'&quot;')
-      .replace(/'/g,'&#39;');
-  }
-
-  function nomeArquivo(ext){
-    const hoje = new Date();
-    const pad = (n)=>String(n).padStart(2,'0');
-    return `DSS_GIG_Relatorio_${hoje.getFullYear()}-${pad(hoje.getMonth()+1)}-${pad(hoje.getDate())}.${ext}`;
-  }
-
-  function normalizarDataInput(v) {
-    if (!v) return null; const [yyyy, mm, dd] = v.split('-').map(Number);
-    return new Date(Date.UTC(yyyy, mm - 1, dd, 0, 0, 0));
-  }
-
-  function fimDoDia(dIniUTC) { if (!dIniUTC) return null; return new Date(dIniUTC.getTime() + 24*60*60*1000 - 1); }
-
-  function parseTimestamp(valor){
-    if (!valor) return null; let d = new Date(valor);
-    if (!Number.isNaN(d.getTime())) return d;
-    const rx = /^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/;
-    const m = String(valor).trim().match(rx);
-    if (m){
-      const dd=+m[1], mm=+m[2], yy=+m[3];
-      const hh=+(m[4]??0), mi=+(m[5]??0), ss=+(m[6]??0);
-      return new Date(yy, mm-1, dd, hh, mi, ss);
-    }
-    return null;
-  }
-
-  function formatTimestamp(ts){
-    const d = parseTimestamp(ts);
-    if (!d) return String(ts ?? '');
-    const pad=(n)=>String(n).padStart(2,'0');
-    return `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
-  }
-</script>
-</body>
+        function formatTimestamp(ts){
+          const d = parseTimestamp(ts);
+          if (!d) return String(ts ?? '');
+          const pad=(n)=>String(n).padStart(2,'0');
+          return `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+        }
+    </script>
+  </body>
 </html>
