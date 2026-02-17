@@ -943,7 +943,7 @@
         }
 
         doc.setFont("helvetica", "bold");
-        doc.setFontSize(14);
+        doc.setFontSize(12);
         doc.text("INSTRUTORES RESPONSÁVEIS:", M_LEFT, y);
         y += 16;
 
@@ -1016,7 +1016,7 @@
             textY += txt.length * (grid.fontSize + 2);
           };
 
-          writeLine(inst.nome ?? "", true);
+          writeLine(inst.nome ?? ""); //, true
           writeLine(inst.funcao1 ?? "");
           writeLine(inst.funcao2 ?? "");
         }
