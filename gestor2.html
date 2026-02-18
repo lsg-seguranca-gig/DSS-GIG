@@ -90,7 +90,7 @@
       </div>
       <div class="filters-row-2">
         <div class="row">
-          <label for="fSemanaTitulo">Título</label>
+          <label for="fSemanaTitulo">Semana</label>
           <select id="fSemanaTitulo"><option value="">Todas</option></select>
         </div>
         <div class="row">
@@ -489,110 +489,101 @@
   }
 
   async function dashAtualizar(){
-    await dashEnsureData();
-    const dashStatus=document.getElementById('dashStatus'); dashStatus.innerHTML='';
-    const selISO=document.getElementById('dashSemanaIso').value.trim();
-    const selTit=document.getElementById('dashTitulo').value.trim();
-    let semanaAlvo=selISO;
-    if (!semanaAlvo && selTit){ const hit=(DASH_treinamentos||[]).find(t=> String(t.Titulo).trim()===selTit); if (hit && hit.SemanaISO) semanaAlvo = String(hit.SemanaISO); }
-    if (!semanaAlvo){ dashStatus.innerHTML='<div class="warn">Selecione uma Semana (ISO) ou um Título.</div>'; dashRender([],[]); dashKPIs({total:0, part:0, nPart:0, semana:'-', titulo:'-'}); return; }
+  await dashEnsureData();
+  const dashStatus = document.getElementById('dashStatus');
+  dashStatus.innerHTML = '';
 
-    const mapaPart=new Map();
-    for (const r of (DASH_registrosAll||[])){
-      if (String(r.SemanaISO||'') !== String(semanaAlvo)) continue;
-      const key=String(r.Matricula||''); const ts=parseTimestamp(r.Timestamp);
-      if (!mapaPart.has(key)) mapaPart.set(key, r);
-      else { const antigo=mapaPart.get(key); const tsAnt=parseTimestamp(antigo.Timestamp); if (ts && tsAnt && ts < tsAnt) mapaPart.set(key, r); }
+  const selISO = document.getElementById('dashSemanaIso').value.trim();
+  const selTit = document.getElementById('dashTitulo').value.trim();
+
+  // --- Helpers robustos ---
+  const normMat = (v) => String(v ?? '').replace(/\D/g, '').trim();
+  const isAtivoTrue = (val) => {
+    // aceita boolean true, números !=0, e várias strings comuns (pt/en)
+    if (val === true) return true;
+    if (typeof val === 'number') return val !== 0;
+    const s = String(val ?? '').normalize('NFD').replace(/\p{Diacritic}/gu,'').toLowerCase().trim();
+    return ['true','1','sim','yes','y','s','verdadeiro','ativo','active'].includes(s);
+  };
+
+  // Determina TÍTULO alvo (cálculo por Título)
+  let tituloAlvo = selTit;
+  if (!tituloAlvo && selISO){
+    const hit = (DASH_treinamentos||[]).find(t => String(t.SemanaISO) === String(selISO));
+    if (hit && hit.Titulo) tituloAlvo = String(hit.Titulo);
+  }
+  if (!tituloAlvo){
+    dashStatus.innerHTML = '<div class="warn">Selecione um <b>Título</b> ou escolha uma Semana (ISO) que tenha título vinculado.</div>';
+    dashRender([], []);
+    dashKPIs({ total: 0, part: 0, nPart: 0, semana: '-', titulo: '-' });
+    return;
+  }
+
+  // Universo: Funcionarios Ativos (robusto) + fallback
+  const funcionariosAll = Array.isArray(DASH_funcionarios) ? DASH_funcionarios : [];
+  let funcAtivos = funcionariosAll.filter(f => isAtivoTrue(f.Ativo ?? f.ativo));
+  if (!funcAtivos.length) {
+    // Se nada foi marcado como ativo, considera todos com matrícula preenchida como ativos (fallback)
+    funcAtivos = funcionariosAll.filter(f => normMat(f.Matricula).length > 0);
+  }
+  // Normaliza matrículas e prepara mapa
+  funcAtivos = funcAtivos.map(f => ({ Matricula: normMat(f.Matricula), Nome: f.Nome ?? '', Setor: f.Setor ?? '' }));
+  const mapFunc = new Map(funcAtivos.map(f => [f.Matricula, f]));
+
+  // Participantes por Título (TituloVideo == tituloAlvo) — dedup por matrícula com primeiro Timestamp
+  const candidatos = (DASH_registrosAll||[])
+    .filter(r => String(r.TituloVideo || '').trim() === tituloAlvo)
+    .map(r => ({ ...r, Matricula: normMat(r.Matricula) }))
+    .filter(r => r.Matricula.length > 0);
+
+  const mapaPart = new Map();
+  for (const r of candidatos){
+    const key = r.Matricula;
+    const ts = parseTimestamp(r.Timestamp);
+    if (!mapaPart.has(key)) mapaPart.set(key, r);
+    else {
+      const ant = mapaPart.get(key);
+      const tsAnt = parseTimestamp(ant.Timestamp);
+      if (ts && tsAnt && ts < tsAnt) mapaPart.set(key, r);
     }
-    const participantes=[...mapaPart.values()];
-
-    const funcAtivos=(DASH_funcionarios||[]).filter(f=>{ const v=String(f.Ativo??f.ativo??'').toLowerCase().trim(); return v==='true'||v==='1'||v==='sim'||v==='yes'; });
-    const setMatPart=new Set(participantes.map(p=> String(p.Matricula||'')));
-    const naoPart = funcAtivos.filter(f=> !setMatPart.has(String(f.Matricula||'')));
-
-    const mapFunc=new Map(funcAtivos.map(f=> [String(f.Matricula||''), f]));
-    const participantesFull = participantes.map(p=>{ const f=mapFunc.get(String(p.Matricula||''))||{}; return { Matricula: p.Matricula ?? f.Matricula ?? '', Nome: p.Nome ?? f.Nome ?? '', Setor: p.Setor ?? f.Setor ?? '', Timestamp: p.Timestamp ?? '' }; })
-      .sort((a,b)=> String(a.Nome ?? '').localeCompare(String(b.Nome ?? ''), 'pt-BR', {sensitivity:'base'}));
-    const naoParticipantesFull = naoPart.map(f=>({ Matricula: f.Matricula ?? '', Nome: f.Nome ?? '', Setor: f.Setor ?? '' }))
-      .sort((a,b)=> String(a.Nome ?? '').localeCompare(String(b.Nome ?? ''), 'pt-BR', {sensitivity:'base'}));
-
-    DASH_participantes=participantesFull; DASH_naoParticipantes=naoParticipantesFull;
-
-    const total=funcAtivos.length; const part=participantesFull.length; const nPart=naoParticipantesFull.length;
-    const tituloAlvo = (()=>{ const t=(DASH_treinamentos||[]).find(t=> String(t.SemanaISO)===String(semanaAlvo)); return t && t.Titulo ? String(t.Titulo) : (selTit || '-'); })();
-
-    dashKPIs({ total, part, nPart, semana: semanaAlvo, titulo: tituloAlvo });
-    dashRender(naoParticipantesFull, participantesFull);
-    dashStatus.innerHTML = `<div class="ok">Dashboard atualizado: ${semanaAlvo}</div>`;
   }
 
-  function dashKPIs({ total, part, nPart, semana, titulo }){
-    const pct = total > 0 ? Math.round((part/total)*100) : 0;
-    document.getElementById('kpiTotalAtivos').textContent = String(total ?? '-');
-    document.getElementById('kpiParticiparam').textContent = String(part ?? '-');
-    document.getElementById('kpiParticiparamPct').textContent = total ? `${pct}% de conclusão` : '-';
-    document.getElementById('kpiNaoParticiparam').textContent = String(nPart ?? '-');
-    document.getElementById('kpiSemanaSel').textContent = String(semana ?? '-');
-    document.getElementById('kpiTituloSel').textContent = String(titulo ?? '-');
-  }
+  // Conjunto de participantes (independente de estar em Funcionarios — para não inflar indevidamente)
+  const participantesArr = [...mapaPart.values()];
+  const setPart = new Set(participantesArr.map(p => p.Matricula));
 
-  function dashRender(naoParticipantes, participantes){
-    const tbodyNP=document.getElementById('tbodyNP');
-    const tbodyP=document.getElementById('tbodyP');
-    if (!naoParticipantes || !naoParticipantes.length){ tbodyNP.innerHTML = '<tr><td colspan="3" class="muted">Todos participaram 🎉</td></tr>'; }
-    else { tbodyNP.innerHTML = naoParticipantes.map(n=>`<tr><td>${escapeHtml(n.Matricula ?? '')}</td><td>${escapeHtml(n.Nome ?? '')}</td><td>${escapeHtml(n.Setor ?? '')}</td></tr>`).join(''); }
-    if (!participantes || !participantes.length){ tbodyP.innerHTML = '<tr><td colspan="4" class="muted">Sem registros de participação</td></tr>'; }
-    else { tbodyP.innerHTML = participantes.map(p=>`<tr><td>${escapeHtml(p.Matricula ?? '')}</td><td>${escapeHtml(p.Nome ?? '')}</td><td>${escapeHtml(p.Setor ?? '')}</td><td>${escapeHtml(formatTimestamp(p.Timestamp))}</td></tr>`).join(''); }
-  }
+  // Não Participaram = Ativos - Participantes (comparando por matrícula normalizada)
+  const naoPart = funcAtivos.filter(f => !setPart.has(f.Matricula));
 
-  function dashGerarXLS_NP(){
-    const base=DASH_naoParticipantes||[]; if(!base.length){ alert('Nenhum dado de Não Participantes para exportar.'); return; }
-    const wb=XLSX.utils.book_new();
-    const ws=XLSX.utils.json_to_sheet(base.map(r=>({ 'Matrícula': r.Matricula ?? '', 'Funcionário': r.Nome ?? '', 'Setor': r.Setor ?? '' })));
-    XLSX.utils.book_append_sheet(wb, ws, 'Não Participantes');
-    XLSX.writeFile(wb, `DSS_GIG_NaoParticipantes_${(document.getElementById('kpiSemanaSel').textContent || 'semana')}.xlsx`);
-  }
-  function dashGerarXLS_P(){
-    const base=DASH_participantes||[]; if(!base.length){ alert('Nenhum dado de Participantes para exportar.'); return; }
-    const wb=XLSX.utils.book_new();
-    const ws=XLSX.utils.json_to_sheet(base.map(r=>({ 'Matrícula': r.Matricula ?? '', 'Funcionário': r.Nome ?? '', 'Setor': r.Setor ?? '', 'Data de participação': formatTimestamp(r.Timestamp) })));
-    XLSX.utils.book_append_sheet(wb, ws, 'Participantes');
-    XLSX.writeFile(wb, `DSS_GIG_Participantes_${(document.getElementById('kpiSemanaSel').textContent || 'semana')}.xlsx`);
-  }
-  function dashCompareSemanaISODesc(a,b){ const pa=dashParseSemanaISO(a), pb=dashParseSemanaISO(b); if (pa.year!==pb.year) return pb.year-pa.year; return pb.week-pa.week; }
-  function dashParseSemanaISO(s){ const m=String(s||'').match(/^(\d{4})-W?(\d{1,2})$/i); if(!m) return {year:0, week:0}; return {year:+m[1], week:+m[2]}; }
+  // Monta listas finais (enriquece participantes com cadastro, quando existir)
+  const participantesFull = participantesArr.map(p => {
+    const f = mapFunc.get(p.Matricula) || {};
+    return {
+      Matricula: p.Matricula || f.Matricula || '',
+      Nome: p.Nome || f.Nome || '',
+      Setor: p.Setor || f.Setor || '',
+      Timestamp: p.Timestamp || ''
+    };
+  }).sort((a,b)=> String(a.Nome ?? '').localeCompare(String(b.Nome ?? ''), 'pt-BR', {sensitivity:'base'}));
 
-  /* ====== Alternância Principal/Dashboard: usa classes primary/secondary ====== */
-  (function initTabs(){
-    const btnPrincipal=document.getElementById('tabPrincipal');
-    const btnDashboard=document.getElementById('tabDashboard');
-    const secFiltros=document.getElementById('cardFiltros');
-    const secResultados=document.getElementById('cardResultados');
-    const secDashboard=document.getElementById('dashCard');
+  const naoParticipantesFull = naoPart
+    .map(f => ({ Matricula: f.Matricula, Nome: f.Nome, Setor: f.Setor }))
+    .sort((a,b)=> String(a.Nome ?? '').localeCompare(String(b.Nome ?? ''), 'pt-BR', {sensitivity:'base'}));
 
-    // estado inicial
-    showPrincipal();
+  // Semana exibida: mais comum entre participantes; senão usa selISO ou '-'
+  let semanaMost = '-';
+  if (participantesArr.length){
+    const cnt = new Map();
+    participantesArr.forEach(p => { const w = String(p.SemanaISO || '').trim(); if (w) cnt.set(w, (cnt.get(w)||0)+1); });
+    let max = 0; cnt.forEach((v,k)=>{ if (v>max){ max=v; semanaMost=k; } });
+  } else if (selISO){ semanaMost = selISO; }
 
-    btnPrincipal.addEventListener('click', showPrincipal);
-    btnDashboard.addEventListener('click', showDashboard);
-
-    function setActive(btnOn, btnOff){
-      btnOn.classList.remove('secondary'); btnOn.classList.add('primary');
-      btnOff.classList.remove('primary'); btnOff.classList.add('secondary');
-    }
-    function showPrincipal(){
-      setActive(btnPrincipal, btnDashboard);
-      secFiltros?.classList.remove('is-hidden');
-      secResultados?.classList.remove('is-hidden');
-      secDashboard?.classList.add('is-hidden');
-    }
-    function showDashboard(){
-      setActive(btnDashboard, btnPrincipal);
-      secFiltros?.classList.add('is-hidden');
-      secResultados?.classList.add('is-hidden');
-      secDashboard?.classList.remove('is-hidden');
-    }
-  })();
-</script>
-</body>
-</html>
+  // KPIs e render
+  DASH_participantes = participantesFull;
+  DASH_naoParticipantes = naoParticipantesFull;
+  const total = funcAtivos.length; const part = participantesFull.length; const nPart = naoParticipantesFull.length;
+  dashKPIs({ total, part, nPart, semana: semanaMost, titulo: tituloAlvo });
+  dashRender(naoParticipantesFull, participantesFull);
+  dashStatus.innerHTML = `<div class="ok">Dashboard atualizado por Título: ${tituloAlvo ?? tituloAlvo}</div>`;
+}
+>
