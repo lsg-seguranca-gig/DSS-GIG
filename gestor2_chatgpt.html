@@ -1,0 +1,691 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>DSS GIG — Painel do Gestor</title>
+  <link rel="icon" href="data:;base64,iVBORw0KGgo" />
+  <link rel="stylesheet" href="styles.css" />
+  <!-- jsPDF + AutoTable -->
+  <script defer src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js"></script>
+  <!-- XLSX (SheetJS) para gerar Excel -->
+  <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <style>
+    /* ====== layout base do seu gestor2.html ====== */
+    html, body, button, input, select, table, th, td, label, .card, .site-header {
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", "Liberation Sans", sans-serif;
+    }
+    .filters-wrap { display: flex; flex-direction: column; gap: 14px; }
+    .filters-row-1 { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+    .filters-row-2 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 24px; }
+    .filters-wrap .row { display: flex; flex-direction: column; }
+    .filters-wrap label { font-size: 14px; margin-bottom: 6px; color: #374151; }
+    .filters-wrap input[type="text"], .filters-wrap input[type="date"], .filters-wrap select {
+      height: 40px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background: #fff; color: #111827; box-sizing: border-box; width: 100%;
+    }
+    .actions { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-top: 6px; }
+    .actions-left { display: flex; gap: 8px; flex-wrap: wrap; }
+    .actions-right { display: flex; gap: 8px; }
+
+    @media (max-width: 900px) {
+      .filters-row-1 { grid-template-columns: 1fr; }
+      .filters-row-2 { grid-template-columns: 1fr; }
+      .actions { justify-content: flex-start; gap: 8px; }
+      .actions-right { margin-top: 6px; }
+    }
+
+    .sig-img { height: 48px; object-fit: contain; }
+    @media print {
+      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .site-header { box-shadow: none; }
+      .card { box-shadow: none; border: 1px solid #999; }
+      .actions button, .top-tabs { display: none; }
+    }
+
+    /* ====== estilos do Dashboard (pontuais) ====== */
+    .kpi-wrap { display: grid; grid-template-columns: repeat(4, minmax(120px, 1fr)); gap: 12px; margin-top: 12px; }
+    .kpi { border: 1px solid var(--border, #e5e7eb); border-radius: 8px; padding: 12px; background: #fff; }
+    .kpi .label { color: #6b7280; font-size: 12px; }
+    .kpi .value { font-size: 22px; font-weight: 700; margin-top: 4px; }
+    .kpi .sub { color: #6b7280; font-size: 12px; margin-top: 2px; }
+    .two-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 14px; }
+    .two-cols h3 { margin: 6px 0; font-size: 16px; }
+    .muted { color: #6b7280; text-align: center; }
+    @media (max-width: 1000px) { .kpi-wrap { grid-template-columns: repeat(2, minmax(140px, 1fr)); } .two-cols { grid-template-columns: 1fr; } }
+
+    /* ====== navegação Principal / Dashboard (usa primary/secondary existentes) ====== */
+    .top-tabs { display: flex; gap: 8px; margin: 12px auto 0; max-width: 1100px; padding: 0 12px; }
+    .is-hidden { display: none !important; }
+  </style>
+  <link rel="shortcut icon" href="icone lsg.ico" />
+</head>
+<body>
+<header class="site-header">
+  <img src="logo lsg.png" alt="logo LSG" />
+  <h1>Painel do Gestor — DSS GIG</h1>
+  <p class="subtitle">Busque e gere relatórios em PDF/XLS (otimizado para impressão)</p>
+</header>
+
+<!-- Navegação de telas (botões no estilo do seu layout) -->
+<nav class="top-tabs" aria-label="Alternar telas">
+  <button id="tabPrincipal" class="primary" type="button">Principal</button>
+  <button id="tabDashboard" class="secondary" type="button">Dashboard</button>
+</nav>
+
+<main class="container">
+  <!-- ====== Principal: Filtros ====== -->
+  <section class="card" id="cardFiltros">
+    <h2>Filtros</h2>
+    <div class="filters-wrap">
+      <div class="filters-row-1">
+        <div class="row">
+          <label for="fMat">Matrícula</label>
+          <input type="text" id="fMat" placeholder="Ex.: 12345" />
+        </div>
+        <div class="row">
+          <label for="fNome">Nome</label>
+          <input type="text" id="fNome" placeholder="Nome do colaborador" />
+        </div>
+      </div>
+      <div class="filters-row-2">
+        <div class="row">
+          <label for="fSemanaTitulo">Título</label>
+          <select id="fSemanaTitulo"><option value="">Todas</option></select>
+        </div>
+        <div class="row">
+          <label for="fDataInicio">Data Inicial</label>
+          <input type="date" id="fDataInicio" />
+        </div>
+        <div class="row">
+          <label for="fDataFinal">Data Final</label>
+          <input type="date" id="fDataFinal" />
+        </div>
+      </div>
+      <div class="actions">
+        <div class="actions-left">
+          <button id="btnBuscar" class="primary">Buscar</button>
+          <button id="btnXLS" class="secondary">Gerar XLS</button>
+          <button id="btnPDF" class="secondary">Gerar PDF</button>
+        </div>
+        <div class="actions-right">
+          <button id="btnAddFunc" class="secondary">Novo Funcionário</button>
+        </div>
+      </div>
+      <div id="status" class="message"></div>
+    </div>
+  </section>
+
+  <!-- ====== Principal: Resultados ====== -->
+  <section class="card" id="cardResultados">
+    <h2>Resultados</h2>
+    <div class="table-wrapper">
+      <table id="tbl" class="table">
+        <thead>
+          <tr>
+            <th>Matrícula</th>
+            <th>Funcionário</th>
+            <th>Setor</th>
+            <th>Semana</th>
+            <th>Título do Vídeo</th>
+            <th>Data de participação</th>
+            <th>Assinatura</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ====== Dashboard ====== -->
+  <section class="card" id="dashCard">
+    <h2>Dashboard Semanal de Participação</h2>
+    <div class="filters-wrap">
+      <div class="filters-row-2">
+        <div class="row">
+          <label for="dashSemanaIso">Semana (ISO)</label>
+          <select id="dashSemanaIso"><option value="">Selecione...</option></select>
+        </div>
+        <div class="row">
+          <label for="dashTitulo">Título</label>
+          <select id="dashTitulo"><option value="">Todos</option></select>
+        </div>
+        <div class="row">
+          <label>&nbsp;</label>
+          <div class="actions-left">
+            <button id="btnDashAtualizar" class="primary">Atualizar</button>
+            <button id="btnDashXLSNP" class="secondary">XLS — Não participantes</button>
+            <button id="btnDashXLSP" class="secondary">XLS — Participantes</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div id="dashStatus" class="message"></div>
+    <div class="kpi-wrap">
+      <div class="kpi"><div class="label">Total de Ativos</div><div class="value" id="kpiTotalAtivos">-</div></div>
+      <div class="kpi"><div class="label">Participaram</div><div class="value" id="kpiParticiparam">-</div><div class="sub" id="kpiParticiparamPct">-</div></div>
+      <div class="kpi"><div class="label">Não Participaram</div><div class="value" id="kpiNaoParticiparam">-</div></div>
+      <div class="kpi"><div class="label">Semana Selecionada</div><div class="value" id="kpiSemanaSel">-</div><div class="sub" id="kpiTituloSel">-</div></div>
+    </div>
+    <div class="two-cols">
+      <div>
+        <h3>Não Participaram</h3>
+        <div class="table-wrapper">
+          <table class="table" id="tblNP">
+            <thead><tr><th>Matrícula</th><th>Funcionário</th><th>Setor</th></tr></thead>
+            <tbody id="tbodyNP"><tr><td colspan="3" class="muted">—</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+      <div>
+        <h3>Participaram</h3>
+        <div class="table-wrapper">
+          <table class="table" id="tblP">
+            <thead><tr><th>Matrícula</th><th>Funcionário</th><th>Setor</th><th>Data de participação</th></tr></thead>
+            <tbody id="tbodyP"><tr><td colspan="4" class="muted">—</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="site-footer"><small>© Caterair Serviços de Bordo e Hotelaria LTDA - Base GIG</small></footer>
+
+<script>
+  const API_BASE = "/api/gas";
+  const LOGO_SRC = "logo lsg.png";
+  let LOGO_DATAURL = "";
+  let registros = [];
+  let registrosFiltrados = [];
+
+  function loadLogoAsDataURL(){
+    return new Promise((resolve)=>{
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.onload = ()=>{
+        try { const c=document.createElement("canvas"); c.width=img.width; c.height=img.height; c.getContext("2d").drawImage(img,0,0); LOGO_DATAURL=c.toDataURL("image/png"); resolve(LOGO_DATAURL); }
+        catch(e){ resolve(LOGO_DATAURL=""); }
+      };
+      img.onerror = ()=>resolve(LOGO_DATAURL="");
+      img.src = LOGO_SRC;
+    });
+  }
+
+  document.getElementById('btnBuscar').addEventListener('click', buscar);
+  document.getElementById('btnPDF').addEventListener('click', gerarPDF);
+  document.getElementById('btnXLS').addEventListener('click', gerarXLS);
+  document.getElementById('btnAddFunc').addEventListener('click', novoFuncionarioViaPrompt);
+  ['fMat','fNome','fDataInicio','fDataFinal','fSemanaTitulo'].forEach(id=>{
+    const el = document.getElementById(id); if(!el) return; el.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); buscar(); } });
+  });
+
+  (async function popularTitulos(){
+    try {
+      const res = await fetch(API_BASE+"?action=registros");
+      const data = await res.json();
+      if (!data.ok) return;
+      const all = Array.isArray(data.data) ? data.data : [];
+      const titulos = Array.from(new Set(all.map(r => (r.TituloVideo ?? '').trim()).filter(Boolean)))
+        .sort((a,b)=>a.localeCompare(b,'pt-BR',{sensitivity:'base'}));
+      const sel = document.getElementById('fSemanaTitulo');
+      sel.innerHTML = '<option value="">Todas</option>' + titulos.map(t=>`<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join('');
+    } catch(e){}
+  })();
+
+  async function buscar(){
+    const status = document.getElementById('status');
+    status.innerHTML = '';
+    const fMat = document.getElementById('fMat').value.trim();
+    const fNome = document.getElementById('fNome').value.trim();
+    const fTitulo = document.getElementById('fSemanaTitulo').value.trim();
+    const fDataI = document.getElementById('fDataInicio').value;
+    const fDataF = document.getElementById('fDataFinal').value;
+
+    const qs = new URLSearchParams({ action: 'registros' });
+    if (fMat) qs.append('matricula', fMat);
+    if (fNome) qs.append('nome', fNome);
+
+    try {
+      const res = await fetch(API_BASE + '?' + qs.toString());
+      let data; try { data = await res.json(); } catch { data = { ok:false, error:'Resposta não-JSON do proxy' }; }
+      if (!data.ok) throw new Error(data.error || 'Erro ao buscar');
+      registros = Array.isArray(data.data) ? data.data : [];
+
+      const di = normalizarDataInput(fDataI);
+      const df = fimDoDia(normalizarDataInput(fDataF));
+      let lista = registros.filter(r=>{
+        const ts = parseTimestamp(r.Timestamp);
+        if (!ts) return false;
+        if (di && ts < di) return false;
+        if (df && ts > df) return false;
+        if (fTitulo && (r.TituloVideo ?? '') !== fTitulo) return false;
+        return true;
+      });
+
+      const mapa = new Map();
+      for (const r of lista){
+        const chave = `${r.Matricula ?? ''}__${r.SemanaISO ?? ''}__${r.TituloVideo ?? ''}`;
+        const atual = mapa.get(chave);
+        const novoTS = parseTimestamp(r.Timestamp);
+        if (!atual) mapa.set(chave, r);
+        else { const antigoTS = parseTimestamp(atual.Timestamp); if (novoTS && antigoTS && novoTS < antigoTS) mapa.set(chave, r); }
+      }
+
+      registrosFiltrados = Array.from(mapa.values()).sort((a,b)=> String(a.Nome ?? '').localeCompare(String(b.Nome ?? ''), 'pt-BR', {sensitivity:'base'}));
+      renderTabela(registrosFiltrados);
+      status.innerHTML = '<div class="ok">Busca concluída: ' + registrosFiltrados.length + ' registro(s) após deduplicação e ordenação.</div>';
+    } catch(err){ status.innerHTML = '<div class="error">Falha na consulta.</div>'; }
+  }
+
+  function renderTabela(list){
+    const tbody = document.getElementById('tbody');
+    tbody.innerHTML = '';
+    if (!list || list.length===0){ tbody.innerHTML = '<tr><td colspan="7" class="muted">Sem resultados</td></tr>'; return; }
+    tbody.innerHTML = list.map(r=>{
+      const dataPart = formatTimestamp(r.Timestamp);
+      const assinatura = r.AssinaturaPNG ? '<img class="sig-img" src="'+r.AssinaturaPNG+'" alt="Assinatura" />' : '-';
+      return `
+        <tr>
+          <td>${escapeHtml(r.Matricula ?? '')}</td>
+          <td>${escapeHtml(r.Nome ?? '')}</td>
+          <td>${escapeHtml(r.Setor ?? '')}</td>
+          <td>${escapeHtml(r.SemanaISO ?? '')}</td>
+          <td>${escapeHtml(r.TituloVideo ?? '')}</td>
+          <td>${escapeHtml(dataPart)}</td>
+          <td>${assinatura}</td>
+        </tr>`;
+    }).join('');
+  }
+
+  function gerarXLS(){
+    const base = (registrosFiltrados && registrosFiltrados.length) ? registrosFiltrados : registros;
+    if (!base || !base.length) { alert('Faça uma busca primeiro.'); return; }
+    const ordenada = base===registros ? [...base].sort((a,b)=> String(a.Nome ?? '').localeCompare(String(b.Nome ?? ''), 'pt-BR', {sensitivity:'base'})) : base;
+    const linhas = ordenada.map(r=>({
+      'Matrícula': r.Matricula ?? '',
+      'Funcionário': r.Nome ?? '',
+      'Setor': r.Setor ?? '',
+      'Semana (ISO)': r.SemanaISO ?? '',
+      'Título do Vídeo': r.TituloVideo ?? '',
+      'Data de participação': formatTimestamp(r.Timestamp),
+    }));
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(linhas);
+    XLSX.utils.book_append_sheet(wb, ws, 'Relatório');
+    XLSX.writeFile(wb, nomeArquivo('xlsx'));
+  }
+
+  async function fetchTreinamentos(){
+    try { const res = await fetch(API_BASE + '?action=treinamentos'); const data = await res.json(); if(!data.ok) return []; return Array.isArray(data.data) ? data.data : []; } catch(e){ return []; }
+  }
+
+  const __dataUrlCache = new Map();
+  function isDataURLImage(v){ return (typeof v==='string' && /^data:image\/(png|jpeg|jpg);base64,/i.test(v.trim())); }
+  async function urlToDataURL(url){ try{ if(__dataUrlCache.has(url)) return __dataUrlCache.get(url); const res = await fetch(url, {mode:'cors'}); const blob = await res.blob(); const dataUrl = await new Promise((resolve)=>{ const fr=new FileReader(); fr.onload=()=>resolve(fr.result); fr.onerror=()=>resolve(''); fr.readAsDataURL(blob);}); __dataUrlCache.set(url, dataUrl || ''); return dataUrl || ''; } catch(e){ return ''; } }
+  async function ensureDataURLImage(v){ if(!v) return ''; if(isDataURLImage(v)) return v; return await urlToDataURL(v); }
+  async function resolveRowSignatures(rows){ const out=[]; for(const r of rows){ const sig = await ensureDataURLImage(r._sig || r.AssinaturaPNG || ''); out.push({ ...r, _sig: sig }); } return out; }
+
+  async function gerarPDF(){
+    await loadLogoAsDataURL();
+    const baseSource = (Array.isArray(registrosFiltrados) && registrosFiltrados.length) ? registrosFiltrados : registros;
+    if (!baseSource || !baseSource.length){ alert('Nenhum dado para gerar PDF.'); return; }
+    const base = [...baseSource].sort((a,b)=> String(a.Nome ?? '').localeCompare(String(b.Nome ?? ''), 'pt-BR', {sensitivity:'base'}));
+    const titulos = [...new Set(base.map(r=>r.TituloVideo).filter(Boolean))];
+    const tituloSemana = titulos.length ? titulos.join('; ') : '-';
+
+    let assuntosCabecalho = '';
+    try {
+      const tList = await fetchTreinamentos();
+      const semanasISO = [...new Set(base.map(r=>r.SemanaISO).filter(Boolean))];
+      if (tList && tList.length){
+        const setISO = new Set(semanasISO);
+        let hit = tList.find(t=> setISO.has(String(t['SemanaISO'])));
+        if (!hit && titulos.length) hit = tList.find(t=> String(t['Titulo']).trim() === titulos[0]);
+        assuntosCabecalho = hit && hit['Assuntos'] ? String(hit['Assuntos']) : '';
+      }
+    } catch(e){}
+
+    const { jsPDF } = window.jspdf;
+    const M_TOP=28.35, M_BOTTOM=28.35, M_LEFT=14.17, M_RIGHT=14.17;
+    const doc = new jsPDF({ orientation:'portrait', unit:'pt', format:'a4', compress:true });
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const usableWidth = pageWidth - M_LEFT - M_RIGHT;
+    const LOGO_W=120, LOGO_H=52; const L_H=14;
+    const assuntosLines = assuntosCabecalho ? doc.splitTextToSize('Assuntos: ' + assuntosCabecalho, usableWidth) : [];
+
+    function drawHeader(pageNumber){
+      try { if (LOGO_DATAURL) doc.addImage(LOGO_DATAURL, 'PNG', pageWidth - M_RIGHT - LOGO_W, M_TOP, LOGO_W, LOGO_H); } catch(e){}
+      doc.setFont('helvetica','bold'); doc.setFontSize(18); doc.text('DIÁLOGO SEMANAL DE SEGURANÇA', M_LEFT, M_TOP + 20);
+      if (pageNumber===1){
+        doc.setFont('helvetica','bold'); doc.setFontSize(14); doc.text('Semana: ' + (tituloSemana ?? '-'), M_LEFT, M_TOP + 20 + 2*L_H);
+        if (assuntosLines.length){ doc.setFont('helvetica','normal'); doc.setFontSize(12); doc.text(assuntosLines, M_LEFT, M_TOP + 20 + 4*L_H); }
+      }
+    }
+    function drawFooter(pageNumber, totalPagesText){
+      const footerY = pageHeight - M_BOTTOM; const generatedAt = new Date().toLocaleString('pt-BR');
+      doc.setFont('helvetica','italic'); doc.setFontSize(9); doc.text('Gerado em: ' + generatedAt, M_LEFT, footerY - 4*L_H);
+      doc.setFont('helvetica','normal'); doc.setFontSize(9);
+      doc.text('Caterair Serviços de Bordo e Hotelaria LTDA - Base GIG', M_LEFT, footerY - 3*L_H);
+      doc.text('CNPJ 33.375.601/0001-38', M_LEFT, footerY - 2*L_H);
+      doc.text('Rua P, S/N, Área de Apoio do Aeroporto Internacional do Rio de Janeiro - Ilha do Governador - RJ', M_LEFT, footerY - 1*L_H);
+      const pagText = `Página ${pageNumber} de ${totalPagesText}`.trim();
+      doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.text(pagText, pageWidth/2, footerY, { align: 'center' });
+    }
+
+    const columns = [
+      { header: 'Matrícula', dataKey: 'Matricula' },
+      { header: 'Funcionário', dataKey: 'Nome' },
+      { header: 'Setor', dataKey: 'Setor' },
+      { header: 'Data de Participação', dataKey: 'DataFmt' },
+      { header: 'Assinatura', dataKey: '_sig' },
+    ];
+    let rows = base.map(r=>({ Matricula:r.Matricula??'', Nome:r.Nome??'', Setor:r.Setor??'', DataFmt: formatTimestamp(r.Timestamp)??'', _sig: r.AssinaturaPNG ?? '' }));
+    rows = await resolveRowSignatures(rows);
+
+    const totalPagesExp = '{total_pages_count_string}';
+    let yStartFirstPage = M_TOP + 20 + 2*L_H + (assuntosLines.length ? 2*L_H + assuntosLines.length*L_H : 0) + 2*L_H;
+    const yStartFirstPageMin = M_TOP + 20 + 6*L_H; if (yStartFirstPage < yStartFirstPageMin) yStartFirstPage = yStartFirstPageMin;
+    const yStartOtherPages = M_TOP + LOGO_H + 5*L_H;
+
+    doc.autoTable({
+      startY: yStartFirstPage,
+      margin: { left: M_LEFT, right: M_RIGHT, top: yStartOtherPages, bottom: M_BOTTOM + 80 },
+      pageBreak: 'auto', tableWidth: usableWidth,
+      columns, body: rows,
+      styles: { font:'helvetica', fontSize:10, cellPadding:4, valign:'middle', overflow:'linebreak', minCellHeight:36 },
+      headStyles: { fillColor: [33,150,243], textColor:255, halign:'center' },
+      columnStyles: { Matricula:{halign:'left'}, Nome:{halign:'left'}, Setor:{halign:'left', cellWidth:120}, DataFmt:{halign:'left'}, _sig:{halign:'center', cellWidth:150} },
+      didParseCell: (data)=>{ if (data.section==='body' && data.column.dataKey==='_sig'){ data.cell.text=['']; if (data.cell && data.cell.styles){ data.cell.styles.lineWidth=0; } } },
+      didDrawPage: (data)=>{ drawHeader(data.pageNumber); drawFooter(data.pageNumber, totalPagesExp); if (data.pageNumber>1 && data.cursor && data.cursor.y < yStartOtherPages){ data.cursor.y = yStartOtherPages; } },
+      didDrawCell: (data)=>{
+        if (data.section==='body' && data.column && data.column.dataKey==='_sig'){
+          const val = data.row?.raw?._sig || '';
+          if (typeof val === 'string' && /^data:image\/(png|jpeg|jpg);base64,/i.test(val)){
+            try { const props = doc.getImageProperties(val); const wPtNat=(props.width*72)/96; const hPtNat=(props.height*72)/96; const pad=4; const maxW=data.cell.width-pad*2; const maxH=data.cell.height-pad*2; const scale=Math.min(maxW/wPtNat, maxH/hPtNat, 1); const w=wPtNat*scale; const h=hPtNat*scale; const x=data.cell.x + (data.cell.width - w)/2; const y=data.cell.y + (data.cell.height - h)/2; doc.addImage(val, props.fileType || 'PNG', x, y, w, h); } catch(e){}
+          }
+        }
+      },
+    });
+
+    if (typeof doc.putTotalPages === 'function'){ doc.putTotalPages(totalPagesExp); }
+    doc.save('Relatorio_Dialogo_Semanal_de_Seguranca.pdf');
+  }
+
+  async function novoFuncionarioViaPrompt(){
+    const status = document.getElementById('status');
+    try {
+      let mRaw = prompt('Nova matrícula (5 dígitos, apenas números):');
+      if (mRaw === null) return; mRaw = (mRaw ?? '').replace(/\D/g, '');
+      while (!/^\d{5}$/.test(mRaw)){
+        mRaw = prompt('Matrícula inválida. Informe 5 dígitos (ex.: 12345):', mRaw);
+        if (mRaw === null) return; mRaw = (mRaw ?? '').replace(/\D/g, '');
+      }
+      const matricula = mRaw;
+      let nome = prompt('Nome completo:'); if (nome === null) return; nome = (nome ?? '').trim();
+      if (!nome){ alert('Nome é obrigatório.'); return; }
+      let setor = prompt('Setor (opcional):'); if (setor === null) setor = ''; setor = (setor ?? '').trim();
+      const ok = confirm(`Confirmar cadastro?\n\nMatrícula: ${matricula}\nNome: ${nome}\nSetor: ${setor ?? '-'}\nAtivo: TRUE`);
+      if (!ok){ status.innerHTML = '<div class="warn">Operação cancelada.</div>'; return; }
+      const payload = { matricula, nome, setor, ativo: true };
+      status.innerHTML = '<div class="warn">Enviando novo funcionário...</div>';
+      const res = await fetch(API_BASE + '?action=addFuncionario', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+      let data; try { data = await res.json(); } catch { data = { ok:false, error:'Resposta não-JSON' }; }
+      if (!data.ok) throw new Error(data.error ?? 'Falha ao incluir funcionário');
+      status.innerHTML = '<div class="ok">Funcionário incluído com sucesso.</div>';
+    } catch(err){ status.innerHTML = '<div class="error">' + (err && err.message ? err.message : 'Erro ao incluir funcionário') + '</div>'; }
+  }
+
+  function escapeHtml(str){
+    return String(str ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/\x22/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+  function nomeArquivo(ext){ const hoje=new Date(); const pad=n=>String(n).padStart(2,'0'); return `DSS_GIG_Relatorio_${hoje.getFullYear()}-${pad(hoje.getMonth()+1)}-${pad(hoje.getDate())}.${ext}`; }
+  function normalizarDataInput(v){ if(!v) return null; const [yyyy,mm,dd]=v.split('-').map(Number); return new Date(Date.UTC(yyyy, mm-1, dd, 0,0,0)); }
+  function fimDoDia(dIniUTC){ if(!dIniUTC) return null; return new Date(dIniUTC.getTime() + 24*60*60*1000 - 1); }
+  function parseTimestamp(valor){ if(!valor) return null; let d=new Date(valor); if(!Number.isNaN(d.getTime())) return d; const rx=/(^\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/; const m=String(valor).trim().match(rx); if(m){ const dd=+m[1], mm=+m[2], yy=+m[3]; const hh=+(m[4]??0), mi=+(m[5]??0), ss=+(m[6]??0); return new Date(yy, mm-1, dd, hh, mi, ss); } return null; }
+  function formatTimestamp(ts){ const d=parseTimestamp(ts); if(!d) return String(ts ?? ''); const pad=n=>String(n).padStart(2,'0'); return `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`; }
+
+  /* ====== Dashboard: dados e lógica ====== */
+  let DASH_registrosAll=null, DASH_funcionarios=null, DASH_treinamentos=null;
+  let DASH_participantes=[], DASH_naoParticipantes=[];
+
+  document.getElementById('btnDashAtualizar').addEventListener('click', dashAtualizar);
+  document.getElementById('btnDashXLSNP').addEventListener('click', dashGerarXLS_NP);
+  document.getElementById('btnDashXLSP').addEventListener('click', dashGerarXLS_P);
+
+  (async function dashInit(){ await dashEnsureData(); dashPopularSelects(); dashSugerirSemanaAtivaMaisRecente(); await dashAtualizar(); })();
+
+  async function dashEnsureData(){
+    if (!DASH_treinamentos){ try { const res = await fetch(API_BASE+'?action=treinamentos'); const data = await res.json(); DASH_treinamentos = (data && data.ok && Array.isArray(data.data)) ? data.data : []; } catch { DASH_treinamentos = []; } }
+    if (!DASH_funcionarios){ try { const res = await fetch(API_BASE+'?action=funcionarios'); const data = await res.json(); DASH_funcionarios = (data && data.ok && Array.isArray(data.data)) ? data.data : []; } catch { DASH_funcionarios = []; } }
+    if (!DASH_registrosAll){ try { const res = await fetch(API_BASE+'?action=registros'); const data = await res.json(); DASH_registrosAll = (data && data.ok && Array.isArray(data.data)) ? data.data : []; } catch { DASH_registrosAll = []; } }
+  }
+
+  function dashPopularSelects(){
+    const isoSet=new Set(), tituloSet=new Set();
+    (DASH_treinamentos||[]).forEach(t=>{ if(t.SemanaISO) isoSet.add(String(t.SemanaISO)); if(t.Titulo) tituloSet.add(String(t.Titulo)); });
+    (DASH_registrosAll||[]).forEach(r=>{ if(r.SemanaISO) isoSet.add(String(r.SemanaISO)); if(r.TituloVideo) tituloSet.add(String(r.TituloVideo)); });
+    const isoList=[...isoSet].sort(dashCompareSemanaISODesc);
+    const titList=[...tituloSet].sort((a,b)=>a.localeCompare(b,'pt-BR',{sensitivity:'base'}));
+    const selIso=document.getElementById('dashSemanaIso');
+    selIso.innerHTML = '<option value="">Selecione...</option>' + isoList.map(sem=>`<option value="${escapeHtml(sem)}">${escapeHtml(sem)}</option>`).join('');
+    const selTit=document.getElementById('dashTitulo');
+    selTit.innerHTML = '<option value="">Todos</option>' + titList.map(t=>`<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join('');
+  }
+
+  function dashSugerirSemanaAtivaMaisRecente(){
+    const ativos=(DASH_treinamentos||[]).filter(t=>{ const v=String(t.Ativo??t.ativo??'').toLowerCase().trim(); return v==='true'||v==='1'||v==='sim'||v==='yes'; });
+    const lista= ativos.length ? ativos : (DASH_treinamentos||[]);
+    let selecionada=null;
+    if (lista && lista.length){ const hasISO=lista.filter(t=>t.SemanaISO); if (hasISO.length){ selecionada = hasISO.sort((a,b)=>dashCompareSemanaISODesc(String(a.SemanaISO), String(b.SemanaISO)))[0].SemanaISO; } }
+    if (!selecionada){ const sel=document.getElementById('dashSemanaIso'); if (sel && sel.options.length>1) selecionada = sel.options[1].value; }
+    if (selecionada){ document.getElementById('dashSemanaIso').value = selecionada; const hit=(DASH_treinamentos||[]).find(t=> String(t.SemanaISO)===String(selecionada)); if (hit && hit.Titulo){ const titSel=document.getElementById('dashTitulo'); const opt=[...titSel.options].find(o=>o.value===String(hit.Titulo)); if (opt) titSel.value = opt.value; } }
+  }
+
+  async function dashAtualizar(){
+  await dashEnsureData();
+  const dashStatus=document.getElementById('dashStatus'); 
+  dashStatus.innerHTML='';
+
+  const selISO=document.getElementById('dashSemanaIso').value.trim();
+  const selTit=document.getElementById('dashTitulo').value.trim();
+
+  function normalizarMatricula(v){
+    return String(v ?? '')
+      .replace(/\D/g,'')
+      .padStart(5,'0');
+  }
+
+  function normalizarSemanaISO(s){
+    const m = String(s||'').match(/^(\d{4})-W?(\d{1,2})$/i);
+    if(!m) return '';
+    return `${m[1]}-W${String(m[2]).padStart(2,'0')}`;
+  }
+
+  function ativoValido(v){
+    return ['true','1','sim','yes'].includes(
+      String(v ?? '')
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g,'')
+        .trim()
+    );
+  }
+
+  let semanaAlvo=selISO;
+
+  if (!semanaAlvo && selTit){
+    const hit=(DASH_treinamentos||[]).find(t=> 
+      String(t.Titulo).trim()===selTit
+    );
+    if (hit && hit.SemanaISO) 
+      semanaAlvo = String(hit.SemanaISO);
+  }
+
+  if (!semanaAlvo){
+    dashStatus.innerHTML='<div class="warn">Selecione uma Semana (ISO) ou um Título.</div>';
+    dashRender([],[]);
+    dashKPIs({total:0, part:0, nPart:0, semana:'-', titulo:'-'});
+    return;
+  }
+
+  const semanaNorm = normalizarSemanaISO(semanaAlvo);
+
+  const mapaPart=new Map();
+
+  for (const r of (DASH_registrosAll||[])){
+    if (normalizarSemanaISO(r.SemanaISO) !== semanaNorm) continue;
+
+    const key=normalizarMatricula(r.Matricula);
+    const ts=parseTimestamp(r.Timestamp);
+
+    if (!mapaPart.has(key)){
+      mapaPart.set(key, r);
+    } else {
+      const antigo=mapaPart.get(key);
+      const tsAnt=parseTimestamp(antigo.Timestamp);
+      if (ts && tsAnt && ts < tsAnt){
+        mapaPart.set(key, r);
+      }
+    }
+  }
+
+  const participantes=[...mapaPart.values()];
+
+  const funcAtivos=(DASH_funcionarios||[])
+    .filter(f=> ativoValido(f.Ativo ?? f.ativo));
+
+  const setMatPart=new Set(
+    participantes.map(p=> normalizarMatricula(p.Matricula))
+  );
+
+  const naoPart = funcAtivos.filter(f=> 
+    !setMatPart.has(normalizarMatricula(f.Matricula))
+  );
+
+  const mapFunc=new Map(
+    funcAtivos.map(f=> [normalizarMatricula(f.Matricula), f])
+  );
+
+  const participantesFull = participantes.map(p=>{
+    const f=mapFunc.get(normalizarMatricula(p.Matricula))||{};
+    return {
+      Matricula: normalizarMatricula(p.Matricula ?? f.Matricula ?? ''),
+      Nome: p.Nome ?? f.Nome ?? '',
+      Setor: p.Setor ?? f.Setor ?? '',
+      Timestamp: p.Timestamp ?? ''
+    };
+  }).sort((a,b)=> 
+    String(a.Nome ?? '').localeCompare(String(b.Nome ?? ''), 'pt-BR', {sensitivity:'base'})
+  );
+
+  const naoParticipantesFull = naoPart.map(f=>({
+    Matricula: normalizarMatricula(f.Matricula ?? ''),
+    Nome: f.Nome ?? '',
+    Setor: f.Setor ?? ''
+  })).sort((a,b)=> 
+    String(a.Nome ?? '').localeCompare(String(b.Nome ?? ''), 'pt-BR', {sensitivity:'base'})
+  );
+
+  DASH_participantes=participantesFull; 
+  DASH_naoParticipantes=naoParticipantesFull;
+
+  const total=funcAtivos.length;
+  const part=participantesFull.length;
+  const nPart=naoParticipantesFull.length;
+
+  const tituloAlvo = (()=>{ 
+    const t=(DASH_treinamentos||[])
+      .find(t=> normalizarSemanaISO(t.SemanaISO)===semanaNorm);
+    return t && t.Titulo ? String(t.Titulo) : (selTit || '-');
+  })();
+
+  dashKPIs({ 
+    total, 
+    part, 
+    nPart, 
+    semana: semanaNorm, 
+    titulo: tituloAlvo 
+  });
+
+  dashRender(naoParticipantesFull, participantesFull);
+
+  dashStatus.innerHTML = `<div class="ok">Dashboard atualizado: ${semanaNorm}</div>`;
+}
+
+  function dashKPIs({ total, part, nPart, semana, titulo }){
+    const pct = total > 0 ? Math.round((part/total)*100) : 0;
+    document.getElementById('kpiTotalAtivos').textContent = String(total ?? '-');
+    document.getElementById('kpiParticiparam').textContent = String(part ?? '-');
+    document.getElementById('kpiParticiparamPct').textContent = total ? `${pct}% de conclusão` : '-';
+    document.getElementById('kpiNaoParticiparam').textContent = String(nPart ?? '-');
+    document.getElementById('kpiSemanaSel').textContent = String(semana ?? '-');
+    document.getElementById('kpiTituloSel').textContent = String(titulo ?? '-');
+  }
+
+  function dashRender(naoParticipantes, participantes){
+    const tbodyNP=document.getElementById('tbodyNP');
+    const tbodyP=document.getElementById('tbodyP');
+    if (!naoParticipantes || !naoParticipantes.length){ tbodyNP.innerHTML = '<tr><td colspan="3" class="muted">Todos participaram 🎉</td></tr>'; }
+    else { tbodyNP.innerHTML = naoParticipantes.map(n=>`<tr><td>${escapeHtml(n.Matricula ?? '')}</td><td>${escapeHtml(n.Nome ?? '')}</td><td>${escapeHtml(n.Setor ?? '')}</td></tr>`).join(''); }
+    if (!participantes || !participantes.length){ tbodyP.innerHTML = '<tr><td colspan="4" class="muted">Sem registros de participação</td></tr>'; }
+    else { tbodyP.innerHTML = participantes.map(p=>`<tr><td>${escapeHtml(p.Matricula ?? '')}</td><td>${escapeHtml(p.Nome ?? '')}</td><td>${escapeHtml(p.Setor ?? '')}</td><td>${escapeHtml(formatTimestamp(p.Timestamp))}</td></tr>`).join(''); }
+  }
+
+  function dashGerarXLS_NP(){
+    const base=DASH_naoParticipantes||[]; if(!base.length){ alert('Nenhum dado de Não Participantes para exportar.'); return; }
+    const wb=XLSX.utils.book_new();
+    const ws=XLSX.utils.json_to_sheet(base.map(r=>({ 'Matrícula': r.Matricula ?? '', 'Funcionário': r.Nome ?? '', 'Setor': r.Setor ?? '' })));
+    XLSX.utils.book_append_sheet(wb, ws, 'Não Participantes');
+    XLSX.writeFile(wb, `DSS_GIG_NaoParticipantes_${(document.getElementById('kpiSemanaSel').textContent || 'semana')}.xlsx`);
+  }
+  function dashGerarXLS_P(){
+    const base=DASH_participantes||[]; if(!base.length){ alert('Nenhum dado de Participantes para exportar.'); return; }
+    const wb=XLSX.utils.book_new();
+    const ws=XLSX.utils.json_to_sheet(base.map(r=>({ 'Matrícula': r.Matricula ?? '', 'Funcionário': r.Nome ?? '', 'Setor': r.Setor ?? '', 'Data de participação': formatTimestamp(r.Timestamp) })));
+    XLSX.utils.book_append_sheet(wb, ws, 'Participantes');
+    XLSX.writeFile(wb, `DSS_GIG_Participantes_${(document.getElementById('kpiSemanaSel').textContent || 'semana')}.xlsx`);
+  }
+  function dashCompareSemanaISODesc(a,b){ const pa=dashParseSemanaISO(a), pb=dashParseSemanaISO(b); if (pa.year!==pb.year) return pb.year-pa.year; return pb.week-pa.week; }
+  function dashParseSemanaISO(s){ const m=String(s||'').match(/^(\d{4})-W?(\d{1,2})$/i); if(!m) return {year:0, week:0}; return {year:+m[1], week:+m[2]}; }
+
+  /* ====== Alternância Principal/Dashboard: usa classes primary/secondary ====== */
+  (function initTabs(){
+    const btnPrincipal=document.getElementById('tabPrincipal');
+    const btnDashboard=document.getElementById('tabDashboard');
+    const secFiltros=document.getElementById('cardFiltros');
+    const secResultados=document.getElementById('cardResultados');
+    const secDashboard=document.getElementById('dashCard');
+
+    // estado inicial
+    showPrincipal();
+
+    btnPrincipal.addEventListener('click', showPrincipal);
+    btnDashboard.addEventListener('click', showDashboard);
+
+    function setActive(btnOn, btnOff){
+      btnOn.classList.remove('secondary'); btnOn.classList.add('primary');
+      btnOff.classList.remove('primary'); btnOff.classList.add('secondary');
+    }
+    function showPrincipal(){
+      setActive(btnPrincipal, btnDashboard);
+      secFiltros?.classList.remove('is-hidden');
+      secResultados?.classList.remove('is-hidden');
+      secDashboard?.classList.add('is-hidden');
+    }
+    function showDashboard(){
+      setActive(btnDashboard, btnPrincipal);
+      secFiltros?.classList.add('is-hidden');
+      secResultados?.classList.add('is-hidden');
+      secDashboard?.classList.remove('is-hidden');
+    }
+  })();
+</script>
+</body>
+</html>
