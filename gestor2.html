@@ -12,7 +12,7 @@
   <!-- XLSX (SheetJS) para gerar Excel -->
   <script defer src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <style>
-    /* ====== layout base (mantém seu visual) ====== */
+    /* ====== layout base do seu gestor2.html ====== */
     html, body, button, input, select, table, th, td, label, .card, .site-header {
       font-family: system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", "Liberation Sans", sans-serif;
     }
@@ -36,9 +36,14 @@
     }
 
     .sig-img { height: 48px; object-fit: contain; }
-    @media print { .actions button, .top-tabs, #dashQAInfo, #dashPeriodoInfo { display:none; } }
+    @media print {
+      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .site-header { box-shadow: none; }
+      .card { box-shadow: none; border: 1px solid #999; }
+      .actions button, .top-tabs { display: none; }
+    }
 
-    /* ====== Dashboard extras ====== */
+    /* ====== estilos do Dashboard (pontuais) ====== */
     .kpi-wrap { display: grid; grid-template-columns: repeat(4, minmax(120px, 1fr)); gap: 12px; margin-top: 12px; }
     .kpi { border: 1px solid var(--border, #e5e7eb); border-radius: 8px; padding: 12px; background: #fff; }
     .kpi .label { color: #6b7280; font-size: 12px; }
@@ -49,10 +54,9 @@
     .muted { color: #6b7280; text-align: center; }
     @media (max-width: 1000px) { .kpi-wrap { grid-template-columns: repeat(2, minmax(140px, 1fr)); } .two-cols { grid-template-columns: 1fr; } }
 
-    /* Abas */
+    /* ====== navegação Principal / Dashboard (usa primary/secondary existentes) ====== */
     .top-tabs { display: flex; gap: 8px; margin: 12px auto 0; max-width: 1100px; padding: 0 12px; }
     .is-hidden { display: none !important; }
-    .small { font-size: 12px; color: #6b7280; }
   </style>
   <link rel="shortcut icon" href="icone lsg.ico" />
 </head>
@@ -63,6 +67,7 @@
   <p class="subtitle">Busque e gere relatórios em PDF/XLS (otimizado para impressão)</p>
 </header>
 
+<!-- Navegação de telas (botões no estilo do seu layout) -->
 <nav class="top-tabs" aria-label="Alternar telas">
   <button id="tabPrincipal" class="primary" type="button">Principal</button>
   <button id="tabDashboard" class="secondary" type="button">Dashboard</button>
@@ -135,7 +140,6 @@
   <!-- ====== Dashboard ====== -->
   <section class="card" id="dashCard">
     <h2>Dashboard Semanal de Participação</h2>
-
     <div class="filters-wrap">
       <div class="filters-row-2">
         <div class="row">
@@ -147,30 +151,22 @@
           <select id="dashTitulo"><option value="">Todos</option></select>
         </div>
         <div class="row">
-          <label>Confiabilidade</label>
-          <label class="small"><input type="checkbox" id="dashModoEstrito" checked /> Modo estrito (SemanaISO + Timestamp dentro do período)</label>
-          <div id="dashPeriodoInfo" class="small"></div>
+          <label>&nbsp;</label>
+          <div class="actions-left">
+            <button id="btnDashAtualizar" class="primary">Atualizar</button>
+            <button id="btnDashXLSNP" class="secondary">XLS — Não participantes</button>
+            <button id="btnDashXLSP" class="secondary">XLS — Participantes</button>
+          </div>
         </div>
       </div>
-      <div class="actions">
-        <div class="actions-left">
-          <button id="btnDashAtualizar" class="primary">Atualizar</button>
-          <button id="btnDashXLSNP" class="secondary">XLS — Não participantes</button>
-          <button id="btnDashXLSP" class="secondary">XLS — Participantes</button>
-          <button id="btnDashXLSQA" class="secondary">XLS — Inconsistências</button>
-        </div>
-      </div>
-      <div id="dashStatus" class="message"></div>
-      <div id="dashQAInfo" class="message"></div>
     </div>
-
+    <div id="dashStatus" class="message"></div>
     <div class="kpi-wrap">
       <div class="kpi"><div class="label">Total de Ativos</div><div class="value" id="kpiTotalAtivos">-</div></div>
       <div class="kpi"><div class="label">Participaram</div><div class="value" id="kpiParticiparam">-</div><div class="sub" id="kpiParticiparamPct">-</div></div>
       <div class="kpi"><div class="label">Não Participaram</div><div class="value" id="kpiNaoParticiparam">-</div></div>
       <div class="kpi"><div class="label">Semana Selecionada</div><div class="value" id="kpiSemanaSel">-</div><div class="sub" id="kpiTituloSel">-</div></div>
     </div>
-
     <div class="two-cols">
       <div>
         <h3>Não Participaram</h3>
@@ -197,19 +193,25 @@
 <footer class="site-footer"><small>© Caterair Serviços de Bordo e Hotelaria LTDA - Base GIG</small></footer>
 
 <script>
-  const API_BASE = "/api/gas"; // mesmo endpoint já usado no seu arquivo
+  const API_BASE = "/api/gas";
   const LOGO_SRC = "logo lsg.png";
   let LOGO_DATAURL = "";
-  let registros = [], registrosFiltrados = [];
+  let registros = [];
+  let registrosFiltrados = [];
 
   function loadLogoAsDataURL(){
     return new Promise((resolve)=>{
-      const img = new Image(); img.crossOrigin = "anonymous";
-      img.onload = ()=>{ try{ const c=document.createElement("canvas"); c.width=img.width; c.height=img.height; c.getContext("2d").drawImage(img,0,0); LOGO_DATAURL=c.toDataURL("image/png"); resolve(LOGO_DATAURL);}catch(e){resolve(LOGO_DATAURL="");} };
-      img.onerror = ()=>resolve(LOGO_DATAURL=""); img.src = LOGO_SRC; });
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.onload = ()=>{
+        try { const c=document.createElement("canvas"); c.width=img.width; c.height=img.height; c.getContext("2d").drawImage(img,0,0); LOGO_DATAURL=c.toDataURL("image/png"); resolve(LOGO_DATAURL); }
+        catch(e){ resolve(LOGO_DATAURL=""); }
+      };
+      img.onerror = ()=>resolve(LOGO_DATAURL="");
+      img.src = LOGO_SRC;
+    });
   }
 
-  // ======= PRINCIPAL (mantido) =======
   document.getElementById('btnBuscar').addEventListener('click', buscar);
   document.getElementById('btnPDF').addEventListener('click', gerarPDF);
   document.getElementById('btnXLS').addEventListener('click', gerarXLS);
@@ -219,7 +221,11 @@
   });
 
   (async function popularTitulos(){
-    try { const res = await fetch(API_BASE+"?action=registros"); const data = await res.json(); if (!data.ok) return; const all = Array.isArray(data.data)?data.data:[];
+    try {
+      const res = await fetch(API_BASE+"?action=registros");
+      const data = await res.json();
+      if (!data.ok) return;
+      const all = Array.isArray(data.data) ? data.data : [];
       const titulos = Array.from(new Set(all.map(r => (r.TituloVideo ?? '').trim()).filter(Boolean)))
         .sort((a,b)=>a.localeCompare(b,'pt-BR',{sensitivity:'base'}));
       const sel = document.getElementById('fSemanaTitulo');
@@ -228,7 +234,8 @@
   })();
 
   async function buscar(){
-    const status = document.getElementById('status'); status.innerHTML = '';
+    const status = document.getElementById('status');
+    status.innerHTML = '';
     const fMat = document.getElementById('fMat').value.trim();
     const fNome = document.getElementById('fNome').value.trim();
     const fTitulo = document.getElementById('fSemanaTitulo').value.trim();
@@ -236,21 +243,35 @@
     const fDataF = document.getElementById('fDataFinal').value;
 
     const qs = new URLSearchParams({ action: 'registros' });
-    if (fMat) qs.append('matricula', fMat); if (fNome) qs.append('nome', fNome);
+    if (fMat) qs.append('matricula', fMat);
+    if (fNome) qs.append('nome', fNome);
+
     try {
       const res = await fetch(API_BASE + '?' + qs.toString());
       let data; try { data = await res.json(); } catch { data = { ok:false, error:'Resposta não-JSON do proxy' }; }
       if (!data.ok) throw new Error(data.error || 'Erro ao buscar');
       registros = Array.isArray(data.data) ? data.data : [];
 
-      const di = normalizarDataInput(fDataI); const df = fimDoDia(normalizarDataInput(fDataF));
+      const di = normalizarDataInput(fDataI);
+      const df = fimDoDia(normalizarDataInput(fDataF));
       let lista = registros.filter(r=>{
-        const ts = parseTimestamp(r.Timestamp); if (!ts) return false;
-        if (di && ts < di) return false; if (df && ts > df) return false; if (fTitulo && (r.TituloVideo ?? '') !== fTitulo) return false; return true; });
+        const ts = parseTimestamp(r.Timestamp);
+        if (!ts) return false;
+        if (di && ts < di) return false;
+        if (df && ts > df) return false;
+        if (fTitulo && (r.TituloVideo ?? '') !== fTitulo) return false;
+        return true;
+      });
 
       const mapa = new Map();
-      for (const r of lista){ const chave = `${r.Matricula ?? ''}__${r.SemanaISO ?? ''}__${r.TituloVideo ?? ''}`; const atual = mapa.get(chave); const novoTS = parseTimestamp(r.Timestamp);
-        if (!atual) mapa.set(chave, r); else { const antigoTS = parseTimestamp(atual.Timestamp); if (novoTS && antigoTS && novoTS < antigoTS) mapa.set(chave, r); } }
+      for (const r of lista){
+        const chave = `${r.Matricula ?? ''}__${r.SemanaISO ?? ''}__${r.TituloVideo ?? ''}`;
+        const atual = mapa.get(chave);
+        const novoTS = parseTimestamp(r.Timestamp);
+        if (!atual) mapa.set(chave, r);
+        else { const antigoTS = parseTimestamp(atual.Timestamp); if (novoTS && antigoTS && novoTS < antigoTS) mapa.set(chave, r); }
+      }
+
       registrosFiltrados = Array.from(mapa.values()).sort((a,b)=> String(a.Nome ?? '').localeCompare(String(b.Nome ?? ''), 'pt-BR', {sensitivity:'base'}));
       renderTabela(registrosFiltrados);
       status.innerHTML = '<div class="ok">Busca concluída: ' + registrosFiltrados.length + ' registro(s) após deduplicação e ordenação.</div>';
@@ -258,7 +279,8 @@
   }
 
   function renderTabela(list){
-    const tbody = document.getElementById('tbody'); tbody.innerHTML = '';
+    const tbody = document.getElementById('tbody');
+    tbody.innerHTML = '';
     if (!list || list.length===0){ tbody.innerHTML = '<tr><td colspan="7" class="muted">Sem resultados</td></tr>'; return; }
     tbody.innerHTML = list.map(r=>{
       const dataPart = formatTimestamp(r.Timestamp);
@@ -272,18 +294,31 @@
           <td>${escapeHtml(r.TituloVideo ?? '')}</td>
           <td>${escapeHtml(dataPart)}</td>
           <td>${assinatura}</td>
-        </tr>`; }).join('');
+        </tr>`;
+    }).join('');
   }
 
   function gerarXLS(){
     const base = (registrosFiltrados && registrosFiltrados.length) ? registrosFiltrados : registros;
     if (!base || !base.length) { alert('Faça uma busca primeiro.'); return; }
     const ordenada = base===registros ? [...base].sort((a,b)=> String(a.Nome ?? '').localeCompare(String(b.Nome ?? ''), 'pt-BR', {sensitivity:'base'})) : base;
-    const linhas = ordenada.map(r=>({ 'Matrícula': r.Matricula ?? '', 'Funcionário': r.Nome ?? '', 'Setor': r.Setor ?? '', 'Semana (ISO)': r.SemanaISO ?? '', 'Título do Vídeo': r.TituloVideo ?? '', 'Data de participação': formatTimestamp(r.Timestamp) }));
-    const wb = XLSX.utils.book_new(); const ws = XLSX.utils.json_to_sheet(linhas); XLSX.utils.book_append_sheet(wb, ws, 'Relatório'); XLSX.writeFile(wb, nomeArquivo('xlsx'));
+    const linhas = ordenada.map(r=>({
+      'Matrícula': r.Matricula ?? '',
+      'Funcionário': r.Nome ?? '',
+      'Setor': r.Setor ?? '',
+      'Semana (ISO)': r.SemanaISO ?? '',
+      'Título do Vídeo': r.TituloVideo ?? '',
+      'Data de participação': formatTimestamp(r.Timestamp),
+    }));
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(linhas);
+    XLSX.utils.book_append_sheet(wb, ws, 'Relatório');
+    XLSX.writeFile(wb, nomeArquivo('xlsx'));
   }
 
-  async function fetchTreinamentos(){ try { const res = await fetch(API_BASE + '?action=treinamentos'); const data = await res.json(); if(!data.ok) return []; return Array.isArray(data.data) ? data.data : []; } catch(e){ return []; } }
+  async function fetchTreinamentos(){
+    try { const res = await fetch(API_BASE + '?action=treinamentos'); const data = await res.json(); if(!data.ok) return []; return Array.isArray(data.data) ? data.data : []; } catch(e){ return []; }
+  }
 
   const __dataUrlCache = new Map();
   function isDataURLImage(v){ return (typeof v==='string' && /^data:image\/(png|jpeg|jpg);base64,/i.test(v.trim())); }
@@ -300,61 +335,129 @@
     const tituloSemana = titulos.length ? titulos.join('; ') : '-';
 
     let assuntosCabecalho = '';
-    try { const tList = await fetchTreinamentos(); const semanasISO = [...new Set(base.map(r=>r.SemanaISO).filter(Boolean))]; if (tList && tList.length){ const setISO = new Set(semanasISO); let hit = tList.find(t=> setISO.has(String(t['SemanaISO']))); if (!hit && titulos.length) hit = tList.find(t=> String(t['Titulo']).trim() === titulos[0]); assuntosCabecalho = hit && hit['Assuntos'] ? String(hit['Assuntos']) : ''; } } catch(e){}
+    try {
+      const tList = await fetchTreinamentos();
+      const semanasISO = [...new Set(base.map(r=>r.SemanaISO).filter(Boolean))];
+      if (tList && tList.length){
+        const setISO = new Set(semanasISO);
+        let hit = tList.find(t=> setISO.has(String(t['SemanaISO'])));
+        if (!hit && titulos.length) hit = tList.find(t=> String(t['Titulo']).trim() === titulos[0]);
+        assuntosCabecalho = hit && hit['Assuntos'] ? String(hit['Assuntos']) : '';
+      }
+    } catch(e){}
 
-    const { jsPDF } = window.jspdf; const M_TOP=28.35, M_BOTTOM=28.35, M_LEFT=14.17, M_RIGHT=14.17;
+    const { jsPDF } = window.jspdf;
+    const M_TOP=28.35, M_BOTTOM=28.35, M_LEFT=14.17, M_RIGHT=14.17;
     const doc = new jsPDF({ orientation:'portrait', unit:'pt', format:'a4', compress:true });
-    const pageWidth = doc.internal.pageSize.getWidth(); const pageHeight = doc.internal.pageSize.getHeight(); const usableWidth = pageWidth - M_LEFT - M_RIGHT; const LOGO_W=120, LOGO_H=52; const L_H=14;
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const usableWidth = pageWidth - M_LEFT - M_RIGHT;
+    const LOGO_W=120, LOGO_H=52; const L_H=14;
     const assuntosLines = assuntosCabecalho ? doc.splitTextToSize('Assuntos: ' + assuntosCabecalho, usableWidth) : [];
 
-    function drawHeader(pageNumber){ try { if (LOGO_DATAURL) doc.addImage(LOGO_DATAURL, 'PNG', pageWidth - M_RIGHT - LOGO_W, M_TOP, LOGO_W, LOGO_H); } catch(e){} doc.setFont('helvetica','bold'); doc.setFontSize(18); doc.text('DIÁLOGO SEMANAL DE SEGURANÇA', M_LEFT, M_TOP + 20); if (pageNumber===1){ doc.setFont('helvetica','bold'); doc.setFontSize(14); doc.text('Semana: ' + (tituloSemana ?? '-'), M_LEFT, M_TOP + 20 + 2*L_H); if (assuntosLines.length){ doc.setFont('helvetica','normal'); doc.setFontSize(12); doc.text(assuntosLines, M_LEFT, M_TOP + 20 + 4*L_H); } } }
-    function drawFooter(pageNumber, totalPagesText){ const footerY = pageHeight - M_BOTTOM; const generatedAt = new Date().toLocaleString('pt-BR'); doc.setFont('helvetica','italic'); doc.setFontSize(9); doc.text('Gerado em: ' + generatedAt, M_LEFT, footerY - 4*L_H); doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.text('Caterair Serviços de Bordo e Hotelaria LTDA - Base GIG', M_LEFT, footerY - 3*L_H); doc.text('CNPJ 33.375.601/0001-38', M_LEFT, footerY - 2*L_H); doc.text('Rua P, S/N, Área de Apoio do Aeroporto Internacional do Rio de Janeiro - Ilha do Governador - RJ', M_LEFT, footerY - 1*L_H); const pagText = `Página ${pageNumber} de ${totalPagesText}`.trim(); doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.text(pagText, pageWidth/2, footerY, { align: 'center' }); }
+    function drawHeader(pageNumber){
+      try { if (LOGO_DATAURL) doc.addImage(LOGO_DATAURL, 'PNG', pageWidth - M_RIGHT - LOGO_W, M_TOP, LOGO_W, LOGO_H); } catch(e){}
+      doc.setFont('helvetica','bold'); doc.setFontSize(18); doc.text('DIÁLOGO SEMANAL DE SEGURANÇA', M_LEFT, M_TOP + 20);
+      if (pageNumber===1){
+        doc.setFont('helvetica','bold'); doc.setFontSize(14); doc.text('Semana: ' + (tituloSemana ?? '-'), M_LEFT, M_TOP + 20 + 2*L_H);
+        if (assuntosLines.length){ doc.setFont('helvetica','normal'); doc.setFontSize(12); doc.text(assuntosLines, M_LEFT, M_TOP + 20 + 4*L_H); }
+      }
+    }
+    function drawFooter(pageNumber, totalPagesText){
+      const footerY = pageHeight - M_BOTTOM; const generatedAt = new Date().toLocaleString('pt-BR');
+      doc.setFont('helvetica','italic'); doc.setFontSize(9); doc.text('Gerado em: ' + generatedAt, M_LEFT, footerY - 4*L_H);
+      doc.setFont('helvetica','normal'); doc.setFontSize(9);
+      doc.text('Caterair Serviços de Bordo e Hotelaria LTDA - Base GIG', M_LEFT, footerY - 3*L_H);
+      doc.text('CNPJ 33.375.601/0001-38', M_LEFT, footerY - 2*L_H);
+      doc.text('Rua P, S/N, Área de Apoio do Aeroporto Internacional do Rio de Janeiro - Ilha do Governador - RJ', M_LEFT, footerY - 1*L_H);
+      const pagText = `Página ${pageNumber} de ${totalPagesText}`.trim();
+      doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.text(pagText, pageWidth/2, footerY, { align: 'center' });
+    }
 
-    const columns = [ { header: 'Matrícula', dataKey: 'Matricula' }, { header: 'Funcionário', dataKey: 'Nome' }, { header: 'Setor', dataKey: 'Setor' }, { header: 'Data de Participação', dataKey: 'DataFmt' }, { header: 'Assinatura', dataKey: '_sig' } ];
+    const columns = [
+      { header: 'Matrícula', dataKey: 'Matricula' },
+      { header: 'Funcionário', dataKey: 'Nome' },
+      { header: 'Setor', dataKey: 'Setor' },
+      { header: 'Data de Participação', dataKey: 'DataFmt' },
+      { header: 'Assinatura', dataKey: '_sig' },
+    ];
     let rows = base.map(r=>({ Matricula:r.Matricula??'', Nome:r.Nome??'', Setor:r.Setor??'', DataFmt: formatTimestamp(r.Timestamp)??'', _sig: r.AssinaturaPNG ?? '' }));
     rows = await resolveRowSignatures(rows);
 
-    const totalPagesExp = '{total_pages_count_string}'; let yStartFirstPage = M_TOP + 20 + 2*L_H + (assuntosLines.length ? 2*L_H + assuntosLines.length*L_H : 0) + 2*L_H; const yStartFirstPageMin = M_TOP + 20 + 6*L_H; if (yStartFirstPage < yStartFirstPageMin) yStartFirstPage = yStartFirstPageMin; const yStartOtherPages = M_TOP + LOGO_H + 5*L_H;
+    const totalPagesExp = '{total_pages_count_string}';
+    let yStartFirstPage = M_TOP + 20 + 2*L_H + (assuntosLines.length ? 2*L_H + assuntosLines.length*L_H : 0) + 2*L_H;
+    const yStartFirstPageMin = M_TOP + 20 + 6*L_H; if (yStartFirstPage < yStartFirstPageMin) yStartFirstPage = yStartFirstPageMin;
+    const yStartOtherPages = M_TOP + LOGO_H + 5*L_H;
 
-    doc.autoTable({ startY: yStartFirstPage, margin: { left: M_LEFT, right: M_RIGHT, top: yStartOtherPages, bottom: M_BOTTOM + 80 }, pageBreak: 'auto', tableWidth: usableWidth, columns, body: rows, styles: { font:'helvetica', fontSize:10, cellPadding:4, valign:'middle', overflow:'linebreak', minCellHeight:36 }, headStyles: { fillColor: [33,150,243], textColor:255, halign:'center' }, columnStyles: { Matricula:{halign:'left'}, Nome:{halign:'left'}, Setor:{halign:'left', cellWidth:120}, DataFmt:{halign:'left'}, _sig:{halign:'center', cellWidth:150} }, didParseCell: (data)=>{ if (data.section==='body' && data.column.dataKey==='_sig'){ data.cell.text=['']; if (data.cell && data.cell.styles){ data.cell.styles.lineWidth=0; } } }, didDrawPage: (data)=>{ drawHeader(data.pageNumber); drawFooter(data.pageNumber, totalPagesExp); if (data.pageNumber>1 && data.cursor && data.cursor.y < yStartOtherPages){ data.cursor.y = yStartOtherPages; } }, didDrawCell: (data)=>{ if (data.section==='body' && data.column && data.column.dataKey==='_sig'){ const val = data.row?.raw?._sig || ''; if (typeof val === 'string' && /^data:image\/(png|jpeg|jpg);base64,/i.test(val)){ try { const props = doc.getImageProperties(val); const wPtNat=(props.width*72)/96; const hPtNat=(props.height*72)/96; const pad=4; const maxW=data.cell.width-pad*2; const maxH=data.cell.height-pad*2; const scale=Math.min(maxW/wPtNat, maxH/hPtNat, 1); const w=wPtNat*scale; const h=hPtNat*scale; const x=data.cell.x + (data.cell.width - w)/2; const y=data.cell.y + (data.cell.height - h)/2; doc.addImage(val, props.fileType || 'PNG', x, y, w, h); } catch(e){} } } } });
+    doc.autoTable({
+      startY: yStartFirstPage,
+      margin: { left: M_LEFT, right: M_RIGHT, top: yStartOtherPages, bottom: M_BOTTOM + 80 },
+      pageBreak: 'auto', tableWidth: usableWidth,
+      columns, body: rows,
+      styles: { font:'helvetica', fontSize:10, cellPadding:4, valign:'middle', overflow:'linebreak', minCellHeight:36 },
+      headStyles: { fillColor: [33,150,243], textColor:255, halign:'center' },
+      columnStyles: { Matricula:{halign:'left'}, Nome:{halign:'left'}, Setor:{halign:'left', cellWidth:120}, DataFmt:{halign:'left'}, _sig:{halign:'center', cellWidth:150} },
+      didParseCell: (data)=>{ if (data.section==='body' && data.column.dataKey==='_sig'){ data.cell.text=['']; if (data.cell && data.cell.styles){ data.cell.styles.lineWidth=0; } } },
+      didDrawPage: (data)=>{ drawHeader(data.pageNumber); drawFooter(data.pageNumber, totalPagesExp); if (data.pageNumber>1 && data.cursor && data.cursor.y < yStartOtherPages){ data.cursor.y = yStartOtherPages; } },
+      didDrawCell: (data)=>{
+        if (data.section==='body' && data.column && data.column.dataKey==='_sig'){
+          const val = data.row?.raw?._sig || '';
+          if (typeof val === 'string' && /^data:image\/(png|jpeg|jpg);base64,/i.test(val)){
+            try { const props = doc.getImageProperties(val); const wPtNat=(props.width*72)/96; const hPtNat=(props.height*72)/96; const pad=4; const maxW=data.cell.width-pad*2; const maxH=data.cell.height-pad*2; const scale=Math.min(maxW/wPtNat, maxH/hPtNat, 1); const w=wPtNat*scale; const h=hPtNat*scale; const x=data.cell.x + (data.cell.width - w)/2; const y=data.cell.y + (data.cell.height - h)/2; doc.addImage(val, props.fileType || 'PNG', x, y, w, h); } catch(e){}
+          }
+        }
+      },
+    });
 
     if (typeof doc.putTotalPages === 'function'){ doc.putTotalPages(totalPagesExp); }
     doc.save('Relatorio_Dialogo_Semanal_de_Seguranca.pdf');
   }
 
-  async function novoFuncionarioViaPrompt(){ const status = document.getElementById('status'); try { let mRaw = prompt('Nova matrícula (5 dígitos, apenas números):'); if (mRaw === null) return; mRaw = normalizeMatricula(mRaw); while (!/^\d{5}$/.test(mRaw)){ mRaw = prompt('Matrícula inválida. Informe 5 dígitos (ex.: 12345):', mRaw); if (mRaw === null) return; mRaw = normalizeMatricula(mRaw); } const matricula = mRaw; let nome = prompt('Nome completo:'); if (nome === null) return; nome = (nome ?? '').trim(); if (!nome){ alert('Nome é obrigatório.'); return; } let setor = prompt('Setor (opcional):'); if (setor === null) setor = ''; setor = (setor ?? '').trim(); const ok = confirm(`Confirmar cadastro?\n\nMatrícula: ${matricula}\nNome: ${nome}\nSetor: ${setor ?? '-'}\nAtivo: TRUE`); if (!ok){ status.innerHTML = '<div class="warn">Operação cancelada.</div>'; return; } const payload = { matricula, nome, setor, ativo: true }; status.innerHTML = '<div class="warn">Enviando novo funcionário...</div>'; const res = await fetch(API_BASE + '?action=addFuncionario', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) }); let data; try { data = await res.json(); } catch { data = { ok:false, error:'Resposta não-JSON' }; } if (!data.ok) throw new Error(data.error ?? 'Falha ao incluir funcionário'); status.innerHTML = '<div class="ok">Funcionário incluído com sucesso.</div>'; } catch(err){ status.innerHTML = '<div class="error">' + (err && err.message ? err.message : 'Erro ao incluir funcionário') + '</div>'; } }
-
-  function escapeHtml(str){ return String(str ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\x22/g,'&quot;').replace(/'/g,'&#39;'); }
-  function nomeArquivo(ext){ const hoje=new Date(); const pad=n=>String(n).padStart(2,'0'); return `DSS_GIG_Relatorio_${hoje.getFullYear()}-${pad(hoje.getMonth()+1)}-${pad(hoje.getDate())}.${ext}`; }
-  function normalizarDataInput(v){ if(!v) return null; const [yyyy,mm,dd]=v.split('-').map(Number); return new Date(yyyy, mm-1, dd, 0, 0, 0, 0); }
-  function fimDoDia(dIni){ if(!dIni) return null; const d = new Date(dIni.getTime()); d.setHours(23,59,59,999); return d; }
-  function parseTimestamp(valor){ if(!valor) return null; let d = new Date(valor); if(!Number.isNaN(d.getTime())) return d; const rx=/(^\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/; const m=String(valor).trim().match(rx); if(m){ const dd=+m[1], mm=+m[2], yy=+m[3]; const hh=+(m[4]??0), mi=+(m[5]??0), ss=+(m[6]??0); return new Date(yy, mm-1, dd, hh, mi, ss); } return null; }
-
-  // ====== NOVO: utilidades de confiabilidade ======
-  function normalizeMatricula(v){ return String(v ?? '').replace(/\D/g,'').trim(); }
-  function isAtivoFlag(v){ const s=String(v??'').toLowerCase().trim(); return s==='true' || s==='1' || s==='sim' || s==='yes'; }
-  function parseSemanaISO(s){ const m = String(s||'').match(/^(\d{4})-W?(\d{1,2})$/i); if(!m) return null; return {year:+m[1], week:+m[2]}; }
-  function isoWeekToRangeLocal(iso){ // retorna {ini: Date, fim: Date}, segunda 00:00 .. domingo 23:59:59.999
-    const {year, week} = iso; // algoritmo local
-    // ISO: semana 1 é a que contém 4 de janeiro
-    const jan4 = new Date(year, 0, 4); // local
-    const jan4Day = jan4.getDay() === 0 ? 7 : jan4.getDay(); // 1..7 (2=Tue? actually Mon=1)
-    const week1Mon = new Date(jan4); week1Mon.setDate(jan4.getDate() - (jan4Day - 1));
-    const mon = new Date(week1Mon); mon.setDate(week1Mon.getDate() + (week - 1) * 7);
-    const ini = new Date(mon.getFullYear(), mon.getMonth(), mon.getDate(), 0,0,0,0);
-    const fim = new Date(ini.getFullYear(), ini.getMonth(), ini.getDate()+6, 23,59,59,999);
-    return {ini, fim};
+  async function novoFuncionarioViaPrompt(){
+    const status = document.getElementById('status');
+    try {
+      let mRaw = prompt('Nova matrícula (5 dígitos, apenas números):');
+      if (mRaw === null) return; mRaw = (mRaw ?? '').replace(/\D/g, '');
+      while (!/^\d{5}$/.test(mRaw)){
+        mRaw = prompt('Matrícula inválida. Informe 5 dígitos (ex.: 12345):', mRaw);
+        if (mRaw === null) return; mRaw = (mRaw ?? '').replace(/\D/g, '');
+      }
+      const matricula = mRaw;
+      let nome = prompt('Nome completo:'); if (nome === null) return; nome = (nome ?? '').trim();
+      if (!nome){ alert('Nome é obrigatório.'); return; }
+      let setor = prompt('Setor (opcional):'); if (setor === null) setor = ''; setor = (setor ?? '').trim();
+      const ok = confirm(`Confirmar cadastro?\n\nMatrícula: ${matricula}\nNome: ${nome}\nSetor: ${setor ?? '-'}\nAtivo: TRUE`);
+      if (!ok){ status.innerHTML = '<div class="warn">Operação cancelada.</div>'; return; }
+      const payload = { matricula, nome, setor, ativo: true };
+      status.innerHTML = '<div class="warn">Enviando novo funcionário...</div>';
+      const res = await fetch(API_BASE + '?action=addFuncionario', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+      let data; try { data = await res.json(); } catch { data = { ok:false, error:'Resposta não-JSON' }; }
+      if (!data.ok) throw new Error(data.error ?? 'Falha ao incluir funcionário');
+      status.innerHTML = '<div class="ok">Funcionário incluído com sucesso.</div>';
+    } catch(err){ status.innerHTML = '<div class="error">' + (err && err.message ? err.message : 'Erro ao incluir funcionário') + '</div>'; }
   }
-  function fmtDate(d){ const p=n=>String(n).padStart(2,'0'); return `${p(d.getDate())}/${p(d.getMonth()+1)}/${d.getFullYear()}`; }
 
-  // ====== DASHBOARD ======
+  function escapeHtml(str){
+    return String(str ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/\x22/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+  function nomeArquivo(ext){ const hoje=new Date(); const pad=n=>String(n).padStart(2,'0'); return `DSS_GIG_Relatorio_${hoje.getFullYear()}-${pad(hoje.getMonth()+1)}-${pad(hoje.getDate())}.${ext}`; }
+  function normalizarDataInput(v){ if(!v) return null; const [yyyy,mm,dd]=v.split('-').map(Number); return new Date(Date.UTC(yyyy, mm-1, dd, 0,0,0)); }
+  function fimDoDia(dIniUTC){ if(!dIniUTC) return null; return new Date(dIniUTC.getTime() + 24*60*60*1000 - 1); }
+  function parseTimestamp(valor){ if(!valor) return null; let d=new Date(valor); if(!Number.isNaN(d.getTime())) return d; const rx=/(^\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/; const m=String(valor).trim().match(rx); if(m){ const dd=+m[1], mm=+m[2], yy=+m[3]; const hh=+(m[4]??0), mi=+(m[5]??0), ss=+(m[6]??0); return new Date(yy, mm-1, dd, hh, mi, ss); } return null; }
+  function formatTimestamp(ts){ const d=parseTimestamp(ts); if(!d) return String(ts ?? ''); const pad=n=>String(n).padStart(2,'0'); return `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`; }
+
+  /* ====== Dashboard: dados e lógica ====== */
   let DASH_registrosAll=null, DASH_funcionarios=null, DASH_treinamentos=null;
-  let DASH_participantes=[], DASH_naoParticipantes=[], DASH_QA={};
+  let DASH_participantes=[], DASH_naoParticipantes=[];
 
   document.getElementById('btnDashAtualizar').addEventListener('click', dashAtualizar);
   document.getElementById('btnDashXLSNP').addEventListener('click', dashGerarXLS_NP);
   document.getElementById('btnDashXLSP').addEventListener('click', dashGerarXLS_P);
-  document.getElementById('btnDashXLSQA').addEventListener('click', dashGerarXLS_QA);
 
   (async function dashInit(){ await dashEnsureData(); dashPopularSelects(); dashSugerirSemanaAtivaMaisRecente(); await dashAtualizar(); })();
 
@@ -365,138 +468,85 @@
   }
 
   function dashPopularSelects(){
-    const isoSet = new Set(); const tituloSet = new Set();
+    const isoSet=new Set(), tituloSet=new Set();
     (DASH_treinamentos||[]).forEach(t=>{ if(t.SemanaISO) isoSet.add(String(t.SemanaISO)); if(t.Titulo) tituloSet.add(String(t.Titulo)); });
     (DASH_registrosAll||[]).forEach(r=>{ if(r.SemanaISO) isoSet.add(String(r.SemanaISO)); if(r.TituloVideo) tituloSet.add(String(r.TituloVideo)); });
     const isoList=[...isoSet].sort(dashCompareSemanaISODesc);
     const titList=[...tituloSet].sort((a,b)=>a.localeCompare(b,'pt-BR',{sensitivity:'base'}));
-    const selIso=document.getElementById('dashSemanaIso'); selIso.innerHTML = '<option value="">Selecione...</option>' + isoList.map(sem=>`<option value="${escapeHtml(sem)}">${escapeHtml(sem)}</option>`).join('');
-    const selTit=document.getElementById('dashTitulo'); selTit.innerHTML = '<option value="">Todos</option>' + titList.map(t=>`<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join('');
+    const selIso=document.getElementById('dashSemanaIso');
+    selIso.innerHTML = '<option value="">Selecione...</option>' + isoList.map(sem=>`<option value="${escapeHtml(sem)}">${escapeHtml(sem)}</option>`).join('');
+    const selTit=document.getElementById('dashTitulo');
+    selTit.innerHTML = '<option value="">Todos</option>' + titList.map(t=>`<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join('');
   }
 
   function dashSugerirSemanaAtivaMaisRecente(){
-    const ativos=(DASH_treinamentos||[]).filter(t=> isAtivoFlag(t.Ativo??t.ativo));
-    const lista = ativos.length ? ativos : (DASH_treinamentos||[]);
-    let selecionada = null; if (lista && lista.length){ const hasISO = lista.filter(t=>t.SemanaISO); if (hasISO.length){ selecionada = hasISO.sort((a,b)=>dashCompareSemanaISODesc(String(a.SemanaISO), String(b.SemanaISO)))[0].SemanaISO; } }
+    const ativos=(DASH_treinamentos||[]).filter(t=>{ const v=String(t.Ativo??t.ativo??'').toLowerCase().trim(); return v==='true'||v==='1'||v==='sim'||v==='yes'; });
+    const lista= ativos.length ? ativos : (DASH_treinamentos||[]);
+    let selecionada=null;
+    if (lista && lista.length){ const hasISO=lista.filter(t=>t.SemanaISO); if (hasISO.length){ selecionada = hasISO.sort((a,b)=>dashCompareSemanaISODesc(String(a.SemanaISO), String(b.SemanaISO)))[0].SemanaISO; } }
     if (!selecionada){ const sel=document.getElementById('dashSemanaIso'); if (sel && sel.options.length>1) selecionada = sel.options[1].value; }
-    if (selecionada){ document.getElementById('dashSemanaIso').value = selecionada; const hit=(DASH_treinamentos||[]).find(t=> String(t.SemanaISO)===String(selecionada)); if (hit && hit.Titulo){ const titSel=document.getElementById('dashTitulo'); const opt=[...titSel.options].find(o=>o.value===String(hit.Titulo)); if (opt) titSel.value=opt.value; } }
+    if (selecionada){ document.getElementById('dashSemanaIso').value = selecionada; const hit=(DASH_treinamentos||[]).find(t=> String(t.SemanaISO)===String(selecionada)); if (hit && hit.Titulo){ const titSel=document.getElementById('dashTitulo'); const opt=[...titSel.options].find(o=>o.value===String(hit.Titulo)); if (opt) titSel.value = opt.value; } }
   }
 
   async function dashAtualizar(){
-    await dashEnsureData();
-    const dashStatus = document.getElementById('dashStatus'); dashStatus.innerHTML='';
-    const qaInfo = document.getElementById('dashQAInfo'); qaInfo.innerHTML='';
+  await dashEnsureData();
+  const dashStatus=document.getElementById('dashStatus'); dashStatus.innerHTML='';
+  const selISO=document.getElementById('dashSemanaIso').value.trim();
+  const selTit=document.getElementById('dashTitulo').value.trim();
 
-    const selISO = document.getElementById('dashSemanaIso').value.trim();
-    const selTit = document.getElementById('dashTitulo').value.trim();
-    const modoEstrito = document.getElementById('dashModoEstrito').checked;
-    let semanaAlvo = selISO;
-    if (!semanaAlvo && selTit){ const hit=(DASH_treinamentos||[]).find(t=> String(t.Titulo).trim()===selTit); if (hit && hit.SemanaISO) semanaAlvo = String(hit.SemanaISO); }
-    if (!semanaAlvo){ dashStatus.innerHTML = '<div class="warn">Selecione uma Semana (ISO) ou um Título.</div>'; dashRender([],[]); dashKPIs({total:0, part:0, nPart:0, semana:'-', titulo:'-'}); return; }
-
-    const iso = parseSemanaISO(semanaAlvo); if(!iso){ dashStatus.innerHTML = '<div class="error">Semana (ISO) inválida.</div>'; return; }
-    const range = isoWeekToRangeLocal(iso);
-    document.getElementById('dashPeriodoInfo').textContent = `Período: ${fmtDate(range.ini)} a ${fmtDate(range.fim)}`;
-
-    // ===== Universos
-    const funcAtivos = (DASH_funcionarios||[]).filter(f=> isAtivoFlag(f.Ativo??f.ativo)).map(f=>({
-      Matricula: normalizeMatricula(f.Matricula), Nome: f.Nome??'', Setor: f.Setor??''
-    }));
-    const mapFunc = new Map(funcAtivos.map(f => [f.Matricula, f]));
-
-    // ===== Varredura de registros + QA
-    const qaIsoOkTsOut = [];  // SemanaISO ok, mas Timestamp fora do período
-    const qaTsInIsoDiff = []; // Timestamp dentro do período, mas SemanaISO diferente
-
-    const candidatos = (DASH_registrosAll||[]).filter(r => {
-      const mat = normalizeMatricula(r.Matricula); if (!mat) return false;
-      if (!mapFunc.has(mat)) return false; // só consideramos quem está ativo no denominador
-      const ts = parseTimestamp(r.Timestamp); if (!ts) return false;
-      const tituloOk = !selTit || String(r.TituloVideo??'').trim() === selTit;
-      const isoOk = String(r.SemanaISO||'') === String(semanaAlvo);
-      const inRange = ts >= range.ini && ts <= range.fim;
-      if (isoOk && !inRange) qaIsoOkTsOut.push({ ...r, _Mat: mat });
-      if (!isoOk && inRange) qaTsInIsoDiff.push({ ...r, _Mat: mat });
-      if (modoEstrito){ return isoOk && inRange && tituloOk; }
-      else { return isoOk && tituloOk; }
-    }).map(r => ({ ...r, Matricula: normalizeMatricula(r.Matricula) }));
-
-    // Dedup: um por matrícula (mantém o primeiro timestamp)
-    const mapa = new Map();
-    for (const r of candidatos){ const key = r.Matricula; const ts = parseTimestamp(r.Timestamp); if (!mapa.has(key)) mapa.set(key, r); else { const ant = mapa.get(key); const tsAnt = parseTimestamp(ant.Timestamp); if (ts && tsAnt && ts < tsAnt) mapa.set(key, r); } }
-
-    const participantes = [...mapa.values()];
-    const setPart = new Set(participantes.map(p => p.Matricula));
-    const naoParticipantes = funcAtivos.filter(f => !setPart.has(f.Matricula));
-
-    // Enriquecer e ordenar
-    const participantesFull = participantes.map(p=>{ const f = mapFunc.get(p.Matricula)||{}; return { Matricula: p.Matricula, Nome: p.Nome ?? f.Nome ?? '', Setor: p.Setor ?? f.Setor ?? '', Timestamp: p.Timestamp ?? '' }; })
-      .sort((a,b)=> String(a.Nome ?? '').localeCompare(String(b.Nome ?? ''), 'pt-BR', {sensitivity:'base'}));
-    const naoParticipantesFull = naoParticipantes.map(f => ({ ...f }))
-      .sort((a,b)=> String(a.Nome ?? '').localeCompare(String(b.Nome ?? ''), 'pt-BR', {sensitivity:'base'}));
-
-    DASH_participantes = participantesFull; DASH_naoParticipantes = naoParticipantesFull;
-    DASH_QA = { qaIsoOkTsOut, qaTsInIsoDiff, semana: semanaAlvo, periodo: `${fmtDate(range.ini)} a ${fmtDate(range.fim)}`, modoEstrito };
-
-    // KPIs
-    const total = funcAtivos.length; const part = participantesFull.length; const nPart = naoParticipantesFull.length;
-    const tituloAlvo = (()=>{ const t=(DASH_treinamentos||[]).find(t=> String(t.SemanaISO)===String(semanaAlvo)); return t && t.Titulo ? String(t.Titulo) : (selTit || '-'); })();
-    dashKPIs({ total, part, nPart, semana: semanaAlvo, titulo: tituloAlvo });
-
-    // Render listas
-    dashRender(naoParticipantesFull, participantesFull);
-
-    // QA info
-    const qaMsg = [];
-    if (qaIsoOkTsOut.length) qaMsg.push(`⚠️ ${qaIsoOkTsOut.length} registro(s) com SemanaISO correta, porém Timestamp fora do período.`);
-    if (qaTsInIsoDiff.length) qaMsg.push(`⚠️ ${qaTsInIsoDiff.length} registro(s) com Timestamp dentro do período, porém SemanaISO diferente.`);
-    qaInfo.innerHTML = qaMsg.length ? `<div class="warn">${qaMsg.join(' ')}</div>` : '<div class="ok">Nenhuma inconsistência detectada.</div>';
-
-    dashStatus.innerHTML = `<div class="ok">Dashboard atualizado: ${semanaAlvo} — Modo ${modoEstrito ? 'estrito' : 'compatibilidade'}</div>`;
+  // Novo critério: cálculo por TÍTULO (obrigatório). Se não houver título, tenta inferir pelo ISO; se nada, avisa.
+  let tituloAlvo = selTit;
+  if (!tituloAlvo && selISO){
+    const hit = (DASH_treinamentos||[]).find(t=> String(t.SemanaISO)===String(selISO));
+    if (hit && hit.Titulo) tituloAlvo = String(hit.Titulo);
+  }
+  if (!tituloAlvo){
+    dashStatus.innerHTML='<div class="warn">Selecione um <b>Título</b> ou escolha uma Semana (ISO) que tenha título vinculado.</div>';
+    dashRender([],[]);
+    dashKPIs({total:0, part:0, nPart:0, semana:'-', titulo:'-'});
+    return;
   }
 
-  function dashKPIs({ total, part, nPart, semana, titulo }){
-    const pct = total > 0 ? Math.round((part/total)*100) : 0;
-    document.getElementById('kpiTotalAtivos').textContent = String(total ?? '-');
-    document.getElementById('kpiParticiparam').textContent = String(part ?? '-');
-    document.getElementById('kpiParticiparamPct').textContent = total ? `${pct}% de conclusão` : '-';
-    document.getElementById('kpiNaoParticiparam').textContent = String(nPart ?? '-');
-    document.getElementById('kpiSemanaSel').textContent = String(semana ?? '-');
-    document.getElementById('kpiTituloSel').textContent = String(titulo ?? '-');
+  // Universo: Funcionários Ativos
+  const funcAtivos=(DASH_funcionarios||[]).filter(f=>{ const v=String(f.Ativo??f.ativo??'').toLowerCase().trim(); return v==='true'||v==='1'||v==='sim'||v==='yes'; });
+  const mapFunc=new Map(funcAtivos.map(f=> [String(f.Matricula||''), f]));
+
+  // Participantes: registros cuja TituloVideo == tituloAlvo
+  const candidatos = (DASH_registrosAll||[]).filter(r=> String(r.TituloVideo||'').trim() === tituloAlvo && mapFunc.has(String(r.Matricula||'')));
+
+  // Dedup por matrícula (mantém o primeiro timestamp)
+  const mapaPart=new Map();
+  for (const r of candidatos){
+    const key=String(r.Matricula||'');
+    const ts=parseTimestamp(r.Timestamp);
+    if (!mapaPart.has(key)) mapaPart.set(key, r);
+    else { const antigo=mapaPart.get(key); const tsAnt=parseTimestamp(antigo.Timestamp); if (ts && tsAnt && ts < tsAnt) mapaPart.set(key, r); }
   }
 
-  function dashRender(naoParticipantes, participantes){
-    const tbodyNP=document.getElementById('tbodyNP'); const tbodyP=document.getElementById('tbodyP');
-    if (!naoParticipantes || !naoParticipantes.length){ tbodyNP.innerHTML = '<tr><td colspan="3" class="muted">Todos participaram 🎉</td></tr>'; }
-    else { tbodyNP.innerHTML = naoParticipantes.map(n=>`<tr><td>${escapeHtml(n.Matricula ?? '')}</td><td>${escapeHtml(n.Nome ?? '')}</td><td>${escapeHtml(n.Setor ?? '')}</td></tr>`).join(''); }
-    if (!participantes || !participantes.length){ tbodyP.innerHTML = '<tr><td colspan="4" class="muted">Sem registros de participação</td></tr>'; }
-    else { tbodyP.innerHTML = participantes.map(p=>`<tr><td>${escapeHtml(p.Matricula ?? '')}</td><td>${escapeHtml(p.Nome ?? '')}</td><td>${escapeHtml(p.Setor ?? '')}</td><td>${escapeHtml(formatTimestamp(p.Timestamp))}</td></tr>`).join(''); }
+  const participantes=[...mapaPart.values()];
+  const setMatPart=new Set(participantes.map(p=> String(p.Matricula||'')));
+  const naoPart = funcAtivos.filter(f=> !setMatPart.has(String(f.Matricula||'')));
+
+  // Semana exibida: mais comum entre participantes (se existir), senão usa selISO ou '-'
+  let semanaMost = '-';
+  if (participantes.length){
+    const cnt = new Map();
+    participantes.forEach(p=>{ const w = String(p.SemanaISO||''); if(!w) return; cnt.set(w, (cnt.get(w)||0)+1); });
+    let max=0; cnt.forEach((v,k)=>{ if (v>max){ max=v; semanaMost=k; } });
+  } else if (selISO){
+    semanaMost = selISO;
   }
 
-  function dashGerarXLS_NP(){ const base=DASH_naoParticipantes||[]; if(!base.length){ alert('Nenhum dado de Não Participantes para exportar.'); return; } const wb=XLSX.utils.book_new(); const ws=XLSX.utils.json_to_sheet(base.map(r=>({ 'Matrícula': r.Matricula ?? '', 'Funcionário': r.Nome ?? '', 'Setor': r.Setor ?? '' }))); XLSX.utils.book_append_sheet(wb, ws, 'Não Participantes'); XLSX.writeFile(wb, `DSS_GIG_NaoParticipantes_${(document.getElementById('kpiSemanaSel').textContent || 'semana')}.xlsx`); }
-  function dashGerarXLS_P(){ const base=DASH_participantes||[]; if(!base.length){ alert('Nenhum dado de Participantes para exportar.'); return; } const wb=XLSX.utils.book_new(); const ws=XLSX.utils.json_to_sheet(base.map(r=>({ 'Matrícula': r.Matricula ?? '', 'Funcionário': r.Nome ?? '', 'Setor': r.Setor ?? '', 'Data de participação': formatTimestamp(r.Timestamp) }))); XLSX.utils.book_append_sheet(wb, ws, 'Participantes'); XLSX.writeFile(wb, `DSS_GIG_Participantes_${(document.getElementById('kpiSemanaSel').textContent || 'semana')}.xlsx`); }
+  const participantesFull = participantes.map(p=>{ const f=mapFunc.get(String(p.Matricula||''))||{}; return { Matricula: p.Matricula ?? f.Matricula ?? '', Nome: p.Nome ?? f.Nome ?? '', Setor: p.Setor ?? f.Setor ?? '', Timestamp: p.Timestamp ?? '' }; })
+    .sort((a,b)=> String(a.Nome ?? '').localeCompare(String(b.Nome ?? ''), 'pt-BR', {sensitivity:'base'}));
+  const naoParticipantesFull = naoPart.map(f=>({ Matricula: f.Matricula ?? '', Nome: f.Nome ?? '', Setor: f.Setor ?? '' }))
+    .sort((a,b)=> String(a.Nome ?? '').localeCompare(String(b.Nome ?? ''), 'pt-BR', {sensitivity:'base'}));
 
-  function dashGerarXLS_QA(){
-    const qa = DASH_QA || {}; const wb = XLSX.utils.book_new();
-    const a = (qa.qaIsoOkTsOut||[]).map(r=>({ Matricula: r._Mat, Nome: r.Nome??'', Setor: r.Setor??'', SemanaISO: r.SemanaISO??'', TituloVideo: r.TituloVideo??'', Timestamp: r.Timestamp }));
-    const b = (qa.qaTsInIsoDiff||[]).map(r=>({ Matricula: r._Mat, Nome: r.Nome??'', Setor: r.Setor??'', SemanaISO: r.SemanaISO??'', TituloVideo: r.TituloVideo??'', Timestamp: r.Timestamp }));
-    if (!a.length && !b.length){ alert('Nenhuma inconsistência para exportar.'); return; }
-    if (a.length){ const wsA = XLSX.utils.json_to_sheet(a); XLSX.utils.book_append_sheet(wb, wsA, 'ISO_ok_TS_fora'); }
-    if (b.length){ const wsB = XLSX.utils.json_to_sheet(b); XLSX.utils.book_append_sheet(wb, wsB, 'TS_dentro_ISO_diff'); }
-    const sem = (qa.semana || 'semana'); XLSX.writeFile(wb, `DSS_GIG_Inconsistencias_${sem}.xlsx`);
-  }
+  DASH_participantes=participantesFull; DASH_naoParticipantes=naoParticipantesFull;
 
-  function dashCompareSemanaISODesc(a,b){ const pa=parseSemanaISO(a), pb=parseSemanaISO(b); if(!pa||!pb) return 0; if (pa.year!==pb.year) return pb.year-pa.year; return pb.week-pa.week; }
-
-  // ====== Abas ======
-  (function initTabs(){
-    const btnPrincipal=document.getElementById('tabPrincipal'); const btnDashboard=document.getElementById('tabDashboard');
-    const secFiltros=document.getElementById('cardFiltros'); const secResultados=document.getElementById('cardResultados'); const secDashboard=document.getElementById('dashCard');
-    showPrincipal(); btnPrincipal.addEventListener('click', showPrincipal); btnDashboard.addEventListener('click', showDashboard);
-    function setActive(btnOn, btnOff){ btnOn.classList.remove('secondary'); btnOn.classList.add('primary'); btnOff.classList.remove('primary'); btnOff.classList.add('secondary'); }
-    function showPrincipal(){ setActive(btnPrincipal, btnDashboard); secFiltros?.classList.remove('is-hidden'); secResultados?.classList.remove('is-hidden'); secDashboard?.classList.add('is-hidden'); }
-    function showDashboard(){ setActive(btnDashboard, btnPrincipal); secFiltros?.classList.add('is-hidden'); secResultados?.classList.add('is-hidden'); secDashboard?.classList.remove('is-hidden'); }
-  })();
-</script>
-</body>
-</html>
+  const total=funcAtivos.length; const part=participantesFull.length; const nPart=naoParticipantesFull.length;
+  dashKPIs({ total, part, nPart, semana: semanaMost, titulo: tituloAlvo });
+  dashRender(naoParticipantesFull, participantesFull);
+  dashStatus.innerHTML = `<div class="ok">Dashboard atualizado por Título: ${tituloAlvo}</div>`;
+}
+>
