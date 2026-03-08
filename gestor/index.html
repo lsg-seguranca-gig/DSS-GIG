@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8" />
@@ -43,6 +43,14 @@
       .actions button, .top-tabs { display: none; }
     }
 
+    /* ====== KPI Cards Modernos ====== */
+    .kpi-card { display:flex; align-items:center; gap:12px; background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:14px 16px; box-shadow:0 1px 3px rgba(0,0,0,.06); transition:box-shadow .2s; }
+    .kpi-card:hover { box-shadow:0 4px 12px rgba(0,0,0,.1); }
+    .kpi-icon { width:44px; height:44px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:22px; flex-shrink:0; }
+    .kpi-label { font-size:12px; color:#6b7280; font-weight:500; }
+    .kpi-big { font-size:26px; font-weight:800; color:#1e293b; line-height:1.1; }
+    .kpi-sub { font-size:11px; color:#9ca3af; margin-top:2px; }
+
     /* ====== estilos do Dashboard (pontuais) ====== */
     .kpi-wrap { display: grid; grid-template-columns: repeat(4, minmax(120px, 1fr)); gap: 12px; margin-top: 12px; }
     .kpi { border: 1px solid var(--border, #e5e7eb); border-radius: 8px; padding: 12px; background: #fff; }
@@ -81,7 +89,7 @@
 <header class="site-header">
   <img src="logo lsg.png" alt="logo LSG" />
   <h1>Painel do Gestor — DSS GIG</h1>
-  <p class="subtitle">Busque e gere relatórios em PDF/XLS (otimizado para impressão)</p>
+  <p class="subtitle">Dashboard DSS para Gestão</p>
 </header>
 
 <!-- Navegação de telas (botões no estilo do seu layout) -->
@@ -111,12 +119,12 @@
           <select id="fSemanaTitulo"><option value="">Todas</option></select>
         </div>
         <div class="row">
-          <label for="fDataInicio">Data Inicial</label>
-          <input type="date" id="fDataInicio" />
+          <label for="fDataInicio">Data Inicial <span style="font-size:11px;color:#9ca3af;">(dd/mm/aaaa)</span></label>
+          <input type="text" id="fDataInicio" placeholder="dd/mm/aaaa" maxlength="10" autocomplete="off" />
         </div>
         <div class="row">
-          <label for="fDataFinal">Data Final</label>
-          <input type="date" id="fDataFinal" />
+          <label for="fDataFinal">Data Final <span style="font-size:11px;color:#9ca3af;">(dd/mm/aaaa)</span></label>
+          <input type="text" id="fDataFinal" placeholder="dd/mm/aaaa" maxlength="10" autocomplete="off" />
         </div>
       </div>
       <div class="actions">
@@ -160,18 +168,15 @@
     <div class="filters-wrap">
       <!-- dashSemanaIso mantido no DOM (oculto) para compatibilidade interna -->
       <select id="dashSemanaIso" style="display:none" aria-hidden="true"><option value="">Selecione...</option></select>
-      <div class="filters-row-2">
-        <div class="row" style="grid-column: 1 / -1;">
+      <div style="display:flex; align-items:flex-end; gap:16px; flex-wrap:wrap;">
+        <div class="row" style="flex:1; min-width:220px;">
           <label for="dashTitulo">Título</label>
           <select id="dashTitulo"><option value="">Selecione um título...</option></select>
         </div>
-        <div class="row" style="grid-column: 1 / -1;">
-          <label>&nbsp;</label>
-          <div class="actions-left">
-            <button id="btnDashAtualizar" class="primary">Atualizar</button>
-            <button id="btnDashXLSNP" class="secondary">XLS — Não participantes</button>
-            <button id="btnDashXLSP" class="secondary">XLS — Participantes</button>
-          </div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap; padding-bottom:1px;">
+          <button id="btnDashAtualizar" class="primary">Atualizar</button>
+          <button id="btnDashXLSNP" class="secondary">XLS — Não Participantes</button>
+          <button id="btnDashXLSP" class="secondary">XLS — Participantes</button>
         </div>
       </div>
     </div>
@@ -203,11 +208,74 @@
         </table>
       </div>
     </details>
-    <div class="kpi-wrap">
-      <div class="kpi"><div class="label">Total de Ativos</div><div class="value" id="kpiTotalAtivos">-</div></div>
-      <div class="kpi"><div class="label">Participaram</div><div class="value" id="kpiParticiparam">-</div><div class="sub" id="kpiParticiparamPct">-</div></div>
-      <div class="kpi"><div class="label">Não Participaram</div><div class="value" id="kpiNaoParticiparam">-</div></div>
-      <div class="kpi"><div class="label">Semana Selecionada</div><div class="value" id="kpiSemanaSel">-</div><div class="sub" id="kpiTituloSel">-</div></div>
+    <!-- KPI Cards + Gráfico Interativo -->
+    <div id="dashKpiChartSection" style="margin-top:16px; display:none;">
+      <!-- KPI Cards -->
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(160px,1fr)); gap:12px; margin-bottom:20px;">
+        <div class="kpi-card" id="kpiCardAtivos">
+          <div class="kpi-icon" style="background:#eff6ff;color:#2563eb;">👥</div>
+          <div>
+            <div class="kpi-label">Total de Ativos</div>
+            <div class="kpi-big" id="kpiTotalAtivos">-</div>
+          </div>
+        </div>
+        <div class="kpi-card" id="kpiCardPart">
+          <div class="kpi-icon" style="background:#f0fdf4;color:#16a34a;">✅</div>
+          <div>
+            <div class="kpi-label">Participaram</div>
+            <div class="kpi-big" id="kpiParticiparam" style="color:#16a34a;">-</div>
+            <div class="kpi-sub" id="kpiParticiparamPct">-</div>
+          </div>
+        </div>
+        <div class="kpi-card" id="kpiCardNPart">
+          <div class="kpi-icon" style="background:#fef2f2;color:#dc2626;">⏳</div>
+          <div>
+            <div class="kpi-label">Não Participaram</div>
+            <div class="kpi-big" id="kpiNaoParticiparam" style="color:#dc2626;">-</div>
+            <div class="kpi-sub" id="kpiNaoPartPct">-</div>
+          </div>
+        </div>
+        <div class="kpi-card" style="flex-direction:column; justify-content:center; gap:4px;">
+          <div class="kpi-label" style="font-size:11px;">Semana</div>
+          <div style="font-size:14px;font-weight:700;color:#374151;" id="kpiSemanaSel">-</div>
+          <div style="font-size:11px;color:#6b7280;margin-top:2px;" id="kpiTituloSel">-</div>
+        </div>
+      </div>
+
+      <!-- Gráfico de Rosca Interativo -->
+      <div style="display:flex; gap:20px; align-items:center; background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:20px; flex-wrap:wrap;">
+        <div style="flex:0 0 auto; position:relative; width:200px; height:200px;">
+          <canvas id="dashDonutChart" width="200" height="200"></canvas>
+          <div id="dashDonutCenter" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;pointer-events:none;">
+            <div style="font-size:28px;font-weight:800;color:#1e293b;" id="dashDonutPct">-</div>
+            <div style="font-size:11px;color:#64748b;font-weight:500;">de conclusão</div>
+          </div>
+        </div>
+        <div style="flex:1; min-width:180px;">
+          <div style="font-size:16px;font-weight:700;color:#1e293b;margin-bottom:12px;">Participação Semanal</div>
+          <div style="display:flex;flex-direction:column;gap:10px;">
+            <div>
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+                <span style="font-size:13px;color:#16a34a;font-weight:600;">✅ Participaram</span>
+                <span style="font-size:13px;font-weight:700;" id="barPartLabel">-</span>
+              </div>
+              <div style="height:10px;background:#dcfce7;border-radius:99px;overflow:hidden;">
+                <div id="barPart" style="height:100%;background:linear-gradient(90deg,#22c55e,#16a34a);border-radius:99px;transition:width 0.6s ease;width:0%;"></div>
+              </div>
+            </div>
+            <div>
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+                <span style="font-size:13px;color:#dc2626;font-weight:600;">⏳ Não Participaram</span>
+                <span style="font-size:13px;font-weight:700;" id="barNPartLabel">-</span>
+              </div>
+              <div style="height:10px;background:#fee2e2;border-radius:99px;overflow:hidden;">
+                <div id="barNPart" style="height:100%;background:linear-gradient(90deg,#f87171,#dc2626);border-radius:99px;transition:width 0.6s ease;width:0%;"></div>
+              </div>
+            </div>
+          </div>
+          <div style="margin-top:14px;font-size:12px;color:#9ca3af;border-top:1px solid #f3f4f6;padding-top:10px;" id="dashSubTitulo">—</div>
+        </div>
+      </div>
     </div>
     <div class="two-cols">
       <div>
@@ -283,14 +351,48 @@
     const el = document.getElementById(id); if(!el) return; el.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); buscar(); } });
   });
 
+  // Máscara automática dd/mm/aaaa para campos de data
+  ['fDataInicio','fDataFinal'].forEach(id => {
+    const el = document.getElementById(id); if(!el) return;
+    el.addEventListener('input', function(){
+      let v = this.value.replace(/\D/g,'');
+      if(v.length>8) v=v.slice(0,8);
+      if(v.length>4) v=v.slice(0,2)+'/'+v.slice(2,4)+'/'+v.slice(4);
+      else if(v.length>2) v=v.slice(0,2)+'/'+v.slice(2);
+      this.value=v;
+    });
+  });
+
   (async function popularTitulos(){
     try {
-      const res = await fetch(API_BASE+"?action=registros");
-      const data = await res.json();
-      if (!data.ok) return;
-      const all = Array.isArray(data.data) ? data.data : [];
-      const titulos = Array.from(new Set(all.map(r => (r.TituloVideo ?? '').trim()).filter(Boolean)))
-        .sort((a,b)=>a.localeCompare(b,'pt-BR',{sensitivity:'base'}));
+      // Busca lista de treinamentos para obter ordem cronológica por SemanaISO
+      const resTr = await fetch(API_BASE+"?action=treinamentos");
+      const dataTr = await resTr.json();
+      const treinamentos = (dataTr.ok && Array.isArray(dataTr.data)) ? dataTr.data : [];
+
+      // Ordena por SemanaISO crescente (semana mais antiga primeiro)
+      const titulosOrdenados = treinamentos
+        .filter(t => t.Titulo && t.SemanaISO)
+        .sort((a,b)=>{
+          const pa = dashParseSemanaISO(String(a.SemanaISO||'')), pb = dashParseSemanaISO(String(b.SemanaISO||''));
+          if(pa.year !== pb.year) return pa.year - pb.year;
+          return pa.week - pb.week;
+        })
+        .map(t => String(t.Titulo).trim())
+        .filter((v,i,arr)=>arr.indexOf(v)===i); // deduplica mantendo ordem
+
+      // Fallback: se não houver treinamentos, busca dos registros e ordena alfabeticamente
+      let titulos = titulosOrdenados;
+      if (!titulos.length){
+        const res = await fetch(API_BASE+"?action=registros");
+        const data = await res.json();
+        if (data.ok){
+          const all = Array.isArray(data.data) ? data.data : [];
+          titulos = Array.from(new Set(all.map(r => (r.TituloVideo ?? '').trim()).filter(Boolean)))
+            .sort((a,b)=>a.localeCompare(b,'pt-BR',{sensitivity:'base'}));
+        }
+      }
+
       const sel = document.getElementById('fSemanaTitulo');
       sel.innerHTML = '<option value="">Todas</option>' + titulos.map(t=>`<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join('');
     } catch(e){}
@@ -391,7 +493,12 @@
 
   async function gerarPDF(){
     await loadLogoAsDataURL();
-    const baseSource = (Array.isArray(registrosFiltrados) && registrosFiltrados.length) ? registrosFiltrados : registros;
+    // Sempre usa registrosFiltrados se disponível; caso contrário exige busca prévia
+    if (!Array.isArray(registrosFiltrados) || registrosFiltrados.length === 0){
+      alert('Faça uma busca primeiro para aplicar os filtros antes de gerar o PDF.');
+      return;
+    }
+    const baseSource = registrosFiltrados;
     if (!baseSource || !baseSource.length){ alert('Nenhum dado para gerar PDF.'); return; }
     const base = [...baseSource].sort((a,b)=> String(a.Nome ?? '').localeCompare(String(b.Nome ?? ''), 'pt-BR', {sensitivity:'base'}));
     const titulos = [...new Set(base.map(r=>r.TituloVideo).filter(Boolean))];
@@ -599,7 +706,18 @@
       .replace(/'/g, '&#39;');
   }
   function nomeArquivo(ext){ const hoje=new Date(); const pad=n=>String(n).padStart(2,'0'); return `DSS_GIG_Relatorio_${hoje.getFullYear()}-${pad(hoje.getMonth()+1)}-${pad(hoje.getDate())}.${ext}`; }
-  function normalizarDataInput(v){ if(!v) return null; const [yyyy,mm,dd]=v.split('-').map(Number); return new Date(Date.UTC(yyyy, mm-1, dd, 0,0,0)); }
+  function normalizarDataInput(v){
+    if(!v) return null;
+    // Suporte a dd/mm/yyyy
+    const mBR = String(v).trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if(mBR){ const dd=+mBR[1], mm=+mBR[2], yyyy=+mBR[3]; return new Date(Date.UTC(yyyy, mm-1, dd, 0,0,0)); }
+    // Suporte a yyyy-mm-dd (legado)
+    const mISO = String(v).trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if(mISO){ const [,yyyy,mm,dd]=mISO; return new Date(Date.UTC(+yyyy, +mm-1, +dd, 0,0,0)); }
+    return null;
+  }
+  /* helper: formata input[type=date] (yyyy-mm-dd) para exibição dd/mm/yyyy */
+  function formatDateInput(v){ if(!v) return ''; const [yyyy,mm,dd]=v.split('-'); return `${dd}/${mm}/${yyyy}`; }
   function fimDoDia(dIniUTC){ if(!dIniUTC) return null; return new Date(dIniUTC.getTime() + 24*60*60*1000 - 1); }
   function parseTimestamp(valor){ if(!valor) return null; let d=new Date(valor); if(!Number.isNaN(d.getTime())) return d; const rx=/(^\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/; const m=String(valor).trim().match(rx); if(m){ const dd=+m[1], mm=+m[2], yy=+m[3]; const hh=+(m[4]??0), mi=+(m[5]??0), ss=+(m[6]??0); return new Date(yy, mm-1, dd, hh, mi, ss); } return null; }
   function formatTimestamp(ts){ const d=parseTimestamp(ts); if(!d) return String(ts ?? ''); const pad=n=>String(n).padStart(2,'0'); return `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`; }
@@ -752,7 +870,22 @@
     (DASH_treinamentos||[]).forEach(t=>{ if(t.SemanaISO) isoSet.add(String(t.SemanaISO)); if(t.Titulo) tituloSet.add(String(t.Titulo)); });
     (DASH_registrosAll||[]).forEach(r=>{ if(r.SemanaISO) isoSet.add(String(r.SemanaISO)); if(r.TituloVideo) tituloSet.add(String(r.TituloVideo)); });
     const isoList=[...isoSet].sort(dashCompareSemanaISODesc);
-    const titList=[...tituloSet].sort((a,b)=>a.localeCompare(b,'pt-BR',{sensitivity:'base'}));
+
+    // Títulos em ordem cronológica crescente (semana mais antiga primeiro)
+    // Mapeia título → semanaISO para ordenação
+    const tituloToISO = new Map();
+    (DASH_treinamentos||[]).forEach(t=>{ if(t.Titulo && t.SemanaISO) tituloToISO.set(String(t.Titulo).trim(), String(t.SemanaISO)); });
+    const titList = [...tituloSet].sort((a,b)=>{
+      const isoA = tituloToISO.get(a.trim()) || '';
+      const isoB = tituloToISO.get(b.trim()) || '';
+      if (isoA && isoB){
+        const pa = dashParseSemanaISO(isoA), pb = dashParseSemanaISO(isoB);
+        if(pa.year !== pb.year) return pa.year - pb.year;
+        return pa.week - pb.week;
+      }
+      return a.localeCompare(b,'pt-BR',{sensitivity:'base'});
+    });
+
     const selIso=document.getElementById('dashSemanaIso');
     selIso.innerHTML = '<option value="">Selecione...</option>' + isoList.map(sem=>`<option value="${escapeHtml(sem)}">${escapeHtml(sem)}</option>`).join('');
     const selTit=document.getElementById('dashTitulo');
@@ -926,14 +1059,75 @@
   dashStatus.innerHTML = `<div class="ok">Dashboard atualizado: ${semanaNorm}</div>`;
 }
 
+  let __donutChart = null;
+
   function dashKPIs({ total, part, nPart, semana, titulo }){
     const pct = total > 0 ? Math.round((part/total)*100) : 0;
+    const nPct = total > 0 ? Math.round((nPart/total)*100) : 0;
+
     document.getElementById('kpiTotalAtivos').textContent = String(total ?? '-');
     document.getElementById('kpiParticiparam').textContent = String(part ?? '-');
     document.getElementById('kpiParticiparamPct').textContent = total ? `${pct}% de conclusão` : '-';
     document.getElementById('kpiNaoParticiparam').textContent = String(nPart ?? '-');
+    document.getElementById('kpiNaoPartPct').textContent = total ? `${nPct}% pendente` : '-';
     document.getElementById('kpiSemanaSel').textContent = String(semana ?? '-');
     document.getElementById('kpiTituloSel').textContent = String(titulo ?? '-');
+
+    // Mostrar seção de gráfico
+    const section = document.getElementById('dashKpiChartSection');
+    if (section) section.style.display = 'block';
+
+    // Atualizar rosca central
+    const pctEl = document.getElementById('dashDonutPct');
+    if (pctEl) pctEl.textContent = total ? `${pct}%` : '-';
+
+    // Subtitle
+    const subEl = document.getElementById('dashSubTitulo');
+    if (subEl) subEl.textContent = titulo && titulo !== '-' ? `📋 ${titulo}` : '—';
+
+    // Barras de progresso
+    const barPart = document.getElementById('barPart');
+    const barPartLabel = document.getElementById('barPartLabel');
+    const barNPart = document.getElementById('barNPart');
+    const barNPartLabel = document.getElementById('barNPartLabel');
+    if (barPart) barPart.style.width = total ? `${pct}%` : '0%';
+    if (barPartLabel) barPartLabel.textContent = total ? `${part} (${pct}%)` : '-';
+    if (barNPart) barNPart.style.width = total ? `${nPct}%` : '0%';
+    if (barNPartLabel) barNPartLabel.textContent = total ? `${nPart} (${nPct}%)` : '-';
+
+    // Gráfico de rosca (canvas nativo)
+    const canvas = document.getElementById('dashDonutChart');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const cx = canvas.width / 2, cy = canvas.height / 2;
+    const radius = 80, innerRadius = 54;
+    const partAngle = total > 0 ? (part / total) * 2 * Math.PI : 0;
+    const nPartAngle = total > 0 ? (nPart / total) * 2 * Math.PI : 0;
+    const restAngle = 2 * Math.PI - partAngle - nPartAngle;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    function drawArc(start, end, color){
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.arc(cx, cy, radius, start - Math.PI/2, end - Math.PI/2);
+      ctx.closePath();
+      ctx.fillStyle = color;
+      ctx.fill();
+    }
+
+    if (total === 0){
+      ctx.beginPath(); ctx.arc(cx, cy, radius, 0, 2*Math.PI); ctx.fillStyle='#f3f4f6'; ctx.fill();
+    } else {
+      drawArc(0, partAngle, '#22c55e');
+      drawArc(partAngle, partAngle + nPartAngle, '#ef4444');
+      if (restAngle > 0.01) drawArc(partAngle + nPartAngle, partAngle + nPartAngle + restAngle, '#e2e8f0');
+    }
+
+    // Buraco central
+    ctx.beginPath(); ctx.arc(cx, cy, innerRadius, 0, 2*Math.PI); ctx.fillStyle='#fff'; ctx.fill();
+
+    // Borda suave
+    ctx.beginPath(); ctx.arc(cx, cy, radius, 0, 2*Math.PI); ctx.strokeStyle='#f1f5f9'; ctx.lineWidth=2; ctx.stroke();
   }
 
   function dashRender(naoParticipantes, participantes){
