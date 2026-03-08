@@ -52,12 +52,9 @@
     /* ====== KPI visual com gráficos ====== */
     .kpi-wrap {
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: 7fr 3fr;
       gap: 20px;
       margin-top: 20px;
-      max-width: 900px;
-      margin-left: auto;
-      margin-right: auto;
     }
     @media (max-width: 600px) { .kpi-wrap { grid-template-columns: 1fr; } }
 
@@ -127,15 +124,28 @@
     .kpi-semana-card .ks-value { font-size: 32px; font-weight: 800; line-height: 1.1; }
     .kpi-semana-card .ks-sub { font-size: 14px; opacity: .75; margin-top: 4px; }
 
-    /* Datas em formato dd/mm/aaaa via texto */
+    /* Datas em formato dd/mm/aaaa com botão calendário */
+    .date-picker-wrap {
+      position: relative; display: flex; align-items: center;
+    }
     .date-text-input {
-      height: 40px; padding: 10px 12px;
+      height: 40px; padding: 10px 40px 10px 12px;
       border: 1px solid var(--border, #e5e7eb);
       border-radius: 8px; background: #fff;
       color: #111827; box-sizing: border-box; width: 100%;
       font-size: 14px;
     }
     .date-text-input::placeholder { color: #9ca3af; }
+    .date-cal-btn {
+      position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+      background: none; border: none; cursor: pointer; padding: 2px;
+      color: #6b7280; line-height: 1; font-size: 18px;
+    }
+    .date-cal-btn:hover { color: #1d4ed8; }
+    .date-cal-hidden {
+      position: absolute; right: 0; top: 0; width: 1px; height: 1px;
+      opacity: 0; pointer-events: none;
+    }
 
     /* ====== Painel de Afastamentos ====== */
     .afast-panel { margin-top: 14px; }
@@ -256,12 +266,20 @@
           <select id="fSemanaTitulo"><option value="">Todas</option></select>
         </div>
         <div class="row">
-          <label for="fDataInicio">Data Inicial <span style="font-size:11px;color:#9ca3af">(dd/mm/aaaa)</span></label>
-          <input type="text" id="fDataInicio" class="date-text-input" placeholder="dd/mm/aaaa" maxlength="10" inputmode="numeric" />
+          <label for="fDataInicio">Data Inicial</label>
+          <div class="date-picker-wrap">
+            <input type="text" id="fDataInicio" class="date-text-input" placeholder="dd/mm/aaaa" maxlength="10" inputmode="numeric" autocomplete="off" />
+            <button type="button" class="date-cal-btn" id="btnCalInicio" title="Selecionar data" tabindex="-1">📅</button>
+            <input type="date" id="fDataInicioNative" class="date-cal-hidden" tabindex="-1" />
+          </div>
         </div>
         <div class="row">
-          <label for="fDataFinal">Data Final <span style="font-size:11px;color:#9ca3af">(dd/mm/aaaa)</span></label>
-          <input type="text" id="fDataFinal" class="date-text-input" placeholder="dd/mm/aaaa" maxlength="10" inputmode="numeric" />
+          <label for="fDataFinal">Data Final</label>
+          <div class="date-picker-wrap">
+            <input type="text" id="fDataFinal" class="date-text-input" placeholder="dd/mm/aaaa" maxlength="10" inputmode="numeric" autocomplete="off" />
+            <button type="button" class="date-cal-btn" id="btnCalFinal" title="Selecionar data" tabindex="-1">📅</button>
+            <input type="date" id="fDataFinalNative" class="date-cal-hidden" tabindex="-1" />
+          </div>
         </div>
       </div>
       <div class="actions">
@@ -317,6 +335,13 @@
         </div>
       </div>
     </div>
+    <div id="dashStatus" class="message"></div>
+    <!-- Diagnóstico da API (remover após confirmar funcionamento) -->
+    <div id="diagWrap" style="margin:8px 0;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+      <button type="button" id="btnDiag" class="secondary" style="font-size:12px;padding:4px 12px;height:auto;">🔍 Ver resposta bruta da API (diagnóstico)</button>
+      <button type="button" id="btnDiagClear" class="secondary" style="font-size:12px;padding:4px 12px;height:auto;display:none;">✕ Fechar</button>
+    </div>
+    <pre id="diagBox" style="display:none;background:#1e1e1e;color:#d4d4d4;font-size:11px;padding:12px;border-radius:8px;max-height:260px;overflow:auto;white-space:pre-wrap;word-break:break-all;margin-bottom:8px;"></pre>
 
     <!-- Painel de Férias/Afastamento -->
     <details class="afast-panel" id="afastPanel">
@@ -460,17 +485,42 @@
     const el = document.getElementById(id); if(!el) return; el.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); buscar(); } });
   });
 
-  // Máscara automática dd/mm/aaaa nos campos de data
-  ['fDataInicio','fDataFinal'].forEach(id => {
-    const el = document.getElementById(id);
-    if (!el) return;
-    el.addEventListener('input', function(){
+  // ── Campos de data: máscara automática + botão calendário ──────────────────
+  function setupDatePicker(textId, nativeId, calBtnId){
+    const txt    = document.getElementById(textId);
+    const native = document.getElementById(nativeId);
+    const btn    = document.getElementById(calBtnId);
+    if (!txt || !native || !btn) return;
+
+    // Máscara dd/mm/aaaa enquanto digita
+    txt.addEventListener('input', function(){
       let v = this.value.replace(/\D/g,'');
       if (v.length > 8) v = v.slice(0,8);
-      if (v.length >= 5)      this.value = v.slice(0,2)+'/'+v.slice(2,4)+'/'+v.slice(4);
+      if      (v.length >= 5) this.value = v.slice(0,2)+'/'+v.slice(2,4)+'/'+v.slice(4);
       else if (v.length >= 3) this.value = v.slice(0,2)+'/'+v.slice(2);
       else                    this.value = v;
     });
+
+    // Botão abre o calendário nativo
+    btn.addEventListener('click', function(){
+      // Sincroniza o valor atual do texto → nativo (para abrir no mês certo)
+      const m = txt.value.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+      if (m) native.value = `${m[3]}-${m[2]}-${m[1]}`;
+      native.showPicker ? native.showPicker() : native.click();
+    });
+
+    // Quando o nativo muda, converte yyyy-mm-dd → dd/mm/aaaa no texto
+    native.addEventListener('change', function(){
+      if (!this.value) return;
+      const [y,mo,d] = this.value.split('-');
+      txt.value = `${d}/${mo}/${y}`;
+    });
+  }
+  setupDatePicker('fDataInicio', 'fDataInicioNative', 'btnCalInicio');
+  setupDatePicker('fDataFinal',  'fDataFinalNative',  'btnCalFinal');
+  // Tecla Enter nos campos de data também dispara busca
+  ['fDataInicio','fDataFinal'].forEach(id => {
+    document.getElementById(id)?.addEventListener('keydown', e => { if(e.key==='Enter'){ e.preventDefault(); buscar(); } });
   });
 
   /* ====================================================
@@ -480,65 +530,61 @@
    *    para cobrir semanas que o GAS não retorna em treinamentos.
    * Ordena por SemanaISO decrescente (mais recente primeiro).
    * ==================================================== */
-  async function fetchTitulosTreinamentos(){
-    // Map: titulo -> semanaISO (para ordenação)
-    const mapaISO = new Map(); // titulo -> semanaISO
+  // ── PRÉ-CARREGAMENTO: 3 chamadas em paralelo ao abrir a página ──────────────
+  const _apiCache = {};
+  function _cachedFetch(action){
+    if (!_apiCache[action]) {
+      _apiCache[action] = apiFetch('action=' + action)
+        .then(r => r.ok ? r.json().catch(()=>null) : null)
+        .catch(() => null);
+    }
+    return _apiCache[action];
+  }
+  _cachedFetch('treinamentos');
+  _cachedFetch('registros');
+  _cachedFetch('funcionarios');
 
-    // --- Fonte 1: ?action=treinamentos ---
+  /* Extrai array de linhas de uma resposta JSON (aceita qualquer wrapper) */
+  function _parseRows(json){
+    if (Array.isArray(json))         return json;
+    if (Array.isArray(json?.data))   return json.data;
+    if (Array.isArray(json?.result)) return json.result;
+    if (typeof json === 'object' && json){
+      const v = Object.values(json).find(v => Array.isArray(v)); if (v) return v;
+    }
+    return [];
+  }
+
+  async function fetchTitulosTreinamentos(){
+    const mapaISO = new Map();
+    const norm = s => String(s??'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+    const exactos = ['Titulo','titulo','TITULO','Title','title','TituloVideo','titulovideo'];
+
+    // Fonte 1: treinamentos
     try {
-      const res = await apiFetch('action=treinamentos');
-      if (res.ok) {
-        let json; try { json = await res.json(); } catch(e){}
-        let rows = [];
-        if      (Array.isArray(json))              rows = json;
-        else if (Array.isArray(json?.data))        rows = json.data;
-        else if (Array.isArray(json?.result))      rows = json.result;
-        else if (typeof json === 'object' && json) {
-          const v = Object.values(json).find(v => Array.isArray(v));
-          if (v) rows = v;
-        }
-        const norm = s => String(s??'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
-        const chaves = Object.keys(rows[0] || {});
-        const exactos = ['Titulo','titulo','TITULO','Title','title','TituloVideo','titulovideo'];
-        const campo = exactos.find(c => chaves.includes(c))
-          ?? chaves.find(k => norm(k).includes('titul'))
-          ?? chaves.find(k => norm(k).includes('title'))
-          ?? null;
-        if (campo) {
-          rows.forEach(r => {
-            const t = String(r[campo]??'').trim();
-            if (t) mapaISO.set(t, String(r.SemanaISO ?? r.semanaiso ?? '').trim());
-          });
-        }
-      }
+      const rows = _parseRows(await _cachedFetch('treinamentos'));
+      const chaves = Object.keys(rows[0] || {});
+      const campo = exactos.find(c => chaves.includes(c))
+        ?? chaves.find(k => norm(k).includes('titul'))
+        ?? chaves.find(k => norm(k).includes('title')) ?? null;
+      if (campo) rows.forEach(r => {
+        const t = String(r[campo]??'').trim();
+        if (t) mapaISO.set(t, String(r.SemanaISO ?? r.semanaiso ?? '').trim());
+      });
     } catch(e){}
 
-    // --- Fonte 2: ?action=registros — complementa semanas ausentes ---
+    // Fonte 2: registros — complementa semanas sem entrada em treinamentos
     try {
-      const res = await apiFetch('action=registros');
-      if (res.ok) {
-        let json; try { json = await res.json(); } catch(e){}
-        let rows = [];
-        if      (Array.isArray(json))              rows = json;
-        else if (Array.isArray(json?.data))        rows = json.data;
-        else if (Array.isArray(json?.result))      rows = json.result;
-        else if (typeof json === 'object' && json) {
-          const v = Object.values(json).find(v => Array.isArray(v));
-          if (v) rows = v;
-        }
-        rows.forEach(r => {
-          const t = String(r.TituloVideo ?? r.Titulo ?? r.titulo ?? '').trim();
-          const iso = String(r.SemanaISO ?? '').trim();
-          if (t && !mapaISO.has(t)) mapaISO.set(t, iso);
-          // atualiza ISO se ainda não tínhamos
-          else if (t && !mapaISO.get(t) && iso) mapaISO.set(t, iso);
-        });
-      }
+      const rows = _parseRows(await _cachedFetch('registros'));
+      rows.forEach(r => {
+        const t = String(r.TituloVideo ?? r.Titulo ?? r.titulo ?? '').trim();
+        const iso = String(r.SemanaISO ?? '').trim();
+        if (t && !mapaISO.has(t)) mapaISO.set(t, iso);
+        else if (t && !mapaISO.get(t) && iso) mapaISO.set(t, iso);
+      });
     } catch(e){}
 
     if (!mapaISO.size) return [];
-
-    // Ordena por SemanaISO decrescente (ex: 2026-W10 > 2026-W09)
     return [...mapaISO.entries()]
       .sort((a, b) => {
         const pa = dashParseSemanaISO(a[1]), pb = dashParseSemanaISO(b[1]);
@@ -549,7 +595,6 @@
   }
 
   (async function popularTitulos(){
-    // fetchTitulosTreinamentos combina treinamentos + registros — cobre semanas históricas
     const titulos = await fetchTitulosTreinamentos();
     const sel = document.getElementById('fSemanaTitulo');
     sel.innerHTML = '<option value="">Todas</option>'
@@ -1030,25 +1075,16 @@
 
   async function dashEnsureData(){
     if (!DASH_treinamentos){
-      try {
-        const res = await apiFetch('action=treinamentos');
-        if (res.ok){ let j; try{ j=await res.json(); }catch(e){ j=null; } DASH_treinamentos = j ? _parseApiRows(j) : []; }
-        else DASH_treinamentos = [];
-      } catch { DASH_treinamentos = []; }
+      try { DASH_treinamentos = _parseRows(await _cachedFetch('treinamentos')) || []; }
+      catch { DASH_treinamentos = []; }
     }
     if (!DASH_funcionarios){
-      try {
-        const res = await apiFetch('action=funcionarios');
-        if (res.ok){ let j; try{ j=await res.json(); }catch(e){ j=null; } DASH_funcionarios = j ? _parseApiRows(j) : []; }
-        else DASH_funcionarios = [];
-      } catch { DASH_funcionarios = []; }
+      try { DASH_funcionarios = _parseRows(await _cachedFetch('funcionarios')) || []; }
+      catch { DASH_funcionarios = []; }
     }
     if (!DASH_registrosAll){
-      try {
-        const res = await apiFetch('action=registros');
-        if (res.ok){ let j; try{ j=await res.json(); }catch(e){ j=null; } DASH_registrosAll = j ? _parseApiRows(j) : []; }
-        else DASH_registrosAll = [];
-      } catch { DASH_registrosAll = []; }
+      try { DASH_registrosAll = _parseRows(await _cachedFetch('registros')) || []; }
+      catch { DASH_registrosAll = []; }
     }
   }
 
@@ -1097,7 +1133,10 @@
   }
 
   async function dashAtualizar(){
-  // 🔄 FORÇA recarregar tudo sempre que clicar em Atualizar
+  // 🔄 Limpa cache e dados para forçar recarregamento completo
+  delete _apiCache['treinamentos'];
+  delete _apiCache['registros'];
+  delete _apiCache['funcionarios'];
   DASH_treinamentos = null;
   DASH_funcionarios = null;
   DASH_registrosAll = null;
