@@ -481,50 +481,82 @@
   });
 
   /* ====================================================
-   * Retorna o array de títulos da aba Treinamentos,
-   * na ordem exata das linhas da planilha.
-   * Robusto: aceita qualquer wrapper da API e qualquer
-   * nome de campo que contenha "titul" ou "title".
+   * Retorna o array de títulos completo, combinando:
+   * 1) aba Treinamentos (via ?action=treinamentos)
+   * 2) registros de participação (via ?action=registros) — complemento
+   *    para cobrir semanas que o GAS não retorna em treinamentos.
+   * Ordena por SemanaISO decrescente (mais recente primeiro).
    * ==================================================== */
   async function fetchTitulosTreinamentos(){
+    // Map: titulo -> semanaISO (para ordenação)
+    const mapaISO = new Map(); // titulo -> semanaISO
+
+    // --- Fonte 1: ?action=treinamentos ---
     try {
       const res = await apiFetch('action=treinamentos');
-      if (!res.ok) return [];
-
-      let json;
-      try { json = await res.json(); } catch(e){ return []; }
-
-      // Suporta { ok, data: [...] }  OU  { data: [...] }  OU  array direto  OU  outros wrappers
-      let rows = [];
-      if      (Array.isArray(json))                   rows = json;
-      else if (Array.isArray(json.data))              rows = json.data;
-      else if (Array.isArray(json.result))            rows = json.result;
-      else if (Array.isArray(json.treinamentos))      rows = json.treinamentos;
-      else if (typeof json === 'object' && json !== null) {
-        // Último recurso: pegar primeiro array que encontrar no objeto
-        const firstArr = Object.values(json).find(v => Array.isArray(v));
-        if (firstArr) rows = firstArr;
+      if (res.ok) {
+        let json; try { json = await res.json(); } catch(e){}
+        let rows = [];
+        if      (Array.isArray(json))              rows = json;
+        else if (Array.isArray(json?.data))        rows = json.data;
+        else if (Array.isArray(json?.result))      rows = json.result;
+        else if (typeof json === 'object' && json) {
+          const v = Object.values(json).find(v => Array.isArray(v));
+          if (v) rows = v;
+        }
+        const norm = s => String(s??'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+        const chaves = Object.keys(rows[0] || {});
+        const exactos = ['Titulo','titulo','TITULO','Title','title','TituloVideo','titulovideo'];
+        const campo = exactos.find(c => chaves.includes(c))
+          ?? chaves.find(k => norm(k).includes('titul'))
+          ?? chaves.find(k => norm(k).includes('title'))
+          ?? null;
+        if (campo) {
+          rows.forEach(r => {
+            const t = String(r[campo]??'').trim();
+            if (t) mapaISO.set(t, String(r.SemanaISO ?? r.semanaiso ?? '').trim());
+          });
+        }
       }
+    } catch(e){}
 
-      if (!rows.length) return [];
+    // --- Fonte 2: ?action=registros — complementa semanas ausentes ---
+    try {
+      const res = await apiFetch('action=registros');
+      if (res.ok) {
+        let json; try { json = await res.json(); } catch(e){}
+        let rows = [];
+        if      (Array.isArray(json))              rows = json;
+        else if (Array.isArray(json?.data))        rows = json.data;
+        else if (Array.isArray(json?.result))      rows = json.result;
+        else if (typeof json === 'object' && json) {
+          const v = Object.values(json).find(v => Array.isArray(v));
+          if (v) rows = v;
+        }
+        rows.forEach(r => {
+          const t = String(r.TituloVideo ?? r.Titulo ?? r.titulo ?? '').trim();
+          const iso = String(r.SemanaISO ?? '').trim();
+          if (t && !mapaISO.has(t)) mapaISO.set(t, iso);
+          // atualiza ISO se ainda não tínhamos
+          else if (t && !mapaISO.get(t) && iso) mapaISO.set(t, iso);
+        });
+      }
+    } catch(e){}
 
-      const norm = s => String(s ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
-      const chaves = Object.keys(rows[0] || {});
-      const exactos = ['Titulo','titulo','TITULO','Title','title','TituloVideo','titulovideo'];
-      let campoTitulo = exactos.find(c => chaves.includes(c))
-        ?? chaves.find(k => norm(k).includes('titul'))
-        ?? chaves.find(k => norm(k).includes('title'))
-        ?? chaves.find(k => { const v = String(rows[0][k]??''); return /\d{2}\/\d{2}\/\d{4}/.test(v); })
-        ?? null;
+    if (!mapaISO.size) return [];
 
-      if (!campoTitulo) return [];
-
-      return rows.map(r => String(r[campoTitulo] ?? '').trim()).filter(Boolean);
-
-    } catch(e){ return []; }
+    // Ordena por SemanaISO decrescente (ex: 2026-W10 > 2026-W09)
+    return [...mapaISO.entries()]
+      .sort((a, b) => {
+        const pa = dashParseSemanaISO(a[1]), pb = dashParseSemanaISO(b[1]);
+        if (pa.year !== pb.year) return pb.year - pa.year;
+        return pb.week - pa.week;
+      })
+      .map(([titulo]) => titulo);
   }
 
   (async function popularTitulos(){
+    // fetchTitulosTreinamentos combina treinamentos + registros — cobre semanas históricas
     const titulos = await fetchTitulosTreinamentos();
     const sel = document.getElementById('fSemanaTitulo');
     sel.innerHTML = '<option value="">Todas</option>'
@@ -1028,25 +1060,10 @@
   }
 
   async function dashPopularSelects(){
-    // --- Títulos: usa DASH_treinamentos já carregado, na ordem original da planilha ---
-    // Se por algum motivo DASH_treinamentos não tiver campo Titulo, faz fetch dedicado
-    let titulos = [];
-    const norm = s => String(s ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
-    const rows = DASH_treinamentos || [];
-    if (rows.length) {
-      const chaves = Object.keys(rows[0] || {});
-      const exactos = ['Titulo','titulo','TITULO','Title','title','TituloVideo','titulovideo'];
-      let campo = exactos.find(c => chaves.includes(c))
-        ?? chaves.find(k => norm(k).includes('titul'))
-        ?? chaves.find(k => norm(k).includes('title'))
-        ?? chaves.find(k => { const v = String(rows[0][k]??''); return v.includes('/') || v.includes('a '); })
-        ?? null;
-      if (campo) titulos = rows.map(r => String(r[campo]??'').trim()).filter(Boolean);
-    }
-    // Se não conseguiu extrair via DASH_treinamentos, faz fetch dedicado
-    if (!titulos.length) titulos = await fetchTitulosTreinamentos();
+    // fetchTitulosTreinamentos já combina treinamentos + registros e ordena por ISO desc
+    const titulos = await fetchTitulosTreinamentos();
 
-    // --- ISO oculto: populado internamente ---
+    // --- ISO oculto: populado de treinamentos + registros ---
     const isoSet = new Set();
     (DASH_treinamentos||[]).forEach(t=>{ if(t.SemanaISO) isoSet.add(String(t.SemanaISO)); });
     (DASH_registrosAll||[]).forEach(r=>{ if(r.SemanaISO) isoSet.add(String(r.SemanaISO)); });
