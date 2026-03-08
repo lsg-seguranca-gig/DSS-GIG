@@ -44,15 +44,97 @@
     }
 
     /* ====== estilos do Dashboard (pontuais) ====== */
-    .kpi-wrap { display: grid; grid-template-columns: repeat(4, minmax(120px, 1fr)); gap: 12px; margin-top: 12px; }
-    .kpi { border: 1px solid var(--border, #e5e7eb); border-radius: 8px; padding: 12px; background: #fff; }
-    .kpi .label { color: #6b7280; font-size: 12px; }
-    .kpi .value { font-size: 22px; font-weight: 700; margin-top: 4px; }
-    .kpi .sub { color: #6b7280; font-size: 12px; margin-top: 2px; }
     .two-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 14px; }
     .two-cols h3 { margin: 6px 0; font-size: 16px; }
     .muted { color: #6b7280; text-align: center; }
-    @media (max-width: 1000px) { .kpi-wrap { grid-template-columns: repeat(2, minmax(140px, 1fr)); } .two-cols { grid-template-columns: 1fr; } }
+    @media (max-width: 1000px) { .two-cols { grid-template-columns: 1fr; } }
+
+    /* ====== KPI visual com gráficos ====== */
+    .kpi-wrap {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr auto;
+      gap: 16px;
+      margin-top: 16px;
+      align-items: stretch;
+    }
+    @media (max-width: 900px) { .kpi-wrap { grid-template-columns: 1fr 1fr; } }
+    @media (max-width: 500px) { .kpi-wrap { grid-template-columns: 1fr; } }
+
+    /* Card de gráfico de rosca */
+    .kpi-chart-card {
+      background: #fff;
+      border: 1px solid var(--border, #e5e7eb);
+      border-radius: 12px;
+      padding: 16px 12px 12px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 0 1px 4px rgba(0,0,0,.05);
+    }
+    .kpi-chart-card .kpi-title {
+      font-size: 12px;
+      color: #6b7280;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+      text-align: center;
+    }
+    .kpi-donut-wrap { position: relative; width: 110px; height: 110px; }
+    .kpi-donut-wrap canvas { display: block; }
+    .kpi-donut-label {
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      pointer-events: none;
+    }
+    .kpi-donut-label .kpi-num {
+      font-size: 26px; font-weight: 800; line-height: 1;
+      color: #111827;
+    }
+    .kpi-donut-label .kpi-pct {
+      font-size: 11px; color: #6b7280; margin-top: 2px;
+    }
+    .kpi-bar-row {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .kpi-bar-item { display: flex; align-items: center; gap: 6px; font-size: 12px; }
+    .kpi-bar-item .kpi-bar-label { min-width: 90px; color: #374151; }
+    .kpi-bar-item .kpi-bar-track {
+      flex: 1; height: 8px; border-radius: 4px; background: #f3f4f6; overflow: hidden;
+    }
+    .kpi-bar-item .kpi-bar-fill { height: 100%; border-radius: 4px; transition: width .5s ease; }
+    .kpi-bar-item .kpi-bar-val { min-width: 28px; text-align: right; font-weight: 600; color: #111827; }
+
+    /* Card de semana selecionada */
+    .kpi-semana-card {
+      background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%);
+      border-radius: 12px;
+      padding: 16px 14px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 6px;
+      color: #fff;
+      box-shadow: 0 4px 14px rgba(37,99,235,.35);
+      min-width: 160px;
+    }
+    .kpi-semana-card .ks-label { font-size: 11px; opacity: .8; text-transform: uppercase; letter-spacing:.05em; }
+    .kpi-semana-card .ks-value { font-size: 22px; font-weight: 800; line-height: 1.1; }
+    .kpi-semana-card .ks-sub { font-size: 12px; opacity: .75; margin-top: 2px; }
+
+    /* Datas em formato dd/mm/aaaa via texto */
+    .date-text-input {
+      height: 40px; padding: 10px 12px;
+      border: 1px solid var(--border, #e5e7eb);
+      border-radius: 8px; background: #fff;
+      color: #111827; box-sizing: border-box; width: 100%;
+      font-size: 14px;
+    }
+    .date-text-input::placeholder { color: #9ca3af; }
 
     /* ====== Painel de Afastamentos ====== */
     .afast-panel { margin-top: 14px; }
@@ -173,12 +255,12 @@
           <select id="fSemanaTitulo"><option value="">Todas</option></select>
         </div>
         <div class="row">
-          <label for="fDataInicio">Data Inicial</label>
-          <input type="date" id="fDataInicio" />
+          <label for="fDataInicio">Data Inicial <span style="font-size:11px;color:#9ca3af">(dd/mm/aaaa)</span></label>
+          <input type="text" id="fDataInicio" class="date-text-input" placeholder="dd/mm/aaaa" maxlength="10" inputmode="numeric" />
         </div>
         <div class="row">
-          <label for="fDataFinal">Data Final</label>
-          <input type="date" id="fDataFinal" />
+          <label for="fDataFinal">Data Final <span style="font-size:11px;color:#9ca3af">(dd/mm/aaaa)</span></label>
+          <input type="text" id="fDataFinal" class="date-text-input" placeholder="dd/mm/aaaa" maxlength="10" inputmode="numeric" />
         </div>
       </div>
       <div class="actions">
@@ -263,10 +345,41 @@
       </div>
     </details>
     <div class="kpi-wrap">
-      <div class="kpi"><div class="label">Total de Ativos</div><div class="value" id="kpiTotalAtivos">-</div></div>
-      <div class="kpi"><div class="label">Participaram</div><div class="value" id="kpiParticiparam">-</div><div class="sub" id="kpiParticiparamPct">-</div></div>
-      <div class="kpi"><div class="label">Não Participaram</div><div class="value" id="kpiNaoParticiparam">-</div></div>
-      <div class="kpi"><div class="label">Semana Selecionada</div><div class="value" id="kpiSemanaSel">-</div><div class="sub" id="kpiTituloSel">-</div></div>
+      <!-- Gráfico de rosca: participação -->
+      <div class="kpi-chart-card" style="grid-column: span 1;">
+        <div class="kpi-title">Participação Semanal</div>
+        <div class="kpi-donut-wrap">
+          <canvas id="kpiDonut" width="110" height="110"></canvas>
+          <div class="kpi-donut-label">
+            <span class="kpi-num" id="kpiPctNum">-</span>
+            <span class="kpi-pct">de conclusão</span>
+          </div>
+        </div>
+        <div class="kpi-bar-row">
+          <div class="kpi-bar-item">
+            <span class="kpi-bar-label">✅ Participaram</span>
+            <div class="kpi-bar-track"><div class="kpi-bar-fill" id="barPart" style="width:0%;background:#22c55e"></div></div>
+            <span class="kpi-bar-val" id="kpiParticiparam">-</span>
+          </div>
+          <div class="kpi-bar-item">
+            <span class="kpi-bar-label">⏳ Não Participaram</span>
+            <div class="kpi-bar-track"><div class="kpi-bar-fill" id="barNaoPart" style="width:0%;background:#ef4444"></div></div>
+            <span class="kpi-bar-val" id="kpiNaoParticiparam">-</span>
+          </div>
+        </div>
+        <div style="font-size:11px;color:#6b7280;margin-top:2px;">
+          Total de Ativos: <strong id="kpiTotalAtivos">-</strong>
+        </div>
+        <!-- mantidos por compatibilidade interna, ocultos -->
+        <span id="kpiParticiparamPct" style="display:none"></span>
+      </div>
+
+      <!-- Card semana selecionada -->
+      <div class="kpi-semana-card">
+        <div class="ks-label">Semana Selecionada</div>
+        <div class="ks-value" id="kpiSemanaSel">-</div>
+        <div class="ks-sub" id="kpiTituloSel">-</div>
+      </div>
     </div>
     <div class="two-cols">
       <div>
@@ -340,6 +453,19 @@
   document.getElementById('btnAddFunc').addEventListener('click', novoFuncionarioViaPrompt);
   ['fMat','fNome','fDataInicio','fDataFinal','fSemanaTitulo'].forEach(id=>{
     const el = document.getElementById(id); if(!el) return; el.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); buscar(); } });
+  });
+
+  // Máscara automática dd/mm/aaaa nos campos de data
+  ['fDataInicio','fDataFinal'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('input', function(){
+      let v = this.value.replace(/\D/g,'');
+      if (v.length > 8) v = v.slice(0,8);
+      if (v.length >= 5)      this.value = v.slice(0,2)+'/'+v.slice(2,4)+'/'+v.slice(4);
+      else if (v.length >= 3) this.value = v.slice(0,2)+'/'+v.slice(2);
+      else                    this.value = v;
+    });
   });
 
   /* ====================================================
@@ -695,7 +821,23 @@
       .replace(/'/g, '&#39;');
   }
   function nomeArquivo(ext){ const hoje=new Date(); const pad=n=>String(n).padStart(2,'0'); return `DSS_GIG_Relatorio_${hoje.getFullYear()}-${pad(hoje.getMonth()+1)}-${pad(hoje.getDate())}.${ext}`; }
-  function normalizarDataInput(v){ if(!v) return null; const [yyyy,mm,dd]=v.split('-').map(Number); return new Date(Date.UTC(yyyy, mm-1, dd, 0,0,0)); }
+  function normalizarDataInput(v){
+    if (!v) return null;
+    v = String(v).trim();
+    // Aceita dd/mm/aaaa
+    const m = v.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (m) {
+      const [, dd, mm, yyyy] = m;
+      return new Date(Date.UTC(+yyyy, +mm - 1, +dd, 0, 0, 0));
+    }
+    // Fallback: yyyy-mm-dd (input type=date legado)
+    const m2 = v.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (m2) {
+      const [, yyyy, mm, dd] = m2;
+      return new Date(Date.UTC(+yyyy, +mm - 1, +dd, 0, 0, 0));
+    }
+    return null;
+  }
   function fimDoDia(dIniUTC){ if(!dIniUTC) return null; return new Date(dIniUTC.getTime() + 24*60*60*1000 - 1); }
   function parseTimestamp(valor){ if(!valor) return null; let d=new Date(valor); if(!Number.isNaN(d.getTime())) return d; const rx=/(^\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/; const m=String(valor).trim().match(rx); if(m){ const dd=+m[1], mm=+m[2], yy=+m[3]; const hh=+(m[4]??0), mi=+(m[5]??0), ss=+(m[6]??0); return new Date(yy, mm-1, dd, hh, mi, ss); } return null; }
   function formatTimestamp(ts){ const d=parseTimestamp(ts); if(!d) return String(ts ?? ''); const pad=n=>String(n).padStart(2,'0'); return `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`; }
@@ -903,7 +1045,6 @@
   }
 
   async function dashAtualizar(){
-
   // 🔄 FORÇA recarregar tudo sempre que clicar em Atualizar
   DASH_treinamentos = null;
   DASH_funcionarios = null;
@@ -911,6 +1052,14 @@
 
   await dashEnsureData();
   afastRenderTags(); // atualizar nomes após carregar funcionários
+
+  // Re-popular o dropdown de títulos com dados frescos, preservando seleção atual
+  const titAntes = document.getElementById('dashTitulo').value;
+  await dashPopularSelects();
+  // Restaura seleção se ainda existir
+  const sel = document.getElementById('dashTitulo');
+  if (titAntes && [...sel.options].some(o => o.value === titAntes)) sel.value = titAntes;
+  else dashSugerirSemanaAtivaMaisRecente();
 
   const dashStatus = document.getElementById('dashStatus'); 
   dashStatus.innerHTML = '';
@@ -1044,13 +1193,54 @@
 }
 
   function dashKPIs({ total, part, nPart, semana, titulo }){
-    const pct = total > 0 ? Math.round((part/total)*100) : 0;
-    document.getElementById('kpiTotalAtivos').textContent = String(total ?? '-');
-    document.getElementById('kpiParticiparam').textContent = String(part ?? '-');
-    document.getElementById('kpiParticiparamPct').textContent = total ? `${pct}% de conclusão` : '-';
+    const pct = total > 0 ? Math.round((part / total) * 100) : 0;
+    const pctNP = total > 0 ? Math.round((nPart / total) * 100) : 0;
+
+    // Textos
+    document.getElementById('kpiTotalAtivos').textContent   = String(total ?? '-');
+    document.getElementById('kpiParticiparam').textContent  = String(part ?? '-');
     document.getElementById('kpiNaoParticiparam').textContent = String(nPart ?? '-');
-    document.getElementById('kpiSemanaSel').textContent = String(semana ?? '-');
-    document.getElementById('kpiTituloSel').textContent = String(titulo ?? '-');
+    document.getElementById('kpiParticiparamPct').textContent = total ? `${pct}%` : '-';
+    document.getElementById('kpiPctNum').textContent        = total ? `${pct}%` : '-';
+    document.getElementById('kpiSemanaSel').textContent     = String(semana ?? '-');
+    document.getElementById('kpiTituloSel').textContent     = String(titulo ?? '-');
+
+    // Barras de progresso
+    document.getElementById('barPart').style.width    = total ? `${pct}%` : '0%';
+    document.getElementById('barNaoPart').style.width = total ? `${pctNP}%` : '0%';
+
+    // Gráfico de rosca (canvas nativo, sem lib externa)
+    const canvas = document.getElementById('kpiDonut');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width, H = canvas.height;
+    const cx = W/2, cy = H/2, r = 42, thick = 14;
+    ctx.clearRect(0, 0, W, H);
+
+    const drawArc = (startPct, endPct, color) => {
+      const s = (startPct / 100) * 2 * Math.PI - Math.PI/2;
+      const e = (endPct   / 100) * 2 * Math.PI - Math.PI/2;
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, s, e);
+      ctx.strokeStyle = color;
+      ctx.lineWidth = thick;
+      ctx.lineCap = 'round';
+      ctx.stroke();
+    };
+
+    // Fundo cinza
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, 2 * Math.PI);
+    ctx.strokeStyle = '#f3f4f6';
+    ctx.lineWidth = thick;
+    ctx.stroke();
+
+    if (total > 0) {
+      // Não participaram (vermelho, começa do topo)
+      if (pctNP > 0) drawArc(0, pctNP, '#ef4444');
+      // Participaram (verde, em seguida)
+      if (pct > 0)   drawArc(pctNP, pctNP + pct, '#22c55e');
+    }
   }
 
   function dashRender(naoParticipantes, participantes){
