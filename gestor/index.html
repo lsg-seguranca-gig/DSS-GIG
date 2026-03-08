@@ -52,13 +52,14 @@
     /* ====== KPI visual com gráficos ====== */
     .kpi-wrap {
       display: grid;
-      grid-template-columns: 1fr 1fr 1fr auto;
-      gap: 16px;
-      margin-top: 16px;
-      align-items: stretch;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      margin-top: 20px;
+      max-width: 900px;
+      margin-left: auto;
+      margin-right: auto;
     }
-    @media (max-width: 900px) { .kpi-wrap { grid-template-columns: 1fr 1fr; } }
-    @media (max-width: 500px) { .kpi-wrap { grid-template-columns: 1fr; } }
+    @media (max-width: 600px) { .kpi-wrap { grid-template-columns: 1fr; } }
 
     /* Card de gráfico de rosca */
     .kpi-chart-card {
@@ -80,7 +81,7 @@
       letter-spacing: .04em;
       text-align: center;
     }
-    .kpi-donut-wrap { position: relative; width: 110px; height: 110px; }
+    .kpi-donut-wrap { position: relative; width: 140px; height: 140px; margin: 0 auto; }
     .kpi-donut-wrap canvas { display: block; }
     .kpi-donut-label {
       position: absolute; inset: 0;
@@ -89,7 +90,7 @@
       pointer-events: none;
     }
     .kpi-donut-label .kpi-num {
-      font-size: 26px; font-weight: 800; line-height: 1;
+      font-size: 30px; font-weight: 800; line-height: 1;
       color: #111827;
     }
     .kpi-donut-label .kpi-pct {
@@ -113,18 +114,18 @@
     .kpi-semana-card {
       background: linear-gradient(135deg, #1d4ed8 0%, #2563eb 100%);
       border-radius: 12px;
-      padding: 16px 14px;
+      padding: 28px 24px;
       display: flex;
       flex-direction: column;
       justify-content: center;
-      gap: 6px;
+      gap: 10px;
       color: #fff;
       box-shadow: 0 4px 14px rgba(37,99,235,.35);
-      min-width: 160px;
+      min-height: 180px;
     }
-    .kpi-semana-card .ks-label { font-size: 11px; opacity: .8; text-transform: uppercase; letter-spacing:.05em; }
-    .kpi-semana-card .ks-value { font-size: 22px; font-weight: 800; line-height: 1.1; }
-    .kpi-semana-card .ks-sub { font-size: 12px; opacity: .75; margin-top: 2px; }
+    .kpi-semana-card .ks-label { font-size: 12px; opacity: .8; text-transform: uppercase; letter-spacing:.05em; }
+    .kpi-semana-card .ks-value { font-size: 32px; font-weight: 800; line-height: 1.1; }
+    .kpi-semana-card .ks-sub { font-size: 14px; opacity: .75; margin-top: 4px; }
 
     /* Datas em formato dd/mm/aaaa via texto */
     .date-text-input {
@@ -349,7 +350,7 @@
       <div class="kpi-chart-card" style="grid-column: span 1;">
         <div class="kpi-title">Participação Semanal</div>
         <div class="kpi-donut-wrap">
-          <canvas id="kpiDonut" width="110" height="110"></canvas>
+          <canvas id="kpiDonut" width="140" height="140"></canvas>
           <div class="kpi-donut-label">
             <span class="kpi-num" id="kpiPctNum">-</span>
             <span class="kpi-pct">de conclusão</span>
@@ -477,18 +478,22 @@
   async function fetchTitulosTreinamentos(){
     try {
       const res = await fetch(API_BASE + "?action=treinamentos");
-      // Se a resposta não for JSON (ex: HTML de erro ao abrir localmente), aborta silenciosamente
-      const ct = res.headers.get('content-type') || '';
-      if (!res.ok || !ct.includes('application/json')) return [];
+      if (!res.ok) return [];
 
-      const json = await res.json();
+      let json;
+      try { json = await res.json(); } catch(e){ return []; }
 
-      // Suporta { ok, data: [...] }  OU  resposta diretamente como array
+      // Suporta { ok, data: [...] }  OU  { data: [...] }  OU  array direto  OU  outros wrappers
       let rows = [];
-      if (Array.isArray(json))                   rows = json;
-      else if (Array.isArray(json.data))         rows = json.data;
-      else if (Array.isArray(json.result))       rows = json.result;
-      else if (Array.isArray(json.treinamentos)) rows = json.treinamentos;
+      if      (Array.isArray(json))                   rows = json;
+      else if (Array.isArray(json.data))              rows = json.data;
+      else if (Array.isArray(json.result))            rows = json.result;
+      else if (Array.isArray(json.treinamentos))      rows = json.treinamentos;
+      else if (typeof json === 'object' && json !== null) {
+        // Último recurso: pegar primeiro array que encontrar no objeto
+        const firstArr = Object.values(json).find(v => Array.isArray(v));
+        if (firstArr) rows = firstArr;
+      }
 
       if (!rows.length) return [];
 
@@ -498,17 +503,14 @@
       let campoTitulo = exactos.find(c => chaves.includes(c))
         ?? chaves.find(k => norm(k).includes('titul'))
         ?? chaves.find(k => norm(k).includes('title'))
-        ?? chaves.find(k => { const v = String(rows[0][k]??''); return v.includes('/') || v.includes(' a '); })
+        ?? chaves.find(k => { const v = String(rows[0][k]??''); return /\d{2}\/\d{2}\/\d{4}/.test(v); })
         ?? null;
 
       if (!campoTitulo) return [];
 
       return rows.map(r => String(r[campoTitulo] ?? '').trim()).filter(Boolean);
 
-    } catch(e){
-      // Silencia erros esperados ao abrir o arquivo localmente sem servidor
-      return [];
-    }
+    } catch(e){ return []; }
   }
 
   (async function popularTitulos(){
@@ -979,10 +981,39 @@
 
   (async function dashInit(){ await dashEnsureData(); await dashPopularSelects(); dashSugerirSemanaAtivaMaisRecente(); await dashAtualizar(); })();
 
+  function _parseApiRows(json){
+    if (Array.isArray(json))              return json;
+    if (Array.isArray(json?.data))        return json.data;
+    if (Array.isArray(json?.result))      return json.result;
+    if (typeof json === 'object' && json !== null){
+      const v = Object.values(json).find(v => Array.isArray(v));
+      if (v) return v;
+    }
+    return [];
+  }
+
   async function dashEnsureData(){
-    if (!DASH_treinamentos){ try { const res = await fetch(API_BASE+'?action=treinamentos'); const data = await res.json(); DASH_treinamentos = (data && data.ok && Array.isArray(data.data)) ? data.data : []; } catch { DASH_treinamentos = []; } }
-    if (!DASH_funcionarios){ try { const res = await fetch(API_BASE+'?action=funcionarios'); const data = await res.json(); DASH_funcionarios = (data && data.ok && Array.isArray(data.data)) ? data.data : []; } catch { DASH_funcionarios = []; } }
-    if (!DASH_registrosAll){ try { const res = await fetch(API_BASE+'?action=registros'); const data = await res.json(); DASH_registrosAll = (data && data.ok && Array.isArray(data.data)) ? data.data : []; } catch { DASH_registrosAll = []; } }
+    if (!DASH_treinamentos){
+      try {
+        const res = await fetch(API_BASE+'?action=treinamentos');
+        if (res.ok){ let j; try{ j=await res.json(); }catch(e){ j=null; } DASH_treinamentos = j ? _parseApiRows(j) : []; }
+        else DASH_treinamentos = [];
+      } catch { DASH_treinamentos = []; }
+    }
+    if (!DASH_funcionarios){
+      try {
+        const res = await fetch(API_BASE+'?action=funcionarios');
+        if (res.ok){ let j; try{ j=await res.json(); }catch(e){ j=null; } DASH_funcionarios = j ? _parseApiRows(j) : []; }
+        else DASH_funcionarios = [];
+      } catch { DASH_funcionarios = []; }
+    }
+    if (!DASH_registrosAll){
+      try {
+        const res = await fetch(API_BASE+'?action=registros');
+        if (res.ok){ let j; try{ j=await res.json(); }catch(e){ j=null; } DASH_registrosAll = j ? _parseApiRows(j) : []; }
+        else DASH_registrosAll = [];
+      } catch { DASH_registrosAll = []; }
+    }
   }
 
   async function dashPopularSelects(){
@@ -1214,7 +1245,7 @@
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     const W = canvas.width, H = canvas.height;
-    const cx = W/2, cy = H/2, r = 42, thick = 14;
+    const cx = W/2, cy = H/2, r = 54, thick = 16;
     ctx.clearRect(0, 0, W, H);
 
     const drawArc = (startPct, endPct, color) => {
