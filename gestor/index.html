@@ -409,6 +409,11 @@
 
 <script>
   const API_BASE = "/api/gas";
+  // Anti-cache: timestamp na URL + header Cache-Control para nunca servir resposta velha
+  function apiFetch(params, options){
+    const url = API_BASE + '?' + params + '&_t=' + Date.now();
+    return fetch(url, Object.assign({ cache: 'no-store', headers: { 'Cache-Control': 'no-cache' } }, options || {}));
+  }
   const LOGO_SRC = "logo lsg.png";
   let LOGO_DATAURL = "";
   let registros = [];
@@ -477,7 +482,7 @@
    * ==================================================== */
   async function fetchTitulosTreinamentos(){
     try {
-      const res = await fetch(API_BASE + "?action=treinamentos");
+      const res = await apiFetch('action=treinamentos');
       if (!res.ok) return [];
 
       let json;
@@ -534,7 +539,7 @@
     if (fNome) qs.append('nome', fNome);
 
     try {
-      const res = await fetch(API_BASE + '?' + qs.toString());
+      const res = await apiFetch(qs.toString());
       let data; try { data = await res.json(); } catch { data = { ok:false, error:'Resposta não-JSON do proxy' }; }
       if (!data.ok) throw new Error(data.error || 'Erro ao buscar');
       registros = Array.isArray(data.data) ? data.data : [];
@@ -604,7 +609,7 @@
   }
 
   async function fetchTreinamentos(){
-    try { const res = await fetch(API_BASE + '?action=treinamentos'); const data = await res.json(); if(!data.ok) return []; return Array.isArray(data.data) ? data.data : []; } catch(e){ return []; }
+    try { const res = await apiFetch('action=treinamentos'); const data = await res.json(); if(!data.ok) return []; return Array.isArray(data.data) ? data.data : []; } catch(e){ return []; }
   }
 
   const __dataUrlCache = new Map();
@@ -995,21 +1000,21 @@
   async function dashEnsureData(){
     if (!DASH_treinamentos){
       try {
-        const res = await fetch(API_BASE+'?action=treinamentos');
+        const res = await apiFetch('action=treinamentos');
         if (res.ok){ let j; try{ j=await res.json(); }catch(e){ j=null; } DASH_treinamentos = j ? _parseApiRows(j) : []; }
         else DASH_treinamentos = [];
       } catch { DASH_treinamentos = []; }
     }
     if (!DASH_funcionarios){
       try {
-        const res = await fetch(API_BASE+'?action=funcionarios');
+        const res = await apiFetch('action=funcionarios');
         if (res.ok){ let j; try{ j=await res.json(); }catch(e){ j=null; } DASH_funcionarios = j ? _parseApiRows(j) : []; }
         else DASH_funcionarios = [];
       } catch { DASH_funcionarios = []; }
     }
     if (!DASH_registrosAll){
       try {
-        const res = await fetch(API_BASE+'?action=registros');
+        const res = await apiFetch('action=registros');
         if (res.ok){ let j; try{ j=await res.json(); }catch(e){ j=null; } DASH_registrosAll = j ? _parseApiRows(j) : []; }
         else DASH_registrosAll = [];
       } catch { DASH_registrosAll = []; }
