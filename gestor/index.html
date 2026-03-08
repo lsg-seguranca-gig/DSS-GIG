@@ -72,7 +72,69 @@
     .afast-empty-hint { padding: 10px; color: #9ca3af; font-size: 12px; text-align: center; }
     .afast-badge { background: #f59e0b; color: #fff; border-radius: 10px; font-size: 10px; font-weight: 700; padding: 1px 6px; margin-left: 6px; vertical-align: middle; }
   
-    .top-tabs { display: flex; gap: 8px; margin: 12px auto 0; max-width: 1100px; padding: 0 12px; }
+    /* ====== navegação Principal / Dashboard — centralizada e responsiva ====== */
+    .top-tabs {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      margin: 18px auto 0;
+      max-width: 1100px;
+      padding: 0 12px;
+    }
+    .top-tabs button {
+      min-width: 160px;
+      padding: 10px 32px;
+      font-size: 15px;
+      font-weight: 600;
+      border-radius: 10px;
+      letter-spacing: 0.01em;
+      transition: box-shadow 0.15s, transform 0.1s;
+    }
+    .top-tabs button:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.12); }
+    @media (max-width: 600px) {
+      .top-tabs { gap: 8px; }
+      .top-tabs button { min-width: 0; flex: 1; padding: 10px 12px; font-size: 14px; }
+    }
+
+    /* ====== Dashboard: filtro inline (título + botões na mesma linha) ====== */
+    .dash-filter-row {
+      display: flex;
+      align-items: flex-end;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    .dash-filter-row .dash-titulo-col {
+      flex: 1 1 260px;
+      display: flex;
+      flex-direction: column;
+    }
+    .dash-filter-row .dash-titulo-col label {
+      font-size: 14px;
+      margin-bottom: 6px;
+      color: #374151;
+    }
+    .dash-filter-row .dash-titulo-col select {
+      height: 40px;
+      padding: 10px 12px;
+      border: 1px solid var(--border, #e5e7eb);
+      border-radius: 8px;
+      background: #fff;
+      color: #111827;
+      box-sizing: border-box;
+      width: 100%;
+    }
+    .dash-filter-row .dash-btns-col {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+      padding-bottom: 1px;
+    }
+    @media (max-width: 700px) {
+      .dash-filter-row { flex-direction: column; align-items: stretch; }
+      .dash-filter-row .dash-btns-col { justify-content: flex-start; }
+    }
+
     .is-hidden { display: none !important; }
   </style>
   <link rel="shortcut icon" href="icone lsg.ico" />
@@ -160,18 +222,15 @@
     <div class="filters-wrap">
       <!-- dashSemanaIso mantido no DOM (oculto) para compatibilidade interna -->
       <select id="dashSemanaIso" style="display:none" aria-hidden="true"><option value="">Selecione...</option></select>
-      <div class="filters-row-2">
-        <div class="row" style="grid-column: 1 / -1;">
+      <div class="dash-filter-row">
+        <div class="dash-titulo-col">
           <label for="dashTitulo">Título</label>
           <select id="dashTitulo"><option value="">Selecione um título...</option></select>
         </div>
-        <div class="row" style="grid-column: 1 / -1;">
-          <label>&nbsp;</label>
-          <div class="actions-left">
-            <button id="btnDashAtualizar" class="primary">Atualizar</button>
-            <button id="btnDashXLSNP" class="secondary">XLS — Não participantes</button>
-            <button id="btnDashXLSP" class="secondary">XLS — Participantes</button>
-          </div>
+        <div class="dash-btns-col">
+          <button id="btnDashAtualizar" class="primary">Atualizar</button>
+          <button id="btnDashXLSNP" class="secondary">XLS — Não participantes</button>
+          <button id="btnDashXLSP" class="secondary">XLS — Participantes</button>
         </div>
       </div>
     </div>
@@ -286,29 +345,44 @@
   /* ====================================================
    * Retorna o array de títulos da aba Treinamentos,
    * na ordem exata das linhas da planilha.
-   * Detecta automaticamente o nome do campo (Titulo / titulo /
-   * TituloVideo / title / Title…).
+   * Robusto: aceita qualquer wrapper da API e qualquer
+   * nome de campo que contenha "titul" ou "title".
    * ==================================================== */
   async function fetchTitulosTreinamentos(){
     try {
-      const res  = await fetch(API_BASE + "?action=treinamentos");
-      const data = await res.json();
-      const rows = (data.ok && Array.isArray(data.data)) ? data.data : [];
+      const res = await fetch(API_BASE + "?action=treinamentos");
+      // Se a resposta não for JSON (ex: HTML de erro ao abrir localmente), aborta silenciosamente
+      const ct = res.headers.get('content-type') || '';
+      if (!res.ok || !ct.includes('application/json')) return [];
+
+      const json = await res.json();
+
+      // Suporta { ok, data: [...] }  OU  resposta diretamente como array
+      let rows = [];
+      if (Array.isArray(json))                   rows = json;
+      else if (Array.isArray(json.data))         rows = json.data;
+      else if (Array.isArray(json.result))       rows = json.result;
+      else if (Array.isArray(json.treinamentos)) rows = json.treinamentos;
+
       if (!rows.length) return [];
 
-      // Detecta o campo que contém o título (case-insensitive, sem acento)
-      const norm = s => String(s).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
-      const candidatos = ['Titulo','titulo','TituloVideo','titulovideo','Title','title','TITULO'];
-      const primeiraChave = Object.keys(rows[0] || {});
-      const campoTitulo = candidatos.find(c => primeiraChave.includes(c))
-        || primeiraChave.find(k => norm(k).includes('titul') || norm(k).includes('title'))
-        || null;
+      const norm = s => String(s ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+      const chaves = Object.keys(rows[0] || {});
+      const exactos = ['Titulo','titulo','TITULO','Title','title','TituloVideo','titulovideo'];
+      let campoTitulo = exactos.find(c => chaves.includes(c))
+        ?? chaves.find(k => norm(k).includes('titul'))
+        ?? chaves.find(k => norm(k).includes('title'))
+        ?? chaves.find(k => { const v = String(rows[0][k]??''); return v.includes('/') || v.includes(' a '); })
+        ?? null;
 
       if (!campoTitulo) return [];
 
-      // Retorna TODOS os valores, na ordem das linhas (sem dedup, sem sort)
       return rows.map(r => String(r[campoTitulo] ?? '').trim()).filter(Boolean);
-    } catch(e){ return []; }
+
+    } catch(e){
+      // Silencia erros esperados ao abrir o arquivo localmente sem servidor
+      return [];
+    }
   }
 
   (async function popularTitulos(){
@@ -770,20 +844,35 @@
   }
 
   async function dashPopularSelects(){
-    // Títulos: da aba Treinamentos, na ordem exata da planilha
-    const titulos = await fetchTitulosTreinamentos();
+    // --- Títulos: usa DASH_treinamentos já carregado, na ordem original da planilha ---
+    // Se por algum motivo DASH_treinamentos não tiver campo Titulo, faz fetch dedicado
+    let titulos = [];
+    const norm = s => String(s ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+    const rows = DASH_treinamentos || [];
+    if (rows.length) {
+      const chaves = Object.keys(rows[0] || {});
+      const exactos = ['Titulo','titulo','TITULO','Title','title','TituloVideo','titulovideo'];
+      let campo = exactos.find(c => chaves.includes(c))
+        ?? chaves.find(k => norm(k).includes('titul'))
+        ?? chaves.find(k => norm(k).includes('title'))
+        ?? chaves.find(k => { const v = String(rows[0][k]??''); return v.includes('/') || v.includes('a '); })
+        ?? null;
+      if (campo) titulos = rows.map(r => String(r[campo]??'').trim()).filter(Boolean);
+    }
+    // Se não conseguiu extrair via DASH_treinamentos, faz fetch dedicado
+    if (!titulos.length) titulos = await fetchTitulosTreinamentos();
 
-    // ISO: populado internamente (campo oculto)
+    // --- ISO oculto: populado internamente ---
     const isoSet = new Set();
     (DASH_treinamentos||[]).forEach(t=>{ if(t.SemanaISO) isoSet.add(String(t.SemanaISO)); });
     (DASH_registrosAll||[]).forEach(r=>{ if(r.SemanaISO) isoSet.add(String(r.SemanaISO)); });
     const isoList=[...isoSet].sort(dashCompareSemanaISODesc);
-    const selIso=document.getElementById('dashSemanaIso');
-    selIso.innerHTML = '<option value="">Selecione...</option>'
+    document.getElementById('dashSemanaIso').innerHTML =
+      '<option value="">Selecione...</option>'
       + isoList.map(sem=>`<option value="${escapeHtml(sem)}">${escapeHtml(sem)}</option>`).join('');
 
-    const selTit=document.getElementById('dashTitulo');
-    selTit.innerHTML = '<option value="">Selecione um título...</option>'
+    document.getElementById('dashTitulo').innerHTML =
+      '<option value="">Selecione um título...</option>'
       + titulos.map(t=>`<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join('');
   }
 
