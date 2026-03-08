@@ -52,11 +52,13 @@
     /* ====== KPI visual com gráficos ====== */
     .kpi-wrap {
       display: grid;
-      grid-template-columns: 7fr 3fr;
-      gap: 20px;
+      grid-template-columns: 7fr 6fr 3fr;
+      gap: 16px;
       margin-top: 20px;
+      align-items: stretch;
     }
-    @media (max-width: 600px) { .kpi-wrap { grid-template-columns: 1fr; } }
+    @media (max-width: 900px) { .kpi-wrap { grid-template-columns: 1fr 1fr; } }
+    @media (max-width: 560px) { .kpi-wrap { grid-template-columns: 1fr; } }
 
     /* Card de gráfico de rosca */
     .kpi-chart-card {
@@ -106,6 +108,46 @@
     }
     .kpi-bar-item .kpi-bar-fill { height: 100%; border-radius: 4px; transition: width .5s ease; }
     .kpi-bar-item .kpi-bar-val { min-width: 28px; text-align: right; font-weight: 600; color: #111827; }
+
+    /* Cards extras: Nunca Participaram + Mais Assíduos */
+    .kpi-extra-card {
+      background: #fff;
+      border: 1px solid var(--border, #e5e7eb);
+      border-radius: 12px;
+      padding: 16px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      box-shadow: 0 1px 4px rgba(0,0,0,.05);
+    }
+    .kpi-extra-card .ke-title {
+      font-size: 11px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .05em; color: #6b7280;
+    }
+    .kpi-extra-card .ke-count {
+      font-size: 28px; font-weight: 800; line-height: 1; color: #111827;
+    }
+    .kpi-extra-card .ke-list {
+      display: flex; flex-direction: column; gap: 5px; margin-top: 2px;
+    }
+    .kpi-extra-card .ke-row {
+      display: flex; align-items: center; gap: 8px; font-size: 12px;
+    }
+    .kpi-extra-card .ke-rank {
+      min-width: 18px; height: 18px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 10px; font-weight: 700; flex-shrink: 0;
+    }
+    .ke-rank-1 { background:#fbbf24; color:#78350f; }
+    .ke-rank-2 { background:#d1d5db; color:#374151; }
+    .ke-rank-3 { background:#cd7c54; color:#fff; }
+    .ke-rank-n { background:#eff6ff; color:#1d4ed8; }
+    .kpi-extra-card .ke-nome { flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:#111827; }
+    .kpi-extra-card .ke-badge {
+      background:#eff6ff; color:#1d4ed8; border-radius:10px;
+      font-size:10px; font-weight:700; padding:1px 6px; flex-shrink:0;
+    }
+    .ke-badge-warn { background:#fef3c7 !important; color:#92400e !important; }
 
     /* Card de semana selecionada */
     .kpi-semana-card {
@@ -337,11 +379,6 @@
     </div>
     <div id="dashStatus" class="message"></div>
     <!-- Diagnóstico da API (remover após confirmar funcionamento) -->
-    <div id="diagWrap" style="margin:8px 0;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-      <button type="button" id="btnDiag" class="secondary" style="font-size:12px;padding:4px 12px;height:auto;">🔍 Ver resposta bruta da API (diagnóstico)</button>
-      <button type="button" id="btnDiagClear" class="secondary" style="font-size:12px;padding:4px 12px;height:auto;display:none;">✕ Fechar</button>
-    </div>
-    <pre id="diagBox" style="display:none;background:#1e1e1e;color:#d4d4d4;font-size:11px;padding:12px;border-radius:8px;max-height:260px;overflow:auto;white-space:pre-wrap;word-break:break-all;margin-bottom:8px;"></pre>
 
     <!-- Painel de Férias/Afastamento -->
     <details class="afast-panel" id="afastPanel">
@@ -397,6 +434,24 @@
         </div>
         <!-- mantidos por compatibilidade interna, ocultos -->
         <span id="kpiParticiparamPct" style="display:none"></span>
+      </div>
+
+      <!-- Card semana selecionada -->
+      <div class="kpi-extra-card">
+        <div style="display:flex;flex-direction:column;gap:14px;height:100%;">
+          <!-- Nunca Participaram -->
+          <div>
+            <div class="ke-title">⚠️ Nunca Participaram</div>
+            <div class="ke-count" id="kpiNuncaCount">-</div>
+            <div class="ke-list" id="kpiNuncaList" style="margin-top:6px;"></div>
+          </div>
+          <hr style="border:none;border-top:1px solid #f3f4f6;margin:0;">
+          <!-- Top 5 Mais Assíduos -->
+          <div>
+            <div class="ke-title">🏆 Top 5 Mais Assíduos</div>
+            <div class="ke-list" id="kpiAssiduosList" style="margin-top:6px;"></div>
+          </div>
+        </div>
       </div>
 
       <!-- Card semana selecionada -->
@@ -594,11 +649,42 @@
       .map(([titulo]) => titulo);
   }
 
+  // ── Popula os dois dropdowns Título em duas fases ──────────────────────────
+  // Fase 1: treinamentos (chega primeiro) → preenche imediatamente
+  // Fase 2: registros (pode ser mais lento) → complementa sem apagar seleção
+  function _buildTituloOpts(mapaISO, prefixOpt){
+    return prefixOpt + [...mapaISO.entries()]
+      .sort((a,b)=>{ const pa=dashParseSemanaISO(a[1]),pb=dashParseSemanaISO(b[1]); if(pa.year!==pb.year) return pb.year-pa.year; return pb.week-pa.week; })
+      .map(([t])=>`<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join('');
+  }
+
   (async function popularTitulos(){
-    const titulos = await fetchTitulosTreinamentos();
-    const sel = document.getElementById('fSemanaTitulo');
-    sel.innerHTML = '<option value="">Todas</option>'
-      + titulos.map(t => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join('');
+    const normF = s => String(s??'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+    const exactos = ['Titulo','titulo','TITULO','Title','title','TituloVideo','titulovideo'];
+    const mapaISO = new Map();
+
+    // ── FASE 1: treinamentos (resposta rápida) ───────────────────────────────
+    try {
+      const rows = _parseRows(await _cachedFetch('treinamentos'));
+      const chaves = Object.keys(rows[0]||{});
+      const campo = exactos.find(c=>chaves.includes(c)) ?? chaves.find(k=>normF(k).includes('titul')) ?? null;
+      if (campo) rows.forEach(r=>{ const t=String(r[campo]??'').trim(); if(t) mapaISO.set(t,String(r.SemanaISO??'').trim()); });
+    } catch(e){}
+
+    // Preenche o dropdown Principal imediatamente com o que temos
+    const selP = document.getElementById('fSemanaTitulo');
+    if (mapaISO.size) selP.innerHTML = _buildTituloOpts(mapaISO, '<option value="">Todas</option>');
+
+    // ── FASE 2: registros (complementa semanas históricas) ───────────────────
+    try {
+      const rows = _parseRows(await _cachedFetch('registros'));
+      rows.forEach(r=>{ const t=String(r.TituloVideo??r.Titulo??r.titulo??'').trim(); const iso=String(r.SemanaISO??'').trim(); if(t&&!mapaISO.has(t)) mapaISO.set(t,iso); else if(t&&!mapaISO.get(t)&&iso) mapaISO.set(t,iso); });
+    } catch(e){}
+
+    // Atualiza preservando seleção atual
+    const selAtual = selP.value;
+    selP.innerHTML = _buildTituloOpts(mapaISO, '<option value="">Todas</option>');
+    if (selAtual && [...selP.options].some(o=>o.value===selAtual)) selP.value = selAtual;
   })();
 
   async function buscar(){
@@ -1060,7 +1146,13 @@
     document.getElementById('dashSemanaIso').value = (hit && hit.SemanaISO) ? String(hit.SemanaISO) : '';
   });
 
-  (async function dashInit(){ await dashEnsureData(); await dashPopularSelects(); dashSugerirSemanaAtivaMaisRecente(); await dashAtualizar(); })();
+  (async function dashInit(){
+    // dashEnsureData usa o mesmo _cachedFetch pré-disparado — sem fetch extra
+    await dashEnsureData();
+    await dashPopularSelects();
+    dashSugerirSemanaAtivaMaisRecente();
+    await dashAtualizar();
+  })();
 
   function _parseApiRows(json){
     if (Array.isArray(json))              return json;
@@ -1074,36 +1166,53 @@
   }
 
   async function dashEnsureData(){
-    if (!DASH_treinamentos){
-      try { DASH_treinamentos = _parseRows(await _cachedFetch('treinamentos')) || []; }
-      catch { DASH_treinamentos = []; }
-    }
-    if (!DASH_funcionarios){
-      try { DASH_funcionarios = _parseRows(await _cachedFetch('funcionarios')) || []; }
-      catch { DASH_funcionarios = []; }
-    }
-    if (!DASH_registrosAll){
-      try { DASH_registrosAll = _parseRows(await _cachedFetch('registros')) || []; }
-      catch { DASH_registrosAll = []; }
-    }
+    // Resolve as 3 fontes em paralelo — todas já disparadas no pré-carregamento
+    const [jTrein, jFunc, jRegs] = await Promise.all([
+      !DASH_treinamentos ? _cachedFetch('treinamentos').catch(()=>null) : Promise.resolve(null),
+      !DASH_funcionarios ? _cachedFetch('funcionarios').catch(()=>null) : Promise.resolve(null),
+      !DASH_registrosAll ? _cachedFetch('registros').catch(()=>null)    : Promise.resolve(null),
+    ]);
+    if (!DASH_treinamentos) DASH_treinamentos = _parseRows(jTrein);
+    if (!DASH_funcionarios) DASH_funcionarios = _parseRows(jFunc);
+    if (!DASH_registrosAll) DASH_registrosAll = _parseRows(jRegs);
   }
 
   async function dashPopularSelects(){
-    // fetchTitulosTreinamentos já combina treinamentos + registros e ordena por ISO desc
-    const titulos = await fetchTitulosTreinamentos();
+    const normF = s => String(s??'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+    const exactos = ['Titulo','titulo','TITULO','Title','title','TituloVideo','titulovideo'];
+    const mapaISO = new Map();
 
-    // --- ISO oculto: populado de treinamentos + registros ---
-    const isoSet = new Set();
-    (DASH_treinamentos||[]).forEach(t=>{ if(t.SemanaISO) isoSet.add(String(t.SemanaISO)); });
-    (DASH_registrosAll||[]).forEach(r=>{ if(r.SemanaISO) isoSet.add(String(r.SemanaISO)); });
+    // ── Fase 1: DASH_treinamentos já está em memória (dashEnsureData rodou antes) ─
+    const rows1 = DASH_treinamentos || [];
+    const chaves = Object.keys(rows1[0]||{});
+    const campo = exactos.find(c=>chaves.includes(c)) ?? chaves.find(k=>normF(k).includes('titul')) ?? null;
+    if (campo) rows1.forEach(r=>{ const t=String(r[campo]??'').trim(); if(t) mapaISO.set(t,String(r.SemanaISO??'').trim()); });
+
+    // ISO oculto (parcial por ora)
+    const isoSet = new Set(rows1.map(r=>String(r.SemanaISO||'')).filter(Boolean));
+
+    // Preenche dropdown imediatamente com treinamentos
+    const titSel = document.getElementById('dashTitulo');
+    if (mapaISO.size){
+      titSel.innerHTML = '<option value="">Selecione um título...</option>'
+        + _buildTituloOpts(mapaISO, '');
+    }
+
+    // ── Fase 2: registros (já em memória via DASH_registrosAll) ─────────────────
+    const rows2 = DASH_registrosAll || [];
+    rows2.forEach(r=>{ const t=String(r.TituloVideo??r.Titulo??r.titulo??'').trim(); const iso=String(r.SemanaISO??'').trim(); if(t&&!mapaISO.has(t)) mapaISO.set(t,iso); else if(t&&!mapaISO.get(t)&&iso) mapaISO.set(t,iso); if(iso) isoSet.add(iso); });
+
+    // Atualiza dropdown preservando seleção
+    const selAtual = titSel.value;
+    titSel.innerHTML = '<option value="">Selecione um título...</option>'
+      + _buildTituloOpts(mapaISO, '');
+    if (selAtual && [...titSel.options].some(o=>o.value===selAtual)) titSel.value = selAtual;
+
+    // ISO oculto
     const isoList=[...isoSet].sort(dashCompareSemanaISODesc);
     document.getElementById('dashSemanaIso').innerHTML =
       '<option value="">Selecione...</option>'
       + isoList.map(sem=>`<option value="${escapeHtml(sem)}">${escapeHtml(sem)}</option>`).join('');
-
-    document.getElementById('dashTitulo').innerHTML =
-      '<option value="">Selecione um título...</option>'
-      + titulos.map(t=>`<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join('');
   }
 
   function dashSugerirSemanaAtivaMaisRecente(){
@@ -1193,7 +1302,7 @@
   if (!semanaAlvo){
     dashStatus.innerHTML = '<div class="warn">Selecione um Título para continuar.</div>';
     dashRender([],[]);
-    dashKPIs({total:0, part:0, nPart:0, semana:'-', titulo:'-'});
+    dashKPIs({total:0, part:0, nPart:0, semana:'-', titulo:'-', registrosAll: DASH_registrosAll||[], funcAtivos: (DASH_funcionarios||[]).filter(f=>ativoValido(f.Ativo??f.ativo))});
     return;
   }
 
@@ -1275,7 +1384,9 @@
     part, 
     nPart, 
     semana: semanaNorm, 
-    titulo: tituloAlvo 
+    titulo: tituloAlvo,
+    registrosAll: DASH_registrosAll || [],
+    funcAtivos
   });
 
   dashRender(naoParticipantesFull, participantesFull);
@@ -1283,54 +1394,134 @@
   dashStatus.innerHTML = `<div class="ok">Dashboard atualizado: ${semanaNorm}</div>`;
 }
 
-  function dashKPIs({ total, part, nPart, semana, titulo }){
-    const pct = total > 0 ? Math.round((part / total) * 100) : 0;
+  function dashKPIs({ total, part, nPart, semana, titulo, registrosAll, funcAtivos }){
+    const pct   = total > 0 ? Math.round((part  / total) * 100) : 0;
     const pctNP = total > 0 ? Math.round((nPart / total) * 100) : 0;
 
-    // Textos
-    document.getElementById('kpiTotalAtivos').textContent   = String(total ?? '-');
-    document.getElementById('kpiParticiparam').textContent  = String(part ?? '-');
+    // ── Textos básicos ───────────────────────────────────────────────────────
+    document.getElementById('kpiTotalAtivos').textContent     = String(total ?? '-');
+    document.getElementById('kpiParticiparam').textContent    = String(part  ?? '-');
     document.getElementById('kpiNaoParticiparam').textContent = String(nPart ?? '-');
     document.getElementById('kpiParticiparamPct').textContent = total ? `${pct}%` : '-';
-    document.getElementById('kpiPctNum').textContent        = total ? `${pct}%` : '-';
-    document.getElementById('kpiSemanaSel').textContent     = String(semana ?? '-');
-    document.getElementById('kpiTituloSel').textContent     = String(titulo ?? '-');
+    document.getElementById('kpiPctNum').textContent          = total ? `${pct}%` : '-';
+    document.getElementById('kpiSemanaSel').textContent       = String(semana ?? '-');
+    document.getElementById('kpiTituloSel').textContent       = String(titulo ?? '-');
 
-    // Barras de progresso
-    document.getElementById('barPart').style.width    = total ? `${pct}%` : '0%';
+    // ── Barras ───────────────────────────────────────────────────────────────
+    document.getElementById('barPart').style.width    = total ? `${pct}%`   : '0%';
     document.getElementById('barNaoPart').style.width = total ? `${pctNP}%` : '0%';
 
-    // Gráfico de rosca (canvas nativo, sem lib externa)
+    // ── Rosca ────────────────────────────────────────────────────────────────
     const canvas = document.getElementById('kpiDonut');
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    const W = canvas.width, H = canvas.height;
-    const cx = W/2, cy = H/2, r = 54, thick = 16;
-    ctx.clearRect(0, 0, W, H);
+    if (canvas) {
+      const ctx = canvas.getContext('2d');
+      const cx = canvas.width/2, cy = canvas.height/2, r = 54, thick = 16;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      const arc = (s,e,color) => {
+        ctx.beginPath(); ctx.arc(cx,cy,r,(s/100)*2*Math.PI-Math.PI/2,(e/100)*2*Math.PI-Math.PI/2);
+        ctx.strokeStyle=color; ctx.lineWidth=thick; ctx.lineCap='round'; ctx.stroke();
+      };
+      ctx.beginPath(); ctx.arc(cx,cy,r,0,2*Math.PI);
+      ctx.strokeStyle='#f3f4f6'; ctx.lineWidth=thick; ctx.stroke();
+      if (total > 0){
+        if (pctNP > 0) arc(0, pctNP, '#ef4444');
+        if (pct   > 0) arc(pctNP, pctNP + pct, '#22c55e');
+      }
+    }
 
-    const drawArc = (startPct, endPct, color) => {
-      const s = (startPct / 100) * 2 * Math.PI - Math.PI/2;
-      const e = (endPct   / 100) * 2 * Math.PI - Math.PI/2;
-      ctx.beginPath();
-      ctx.arc(cx, cy, r, s, e);
-      ctx.strokeStyle = color;
-      ctx.lineWidth = thick;
-      ctx.lineCap = 'round';
-      ctx.stroke();
-    };
+    // ── Nunca Participaram ────────────────────────────────────────────────────
+    const nuncaEl   = document.getElementById('kpiNuncaCount');
+    const nuncaList = document.getElementById('kpiNuncaList');
+    const regs = Array.isArray(registrosAll) ? registrosAll : [];
+    const ativos = Array.isArray(funcAtivos) ? funcAtivos : [];
 
-    // Fundo cinza
-    ctx.beginPath();
-    ctx.arc(cx, cy, r, 0, 2 * Math.PI);
-    ctx.strokeStyle = '#f3f4f6';
-    ctx.lineWidth = thick;
-    ctx.stroke();
+    const normMat = v => String(v??'').replace(/\D/g,'').padStart(5,'0');
 
-    if (total > 0) {
-      // Não participaram (vermelho, começa do topo)
-      if (pctNP > 0) drawArc(0, pctNP, '#ef4444');
-      // Participaram (verde, em seguida)
-      if (pct > 0)   drawArc(pctNP, pctNP + pct, '#22c55e');
+    // Conjunto de matrículas que já participaram ao menos uma vez (qualquer semana)
+    const jaParticiparam = new Set(regs.map(r => normMat(r.Matricula)));
+    const nunca = ativos.filter(f =>
+      !jaParticiparam.has(normMat(f.Matricula)) &&
+      !AFAST_set.has(afastNormMat(f.Matricula))
+    ).sort((a,b) => String(a.Nome??'').localeCompare(String(b.Nome??''),'pt-BR',{sensitivity:'base'}));
+
+    if (nuncaEl) nuncaEl.textContent = nunca.length || '0';
+    if (nuncaList){
+      if (!nunca.length){
+        nuncaList.innerHTML = '<span style="font-size:11px;color:#22c55e;font-weight:600;">✅ Todos já participaram!</span>';
+      } else {
+        nuncaList.innerHTML = nunca.slice(0,5).map(f =>
+          `<div class="ke-row">
+            <span class="ke-rank ke-rank-n" style="background:#fee2e2;color:#dc2626;">!</span>
+            <span class="ke-nome">${escapeHtml(f.Nome??f.Matricula??'')}</span>
+            <span class="ke-badge ke-badge-warn">${normMat(f.Matricula)}</span>
+          </div>`
+        ).join('') + (nunca.length > 5
+          ? `<div style="font-size:10px;color:#9ca3af;margin-top:3px;">+${nunca.length-5} funcionários</div>` : '');
+      }
+    }
+
+    // ── Top 5 Mais Assíduos ──────────────────────────────────────────────────
+    // "Mais assíduo" = participou na semana mais próxima do lançamento do vídeo
+    // Critério: menor timestamp médio em relação ao início da semana ISO
+    const assiduosEl = document.getElementById('kpiAssiduosList');
+    if (assiduosEl){
+      // Agrupa registros por matrícula com o timestamp mais cedo de cada semana
+      const contagem = new Map(); // mat -> { nome, totalSegs, semanas }
+      const semanasVistas = new Set(regs.map(r => String(r.SemanaISO??'')).filter(Boolean));
+
+      // Para cada funcionário ativo, para cada semana em que participou,
+      // pega o timestamp mais cedo e calcula segundos desde o início da semana
+      const regsPorMatSemana = new Map();
+      for (const r of regs){
+        const mat = normMat(r.Matricula);
+        const iso = String(r.SemanaISO??'');
+        const ts  = parseTimestamp(r.Timestamp);
+        if (!mat || !iso || !ts) continue;
+        const chave = mat+'__'+iso;
+        const atual = regsPorMatSemana.get(chave);
+        if (!atual || ts < atual.ts) regsPorMatSemana.set(chave, { mat, iso, ts, nome: r.Nome??'' });
+      }
+
+      for (const { mat, iso, ts, nome } of regsPorMatSemana.values()){
+        // Calcula segundos desde segunda-feira da semana (início da semana ISO)
+        const m = iso.match(/^(\d{4})-W(\d{1,2})$/i);
+        let segsDesdeInicio = 0;
+        if (m){
+          const ano = +m[1], sem = +m[2];
+          // Primeiro dia da semana ISO (segunda-feira)
+          const jan4 = new Date(ano, 0, 4);
+          const segunda = new Date(jan4);
+          segunda.setDate(jan4.getDate() - ((jan4.getDay()+6)%7) + (sem-1)*7);
+          segsDesdeInicio = Math.max(0, (ts - segunda) / 1000);
+        }
+        const entry = contagem.get(mat) || { nome, totalSegs:0, semanas:0 };
+        entry.totalSegs += segsDesdeInicio;
+        entry.semanas   += 1;
+        entry.nome = entry.nome || nome;
+        contagem.set(mat, entry);
+      }
+
+      // Só considera quem participou em pelo menos 1 semana
+      // Ordena por: mais semanas participadas DESC, depois menor tempo médio ASC
+      const ranking = [...contagem.entries()]
+        .filter(([,v]) => v.semanas > 0)
+        .sort((a,b) => {
+          if (b[1].semanas !== a[1].semanas) return b[1].semanas - a[1].semanas;
+          return (a[1].totalSegs/a[1].semanas) - (b[1].totalSegs/b[1].semanas);
+        })
+        .slice(0,5);
+
+      const rankClasses = ['ke-rank-1','ke-rank-2','ke-rank-3','ke-rank-n','ke-rank-n'];
+      assiduosEl.innerHTML = ranking.length
+        ? ranking.map(([mat,v],i) => {
+            const media = v.semanas ? Math.round(v.totalSegs/v.semanas/3600) : 0;
+            return `<div class="ke-row">
+              <span class="ke-rank ${rankClasses[i]}">${i+1}</span>
+              <span class="ke-nome">${escapeHtml(v.nome||mat)}</span>
+              <span class="ke-badge" title="${v.semanas} semana(s), ~${media}h após lançamento">${v.semanas}✓</span>
+            </div>`;
+          }).join('')
+        : '<span style="font-size:11px;color:#9ca3af;">Sem dados ainda</span>';
     }
   }
 
