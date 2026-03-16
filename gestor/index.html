@@ -440,7 +440,9 @@
       registrosFiltrados = Array.from(mapa.values()).sort((a,b)=> String(a.Nome ?? '').localeCompare(String(b.Nome ?? ''), 'pt-BR', {sensitivity:'base'}));
       renderTabela(registrosFiltrados);
       hideThrobber();
-      status.innerHTML = '<div class="ok">Busca concluída: ' + registrosFiltrados.length + ' registro(s) após deduplicação e ordenação.</div>';
+      status.innerHTML = '<div class="ok">Busca concluída: ' + registrosFiltrados.length 
+        + ' registro(s) | Total retornado pela API: ' + registros.length
+        + ' | Após filtro de data: ' + lista.length + '</div>';
     } catch(err){ hideThrobber(); status.innerHTML = '<div class="error">Falha na consulta: ' + escapeHtml(String(err.message||err)) + '</div>'; }
   }
 
@@ -637,29 +639,36 @@
   function fimDoDia(d){ if(!d) return null; return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999); }
   function parseTimestamp(valor){
     if (!valor) return null;
-    // Se já é um Date
     if (valor instanceof Date) return isNaN(valor.getTime()) ? null : valor;
     const s = String(valor).trim();
     if (!s) return null;
-    // ISO 8601 (2026-03-09T10:23:00.000Z ou 2026-03-09 10:23:00)
+
+    // Formato BR explícito: dd/mm/yyyy hh:mm:ss  ou  dd/mm/yyyy hh:mm  ou  dd/mm/yyyy
+    // ⚠️ Deve ser testado ANTES do fallback genérico porque new Date("09/03/2026")
+    //    interpretaria como mm/dd/yyyy no padrão americano (janeiro ≠ março).
+    const rxBR = /^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:[T \-](\d{1,2}):(\d{2})(?::(\d{2}))?)?$/;
+    const mBR = s.match(rxBR);
+    if (mBR) {
+      const dd=+mBR[1], mm=+mBR[2], yy=+mBR[3];
+      const hh=+(mBR[4]??0), mi=+(mBR[5]??0), ss=+(mBR[6]??0);
+      if (mm >= 1 && mm <= 12 && dd >= 1 && dd <= 31){
+        return new Date(yy, mm-1, dd, hh, mi, ss);
+      }
+    }
+
+    // ISO 8601 com horário: 2026-03-09T10:23:00.000Z  ou  2026-03-09 10:23:00
     if (/^\d{4}-\d{2}-\d{2}[T ]/.test(s)) {
       const d = new Date(s.replace(' ', 'T'));
       if (!isNaN(d.getTime())) return d;
     }
-    // Apenas data ISO (2026-03-09)
+
+    // Apenas data ISO: 2026-03-09
     if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
       const [y,m,d2] = s.split('-').map(Number);
       return new Date(y, m-1, d2, 0, 0, 0);
     }
-    // Formato BR: dd/mm/yyyy hh:mm:ss ou dd/mm/yyyy hh:mm
-    const rx = /^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:[T ](\d{1,2}):(\d{2})(?::(\d{2}))?)?$/;
-    const m2 = s.match(rx);
-    if (m2) {
-      const dd=+m2[1], mm=+m2[2], yy=+m2[3];
-      const hh=+(m2[4]??0), mi=+(m2[5]??0), ss=+(m2[6]??0);
-      return new Date(yy, mm-1, dd, hh, mi, ss);
-    }
-    // Fallback genérico
+
+    // Fallback (evita interpretar formato BR como americano)
     const d = new Date(valor);
     return isNaN(d.getTime()) ? null : d;
   }
@@ -930,17 +939,27 @@
   }
 
   function dashPopularSelects(){
+    const selIso = document.getElementById('dashSemanaIso');
+    // ── preserva o valor atualmente selecionado antes de reconstruir ──
+    const valorAtual = selIso.value;
+
     const isoSet=new Set();
     (DASH_treinamentos||[]).forEach(t=>{ if(t.SemanaISO) isoSet.add(String(t.SemanaISO)); });
     (DASH_registrosAll||[]).forEach(r=>{ if(r.SemanaISO) isoSet.add(String(r.SemanaISO)); });
     const isoList=[...isoSet].sort(dashCompareSemanaISODesc);
-    const selIso=document.getElementById('dashSemanaIso');
     selIso.innerHTML = '<option value="">Selecione...</option>' + isoList.map(sem=>{
-      // Tenta encontrar o título do treinamento
       const t = (DASH_treinamentos||[]).find(t=>normSemISO(t.SemanaISO)===normSemISO(sem));
       const label = t && t.Titulo ? `${normSemISO(sem)} — ${t.Titulo}` : normSemISO(sem);
       return `<option value="${escapeHtml(sem)}">${escapeHtml(label)}</option>`;
     }).join('');
+
+    // ── restaura a seleção anterior se ainda existir no novo select ──
+    if (valorAtual && [...selIso.options].some(o => o.value === valorAtual)){
+      selIso.value = valorAtual;
+    } else if (selIso.options.length > 1){
+      // senão seleciona automaticamente a semana mais recente
+      selIso.value = selIso.options[1].value;
+    }
   }
 
   function dashSugerirSemanaAtivaMaisRecente(){
@@ -962,11 +981,14 @@
 
     await dashEnsureData();
     await feriasLoad();
+
+    // Reconstrói o select preservando (ou sugerindo) a semana selecionada
     dashPopularSelects();
 
     const dashStatus = document.getElementById('dashStatus');
     dashStatus.innerHTML = '';
 
+    // Lê o valor DEPOIS de dashPopularSelects() ter restaurado/sugerido a seleção
     const selISO = document.getElementById('dashSemanaIso').value.trim();
 
     if (!selISO){
@@ -1004,10 +1026,14 @@
     const mapFunc = new Map(funcAtivos.map(f=>[normMatFull(f.Matricula), f]));
 
     const participantesFull = [...mapaPart.values()]
-      .filter(p => funcAtivos.some(f=>normMatFull(f.Matricula)===normMatFull(p.Matricula)))
       .map(p => {
         const f = mapFunc.get(normMatFull(p.Matricula)) || {};
-        return { Matricula: normMatFull(p.Matricula??f.Matricula??''), Nome: p.Nome??f.Nome??'', Setor: p.Setor??f.Setor??'', Timestamp: p.Timestamp??'' };
+        return { 
+          Matricula: normMatFull(p.Matricula ?? f.Matricula ?? ''), 
+          Nome: p.Nome ?? f.Nome ?? '', 
+          Setor: p.Setor ?? f.Setor ?? '', 
+          Timestamp: p.Timestamp ?? '' 
+        };
       })
       .sort((a,b)=>String(a.Nome??'').localeCompare(String(b.Nome??''),'pt-BR',{sensitivity:'base'}));
 
@@ -1040,7 +1066,11 @@
     top5Render();
     dashRender(naoParticipantesFull, participantesFull);
 
-    document.getElementById('dashUpdated').textContent = 'Dashboard atualizado: ' + semanaNorm;
+    const diagMsg = `✅ Dashboard atualizado: ${semanaNorm} | `
+      + `Registros carregados: ${(DASH_registrosAll||[]).length} | `
+      + `Funcionários ativos: ${funcAtivos.length} | `
+      + `Participaram: ${part} | Não participaram: ${nPart}`;
+    document.getElementById('dashUpdated').textContent = diagMsg;
     dashStatus.innerHTML = '';
     } finally { hideThrobber(); }
   }
