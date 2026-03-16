@@ -133,6 +133,13 @@
     .dash-select-wrap select { height: 36px; padding: 0 10px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px; background: #fff; min-width: 200px; }
     .dash-updated { font-size: 13px; color: #6b7280; margin-top: 4px; }
 
+    /* ====== Throbber / loading overlay ====== */
+    .throbber-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.35); z-index:9999; align-items:center; justify-content:center; flex-direction:column; gap:16px; }
+    .throbber-overlay.active { display:flex; }
+    .throbber-spinner { width:52px; height:52px; border:6px solid rgba(255,255,255,.25); border-top-color:#fff; border-radius:50%; animation:spin .75s linear infinite; }
+    .throbber-label { color:#fff; font-size:15px; font-weight:600; letter-spacing:.02em; text-shadow:0 1px 4px rgba(0,0,0,.5); }
+    @keyframes spin { to { transform:rotate(360deg); } }
+
     /* ====== navegação Principal / Dashboard (usa primary/secondary existentes) ====== */
     .top-tabs { display: flex; gap: 8px; margin: 12px auto 0; max-width: 1100px; padding: 0 12px; }
     .is-hidden { display: none !important; }
@@ -140,6 +147,11 @@
   <link rel="shortcut icon" href="icone lsg.ico" />
 </head>
 <body>
+<!-- Throbber global -->
+<div class="throbber-overlay" id="throbberOverlay" role="status" aria-live="polite">
+  <div class="throbber-spinner"></div>
+  <div class="throbber-label" id="throbberLabel">Carregando...</div>
+</div>
 <header class="site-header">
   <img src="logo lsg.png" alt="logo LSG" />
   <h1>Painel do Gestor — DSS GIG</h1>
@@ -385,6 +397,7 @@
   async function buscar(){
     const status = document.getElementById('status');
     status.innerHTML = '';
+    showThrobber('Buscando registros...');
     const fMat    = document.getElementById('fMat').value.trim();
     const fNome   = document.getElementById('fNome').value.trim();
     const fSemISO = document.getElementById('fSemanaTitulo').value.trim(); // agora é SemanaISO
@@ -426,8 +439,9 @@
 
       registrosFiltrados = Array.from(mapa.values()).sort((a,b)=> String(a.Nome ?? '').localeCompare(String(b.Nome ?? ''), 'pt-BR', {sensitivity:'base'}));
       renderTabela(registrosFiltrados);
+      hideThrobber();
       status.innerHTML = '<div class="ok">Busca concluída: ' + registrosFiltrados.length + ' registro(s) após deduplicação e ordenação.</div>';
-    } catch(err){ status.innerHTML = '<div class="error">Falha na consulta: ' + escapeHtml(String(err.message||err)) + '</div>'; }
+    } catch(err){ hideThrobber(); status.innerHTML = '<div class="error">Falha na consulta: ' + escapeHtml(String(err.message||err)) + '</div>'; }
   }
 
   function renderTabela(list){
@@ -453,6 +467,8 @@
   function gerarXLS(){
     const base = (registrosFiltrados && registrosFiltrados.length) ? registrosFiltrados : registros;
     if (!base || !base.length) { alert('Faça uma busca primeiro.'); return; }
+    showThrobber('Gerando planilha XLS...');
+    try {
     const ordenada = base===registros ? [...base].sort((a,b)=> String(a.Nome ?? '').localeCompare(String(b.Nome ?? ''), 'pt-BR', {sensitivity:'base'})) : base;
     const linhas = ordenada.map(r=>({
       'Matrícula': r.Matricula ?? '',
@@ -466,6 +482,7 @@
     const ws = XLSX.utils.json_to_sheet(linhas);
     XLSX.utils.book_append_sheet(wb, ws, 'Relatório');
     XLSX.writeFile(wb, nomeArquivo('xlsx'));
+    } finally { hideThrobber(); }
   }
 
   async function fetchTreinamentos(){
@@ -482,6 +499,8 @@
     await loadLogoAsDataURL();
     const baseSource = (Array.isArray(registrosFiltrados) && registrosFiltrados.length) ? registrosFiltrados : registros;
     if (!baseSource || !baseSource.length){ alert('Nenhum dado para gerar PDF.'); return; }
+    showThrobber('Gerando PDF...');
+    try {
     const base = [...baseSource].sort((a,b)=> String(a.Nome ?? '').localeCompare(String(b.Nome ?? ''), 'pt-BR', {sensitivity:'base'}));
     const titulos = [...new Set(base.map(r=>r.TituloVideo).filter(Boolean))];
     const tituloSemana = titulos.length ? titulos.join('; ') : '-';
@@ -563,6 +582,7 @@
 
     if (typeof doc.putTotalPages === 'function'){ doc.putTotalPages(totalPagesExp); }
     doc.save('Relatorio_Dialogo_Semanal_de_Seguranca.pdf');
+    } finally { hideThrobber(); }
   }
 
   async function novoFuncionarioViaPrompt(){
@@ -589,6 +609,15 @@
     } catch(err){ status.innerHTML = '<div class="error">' + (err && err.message ? err.message : 'Erro ao incluir funcionário') + '</div>'; }
   }
 
+  // ── Throbber ────────────────────────────────────────────────────────────────
+  function showThrobber(msg){ 
+    document.getElementById('throbberLabel').textContent = msg || 'Carregando...';
+    document.getElementById('throbberOverlay').classList.add('active');
+  }
+  function hideThrobber(){ 
+    document.getElementById('throbberOverlay').classList.remove('active');
+  }
+
   function escapeHtml(str){
     return String(str ?? '')
       .replace(/&/g, '&amp;')
@@ -598,8 +627,14 @@
       .replace(/'/g, '&#39;');
   }
   function nomeArquivo(ext){ const hoje=new Date(); const pad=n=>String(n).padStart(2,'0'); return `DSS_GIG_Relatorio_${hoje.getFullYear()}-${pad(hoje.getMonth()+1)}-${pad(hoje.getDate())}.${ext}`; }
-  function normalizarDataInput(v){ if(!v) return null; const [yyyy,mm,dd]=v.split('-').map(Number); return new Date(Date.UTC(yyyy, mm-1, dd, 0,0,0)); }
-  function fimDoDia(dIniUTC){ if(!dIniUTC) return null; return new Date(dIniUTC.getTime() + 24*60*60*1000 - 1); }
+  // Converte "yyyy-mm-dd" do input[type=date] para Date local (meia-noite no fuso do usuário)
+  // Usa hora LOCAL (não UTC) para compatibilidade com parseTimestamp que também usa hora local.
+  function normalizarDataInput(v){ 
+    if(!v) return null; 
+    const [yyyy,mm,dd]=v.split('-').map(Number); 
+    return new Date(yyyy, mm-1, dd, 0, 0, 0); 
+  }
+  function fimDoDia(d){ if(!d) return null; return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999); }
   function parseTimestamp(valor){
     if (!valor) return null;
     // Se já é um Date
@@ -918,6 +953,8 @@
   }
 
   async function dashAtualizar(){
+    showThrobber('Atualizando Dashboard...');
+    try {
     // 🔄 Recarrega tudo sempre que clicar em Atualizar
     DASH_treinamentos = null;
     DASH_funcionarios = null;
@@ -1005,6 +1042,7 @@
 
     document.getElementById('dashUpdated').textContent = 'Dashboard atualizado: ' + semanaNorm;
     dashStatus.innerHTML = '';
+    } finally { hideThrobber(); }
   }
 
   function dashRender(naoParticipantes, participantes){
