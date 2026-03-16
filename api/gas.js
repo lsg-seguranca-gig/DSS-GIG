@@ -3,7 +3,7 @@
  * Proxy entre o gestor.html e o Google Apps Script (GAS).
  *
  * ⚙️  Configure a variável de ambiente no painel da Vercel:
- *     GAS_URL = https://script.google.com/macros/s/AKfycbxDcJJK7Qaji5Bwi_ZwOI4TIFcqNGBZDX_HtHT2zaafrWNXyu8kQ8BWk7pTOq4eI36x/exec
+ *     GAS_URL = https://script.google.com/macros/s/SEU_DEPLOYMENT_ID/exec
  *
  * Suporta GET (com query params) e POST (com body JSON).
  *
