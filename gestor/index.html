@@ -204,6 +204,20 @@
         </div>
       </div>
       <div id="status" class="message"></div>
+      <!-- Painel de diagnóstico — remove após confirmar que a API funciona -->
+      <details id="debugPanel" style="margin-top:12px;border:1px solid #f59e0b;border-radius:8px;padding:10px 14px;background:#fffbeb;">
+        <summary style="cursor:pointer;font-weight:600;color:#92400e;font-size:13px;">🔧 Diagnóstico de API (clique para expandir)</summary>
+        <div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">
+          <button onclick="diagTestar('registros')" style="font-size:12px;padding:4px 10px;border:1px solid #d1d5db;border-radius:6px;cursor:pointer;background:#fff;">Testar /registros</button>
+          <button onclick="diagTestar('funcionarios')" style="font-size:12px;padding:4px 10px;border:1px solid #d1d5db;border-radius:6px;cursor:pointer;background:#fff;">Testar /funcionarios</button>
+          <button onclick="diagTestar('treinamentostodos')" style="font-size:12px;padding:4px 10px;border:1px solid #d1d5db;border-radius:6px;cursor:pointer;background:#fff;">Testar /treinamentostodos</button>
+          <button onclick="diagTestarUrl()" style="font-size:12px;padding:4px 10px;border:1px solid #2563eb;border-radius:6px;cursor:pointer;background:#eff6ff;color:#1d4ed8;">Testar URL direta GAS</button>
+        </div>
+        <div style="margin-top:6px;">
+          <input id="diagGasUrl" type="text" placeholder="Cole aqui a URL direta do Apps Script (https://script.google.com/...)" style="width:100%;font-size:12px;padding:5px 8px;border:1px solid #d1d5db;border-radius:6px;box-sizing:border-box;" />
+        </div>
+        <pre id="diagOut" style="margin-top:8px;background:#1e293b;color:#e2e8f0;padding:12px;border-radius:8px;font-size:11px;white-space:pre-wrap;max-height:260px;overflow-y:auto;">Clique em um dos botões acima para testar...</pre>
+      </details>
     </div>
   </section>
 
@@ -618,6 +632,57 @@
   }
   function hideThrobber(){ 
     document.getElementById('throbberOverlay').classList.remove('active');
+  }
+
+  // ── Diagnóstico de API ────────────────────────────────────────────────────
+  async function diagTestar(action) {
+    const out = document.getElementById('diagOut');
+    out.textContent = `⏳ Testando action="${action}" via proxy ${API_BASE}...`;
+    try {
+      const url = `${API_BASE}?action=${action}`;
+      out.textContent += `\n📡 URL: ${url}`;
+      const res = await fetch(url);
+      const status = res.status;
+      const text = await res.text();
+      out.textContent = `✅ HTTP ${status} — action="${action}"\n📡 URL chamada: ${url}\n\n`;
+      try {
+        const json = JSON.parse(text);
+        out.textContent += `ok: ${json.ok}\n`;
+        if (Array.isArray(json.data)) {
+          out.textContent += `data.length: ${json.data.length}\n`;
+          if (json.data.length > 0) {
+            out.textContent += `\nPrimeiro registro:\n${JSON.stringify(json.data[0], null, 2)}`;
+          }
+        } else {
+          out.textContent += JSON.stringify(json, null, 2);
+        }
+      } catch {
+        out.textContent += `⚠️ Resposta não é JSON:\n${text.slice(0, 800)}`;
+      }
+    } catch(err) {
+      out.textContent = `❌ Erro de rede: ${err.message}\n\nIsso significa que o proxy /api/gas não está respondendo.`;
+    }
+  }
+
+  async function diagTestarUrl() {
+    const gasUrl = document.getElementById('diagGasUrl').value.trim();
+    const out = document.getElementById('diagOut');
+    if (!gasUrl) { out.textContent = '⚠️ Cole a URL do Apps Script no campo acima.'; return; }
+    out.textContent = `⏳ Testando URL direta:\n${gasUrl}?action=registros\n\n(Esta chamada pode falhar por CORS — isso é normal para teste direto)`;
+    try {
+      const res = await fetch(`${gasUrl}?action=registros`);
+      const text = await res.text();
+      out.textContent = `✅ HTTP ${res.status}\n\n`;
+      try {
+        const json = JSON.parse(text);
+        out.textContent += `ok: ${json.ok} | data.length: ${Array.isArray(json.data) ? json.data.length : 'N/A'}\n`;
+        out.textContent += `\nPrimeiro registro:\n${JSON.stringify((json.data||[])[0], null, 2)}`;
+      } catch {
+        out.textContent += `Resposta:\n${text.slice(0, 800)}`;
+      }
+    } catch(err) {
+      out.textContent = `❌ ${err.message}\n\nSe o erro for "CORS" ou "Failed to fetch", a URL do GAS está correta mas o proxy precisa fazer essa chamada (não o navegador direto). Isso confirma que o problema está no proxy Vercel.`;
+    }
   }
 
   function escapeHtml(str){
