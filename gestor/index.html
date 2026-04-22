@@ -271,6 +271,7 @@
     }
 
     .is-hidden { display: none !important; }
+    @keyframes spin { to { transform: rotate(360deg); } }
   </style>
   <link rel="shortcut icon" href="icone lsg.ico" />
 </head>
@@ -1140,7 +1141,7 @@
     });
   })();
 
-  document.getElementById('btnDashAtualizar').addEventListener('click', dashAtualizar);
+  document.getElementById('btnDashAtualizar').addEventListener('click', () => dashAtualizar(true));
   document.getElementById('btnDashXLSNP').addEventListener('click', dashGerarXLS_NP);
   document.getElementById('btnDashXLSP').addEventListener('click', dashGerarXLS_P);
 
@@ -1152,11 +1153,9 @@
   });
 
   (async function dashInit(){
-    // dashEnsureData usa o mesmo _cachedFetch pré-disparado — sem fetch extra
-    await dashEnsureData();
-    await dashPopularSelects();
-    dashSugerirSemanaAtivaMaisRecente();
-    await dashAtualizar();
+    // dashAtualizar já chama dashEnsureData + dashPopularSelects internamente
+    // Passa false = não força refresh, reutiliza o _cachedFetch pré-disparado
+    await dashAtualizar(false);
   })();
 
   function _parseApiRows(json){
@@ -1246,14 +1245,35 @@
     }
   }
 
-  async function dashAtualizar(){
-  // 🔄 Limpa cache e dados para forçar recarregamento completo
-  delete _apiCache['treinamentos'];
-  delete _apiCache['registros'];
-  delete _apiCache['funcionarios'];
-  DASH_treinamentos = null;
-  DASH_funcionarios = null;
-  DASH_registrosAll = null;
+  // TTL de 3 minutos para reuso de cache sem re-fetch
+  const _CACHE_TTL_MS = 3 * 60 * 1000;
+  let _cacheTimestamp = 0;
+
+  // ── Funções auxiliares do Dashboard (definidas uma vez) ──────────────────────
+  function normalizarMatricula(v){ return String(v??'').replace(/\D/g,'').padStart(5,'0'); }
+  function normalizarSemanaISO(s){ const m=String(s||'').match(/^(\d{4})-W?(\d{1,2})$/i); if(!m) return ''; return `${m[1]}-W${String(m[2]).padStart(2,'0')}`; }
+  function ativoValido(v){ return ['true','1','sim','yes'].includes(String(v??'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim()); }
+
+  async function dashAtualizar(forceRefresh){
+  const agora = Date.now();
+  const cacheExpirado = (agora - _cacheTimestamp) > _CACHE_TTL_MS;
+
+  // Só limpa cache se o usuário clicar manualmente ou se o TTL expirou
+  if (forceRefresh || cacheExpirado || !DASH_treinamentos || !DASH_funcionarios || !DASH_registrosAll){
+    delete _apiCache['treinamentos'];
+    delete _apiCache['registros'];
+    delete _apiCache['funcionarios'];
+    DASH_treinamentos = null;
+    DASH_funcionarios = null;
+    DASH_registrosAll = null;
+    _cacheTimestamp = agora;
+  }
+
+  // Mostra skeleton imediato
+  const dashStatus = document.getElementById('dashStatus');
+  if (!DASH_treinamentos || !DASH_funcionarios || !DASH_registrosAll){
+    dashStatus.innerHTML = '<div class="warn" style="display:flex;align-items:center;gap:8px;"><span style="display:inline-block;width:16px;height:16px;border:2px solid #2563eb;border-top-color:transparent;border-radius:50%;animation:spin .7s linear infinite;"></span> Carregando dados...</div>';
+  }
 
   await dashEnsureData();
   afastRenderTags(); // atualizar nomes após carregar funcionários
@@ -1266,33 +1286,10 @@
   if (titAntes && [...sel.options].some(o => o.value === titAntes)) sel.value = titAntes;
   else dashSugerirSemanaAtivaMaisRecente();
 
-  const dashStatus = document.getElementById('dashStatus'); 
   dashStatus.innerHTML = '';
 
   const selISO = ''; // campo oculto — não usado diretamente pelo usuário
   const selTit = document.getElementById('dashTitulo').value.trim();
-
-  function normalizarMatricula(v){
-    return String(v ?? '')
-      .replace(/\D/g,'')
-      .padStart(5,'0');
-  }
-
-  function normalizarSemanaISO(s){
-    const m = String(s||'').match(/^(\d{4})-W?(\d{1,2})$/i);
-    if(!m) return '';
-    return `${m[1]}-W${String(m[2]).padStart(2,'0')}`;
-  }
-
-  function ativoValido(v){
-    return ['true','1','sim','yes'].includes(
-      String(v ?? '')
-        .toLowerCase()
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g,'')
-        .trim()
-    );
-  }
 
   let semanaAlvo = selISO;
 
@@ -1394,9 +1391,11 @@
     funcAtivos
   });
 
-  dashRender(naoParticipantesFull, participantesFull);
-
-  dashStatus.innerHTML = `<div class="ok">Dashboard atualizado: ${semanaNorm}</div>`;
+  // Renderiza tabelas no próximo frame para não bloquear a pintura dos KPIs
+  requestAnimationFrame(() => {
+    dashRender(naoParticipantesFull, participantesFull);
+    dashStatus.innerHTML = `<div class="ok">Dashboard atualizado: ${semanaNorm}</div>`;
+  });
 }
 
   function dashKPIs({ total, part, nPart, semana, titulo, registrosAll, funcAtivos }){
