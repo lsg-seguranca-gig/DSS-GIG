@@ -1161,15 +1161,21 @@
   }
 
   async function dashEnsureData(){
-    // Resolve as 3 fontes em paralelo — todas já disparadas no pré-carregamento
+    // Resolve as 3 fontes em paralelo — reutiliza pré-carregamento se disponível
     const [jTrein, jFunc, jRegs] = await Promise.all([
-      !DASH_treinamentos ? _cachedFetch('treinamentostodos').catch(()=>null) : Promise.resolve(null),
-      !DASH_funcionarios ? _cachedFetch('funcionarios').catch(()=>null) : Promise.resolve(null),
-      !DASH_registrosAll ? _cachedFetch('registros').catch(()=>null)    : Promise.resolve(null),
+      !DASH_treinamentos?.length ? _cachedFetch('treinamentostodos').catch(()=>null) : Promise.resolve(null),
+      !DASH_funcionarios?.length ? _cachedFetch('funcionarios').catch(()=>null)      : Promise.resolve(null),
+      !DASH_registrosAll         ? _cachedFetch('registros').catch(()=>null)         : Promise.resolve(null),
     ]);
-    if (!DASH_treinamentos) DASH_treinamentos = _parseRows(jTrein);
-    if (!DASH_funcionarios) DASH_funcionarios = _parseRows(jFunc);
-    if (!DASH_registrosAll) DASH_registrosAll = _parseRows(jRegs);
+    if (!DASH_treinamentos?.length){ const r = _parseRows(jTrein); if (r.length) DASH_treinamentos = r; }
+    if (!DASH_funcionarios?.length){ const r = _parseRows(jFunc);  if (r.length) DASH_funcionarios = r; }
+    if (!DASH_registrosAll)        { DASH_registrosAll = _parseRows(jRegs); }
+
+    // Log de diagnóstico se treinamentos ainda estiver vazio
+    if (!DASH_treinamentos?.length){
+      const ds = document.getElementById('dashStatus');
+      if (ds) ds.innerHTML = `<div class="error">⚠️ Falha ao carregar títulos da API. Resposta recebida: <code style="font-size:11px">${JSON.stringify(jTrein)?.slice(0,300)}</code><br>Verifique a aba Diagnóstico abaixo.</div>`;
+    }
   }
 
   async function dashPopularSelects(){
@@ -1237,9 +1243,13 @@
   async function dashAtualizar(forceRefresh){
   const agora = Date.now();
   const cacheExpirado = (agora - _cacheTimestamp) > _CACHE_TTL_MS;
+  // Considera dados ausentes se null OU array vazio (fetch falhou silenciosamente)
+  const dadosFaltando = !DASH_treinamentos?.length || !DASH_funcionarios?.length || !DASH_registrosAll;
 
-  // Só limpa cache se o usuário clicar manualmente ou se o TTL expirou
-  if (forceRefresh || cacheExpirado || !DASH_treinamentos || !DASH_funcionarios || !DASH_registrosAll){
+  // No primeiro carregamento (forceRefresh=false, _cacheTimestamp=0),
+  // NÃO apaga o _apiCache para reutilizar o pré-carregamento já disparado.
+  // Só apaga se for refresh manual ou TTL expirado.
+  if (forceRefresh || (cacheExpirado && _cacheTimestamp > 0)){
     delete _apiCache['treinamentostodos'];
     delete _apiCache['registros'];
     delete _apiCache['funcionarios'];
@@ -1247,11 +1257,17 @@
     DASH_funcionarios = null;
     DASH_registrosAll = null;
     _cacheTimestamp = agora;
+  } else if (dadosFaltando){
+    // Dados ausentes mas não é refresh — limpa só os nulos/vazios para re-tentar
+    if (!DASH_treinamentos?.length){ delete _apiCache['treinamentostodos']; DASH_treinamentos = null; }
+    if (!DASH_funcionarios?.length){ delete _apiCache['funcionarios'];      DASH_funcionarios = null; }
+    if (!DASH_registrosAll)        { delete _apiCache['registros'];         DASH_registrosAll = null; }
+    if (!_cacheTimestamp) _cacheTimestamp = agora;
   }
 
-  // Mostra skeleton imediato
+  // Mostra spinner se precisar buscar dados
   const dashStatus = document.getElementById('dashStatus');
-  if (!DASH_treinamentos || !DASH_funcionarios || !DASH_registrosAll){
+  if (!DASH_treinamentos?.length || !DASH_funcionarios?.length || !DASH_registrosAll){
     dashStatus.innerHTML = '<div class="warn" style="display:flex;align-items:center;gap:8px;"><span style="display:inline-block;width:16px;height:16px;border:2px solid #2563eb;border-top-color:transparent;border-radius:50%;animation:spin .7s linear infinite;"></span> Carregando dados...</div>';
   }
 
