@@ -271,6 +271,7 @@
     }
 
     .is-hidden { display: none !important; }
+    @keyframes spin { to { transform: rotate(360deg); } }
   </style>
   <link rel="shortcut icon" href="icone lsg.ico" />
 </head>
@@ -584,11 +585,10 @@
   });
 
   /* ====================================================
-   * Retorna o array de títulos completo, combinando:
-   * 1) aba Treinamentos (via ?action=treinamentos)
-   * 2) registros de participação (via ?action=registros) — complemento
-   *    para cobrir semanas que o GAS não retorna em treinamentos.
-   * Ordena por SemanaISO decrescente (mais recente primeiro).
+   * Pré-carrega em paralelo ao abrir a página:
+   * treinamentostodos → todos os títulos/semanas cadastrados
+   * registros         → todos os registros de participação
+   * funcionarios      → lista de funcionários ativos
    * ==================================================== */
   // ── PRÉ-CARREGAMENTO: 3 chamadas em paralelo ao abrir a página ──────────────
   const _apiCache = {};
@@ -600,7 +600,7 @@
     }
     return _apiCache[action];
   }
-  _cachedFetch('treinamentos');
+  _cachedFetch('treinamentostodos');
   _cachedFetch('registros');
   _cachedFetch('funcionarios');
 
@@ -620,9 +620,9 @@
     const norm = s => String(s??'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
     const exactos = ['Titulo','titulo','TITULO','Title','title','TituloVideo','titulovideo'];
 
-    // Fonte 1: treinamentos
+    // Fonte única: treinamentostodos (retorna TODOS os títulos sem limit)
     try {
-      const rows = _parseRows(await _cachedFetch('treinamentos'));
+      const rows = _parseRows(await _cachedFetch('treinamentostodos'));
       const chaves = Object.keys(rows[0] || {});
       const campo = exactos.find(c => chaves.includes(c))
         ?? chaves.find(k => norm(k).includes('titul'))
@@ -630,17 +630,6 @@
       if (campo) rows.forEach(r => {
         const t = String(r[campo]??'').trim();
         if (t) mapaISO.set(t, String(r.SemanaISO ?? r.semanaiso ?? '').trim());
-      });
-    } catch(e){}
-
-    // Fonte 2: registros — complementa semanas sem entrada em treinamentos
-    try {
-      const rows = _parseRows(await _cachedFetch('registros'));
-      rows.forEach(r => {
-        const t = String(r.TituloVideo ?? r.Titulo ?? r.titulo ?? '').trim();
-        const iso = String(r.SemanaISO ?? '').trim();
-        if (t && !mapaISO.has(t)) mapaISO.set(t, iso);
-        else if (t && !mapaISO.get(t) && iso) mapaISO.set(t, iso);
       });
     } catch(e){}
 
@@ -668,70 +657,71 @@
     const exactos = ['Titulo','titulo','TITULO','Title','title','TituloVideo','titulovideo'];
     const mapaISO = new Map();
 
-    // ── FASE 1: treinamentos (resposta rápida) ───────────────────────────────
+    // Fonte única: treinamentostodos (todos os títulos, sem limite)
     try {
-      const rows = _parseRows(await _cachedFetch('treinamentos'));
+      const rows = _parseRows(await _cachedFetch('treinamentostodos'));
       const chaves = Object.keys(rows[0]||{});
       const campo = exactos.find(c=>chaves.includes(c)) ?? chaves.find(k=>normF(k).includes('titul')) ?? null;
       if (campo) rows.forEach(r=>{ const t=String(r[campo]??'').trim(); if(t) mapaISO.set(t,String(r.SemanaISO??'').trim()); });
     } catch(e){}
 
-    // Preenche o dropdown Principal imediatamente com o que temos
     const selP = document.getElementById('fSemanaTitulo');
-    if (mapaISO.size) selP.innerHTML = _buildTituloOpts(mapaISO, '<option value="">Todas</option>');
-
-    // ── FASE 2: registros (complementa semanas históricas) ───────────────────
-    try {
-      const rows = _parseRows(await _cachedFetch('registros'));
-      rows.forEach(r=>{ const t=String(r.TituloVideo??r.Titulo??r.titulo??'').trim(); const iso=String(r.SemanaISO??'').trim(); if(t&&!mapaISO.has(t)) mapaISO.set(t,iso); else if(t&&!mapaISO.get(t)&&iso) mapaISO.set(t,iso); });
-    } catch(e){}
-
-    // Atualiza preservando seleção atual
-    const selAtual = selP.value;
     selP.innerHTML = _buildTituloOpts(mapaISO, '<option value="">Todas</option>');
-    if (selAtual && [...selP.options].some(o=>o.value===selAtual)) selP.value = selAtual;
   })();
 
   async function buscar(){
     const status = document.getElementById('status');
-    status.innerHTML = '';
-    const fMat = document.getElementById('fMat').value.trim();
-    const fNome = document.getElementById('fNome').value.trim();
+    status.innerHTML = '<div class="warn" style="display:flex;align-items:center;gap:8px;"><span style="display:inline-block;width:16px;height:16px;border:2px solid #2563eb;border-top-color:transparent;border-radius:50%;animation:spin .7s linear infinite;"></span> Buscando...</div>';
+    const fMat    = document.getElementById('fMat').value.trim();
+    const fNome   = document.getElementById('fNome').value.trim();
     const fTitulo = document.getElementById('fSemanaTitulo').value.trim();
-    const fDataI = document.getElementById('fDataInicio').value;
-    const fDataF = document.getElementById('fDataFinal').value;
-
-    const qs = new URLSearchParams({ action: 'registros' });
-    if (fMat) qs.append('matricula', fMat);
-    if (fNome) qs.append('nome', fNome);
+    const fDataI  = document.getElementById('fDataInicio').value;
+    const fDataF  = document.getElementById('fDataFinal').value;
 
     try {
-      const res = await apiFetch(qs.toString());
-      let data; try { data = await res.json(); } catch { data = { ok:false, error:'Resposta não-JSON do proxy' }; }
-      if (!data.ok) throw new Error(data.error || 'Erro ao buscar');
-      registros = Array.isArray(data.data) ? data.data : [];
+      // ── Usa cache em memória se disponível; caso contrário faz fetch ─────────
+      let fonte = DASH_registrosAll;
+      if (!fonte || !fonte.length){
+        const data = await _cachedFetch('registros');
+        fonte = Array.isArray(data?.data) ? data.data : _parseRows(data);
+        DASH_registrosAll = fonte; // popula cache para o Dashboard também
+      }
+      registros = fonte;
 
+      // ── Filtro 100% local — sem round-trip ao servidor ───────────────────────
+      const normMat  = v => String(v??'').replace(/\D/g,'').padStart(5,'0');
+      const fMatNorm = fMat ? normMat(fMat) : '';
+      const fNomeLow = fNome ? fNome.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'') : '';
       const di = normalizarDataInput(fDataI);
       const df = fimDoDia(normalizarDataInput(fDataF));
-      let lista = registros.filter(r=>{
+
+      let lista = registros.filter(r => {
+        if (fMatNorm && !normMat(r.Matricula).includes(fMatNorm)) return false;
+        if (fNomeLow){
+          const n = String(r.Nome??'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+          if (!n.includes(fNomeLow)) return false;
+        }
+        if (fTitulo && (r.TituloVideo ?? '') !== fTitulo) return false;
         const ts = parseTimestamp(r.Timestamp);
         if (!ts) return false;
         if (di && ts < di) return false;
         if (df && ts > df) return false;
-        if (fTitulo && (r.TituloVideo ?? '') !== fTitulo) return false;
         return true;
       });
 
+      // Deduplicação: mantém o registro mais antigo por (Matricula+SemanaISO+Título)
       const mapa = new Map();
       for (const r of lista){
-        const chave = `${r.Matricula ?? ''}__${r.SemanaISO ?? ''}__${r.TituloVideo ?? ''}`;
+        const chave = `${r.Matricula??''}__${r.SemanaISO??''}__${r.TituloVideo??''}`;
         const atual = mapa.get(chave);
         const novoTS = parseTimestamp(r.Timestamp);
         if (!atual) mapa.set(chave, r);
         else { const antigoTS = parseTimestamp(atual.Timestamp); if (novoTS && antigoTS && novoTS < antigoTS) mapa.set(chave, r); }
       }
 
-      registrosFiltrados = Array.from(mapa.values()).sort((a,b)=> String(a.Nome ?? '').localeCompare(String(b.Nome ?? ''), 'pt-BR', {sensitivity:'base'}));
+      registrosFiltrados = Array.from(mapa.values()).sort((a,b)=>
+        String(a.Nome??'').localeCompare(String(b.Nome??''), 'pt-BR', {sensitivity:'base'})
+      );
       renderTabela(registrosFiltrados);
       status.innerHTML = '<div class="ok">Busca concluída: ' + registrosFiltrados.length + ' registro(s) após deduplicação e ordenação.</div>';
     } catch(err){ status.innerHTML = '<div class="error">Falha na consulta.</div>'; }
@@ -776,7 +766,9 @@
   }
 
   async function fetchTreinamentos(){
-    try { const res = await apiFetch('action=treinamentos'); const data = await res.json(); if(!data.ok) return []; return Array.isArray(data.data) ? data.data : []; } catch(e){ return []; }
+    // Reutiliza o cache em memória se já disponível
+    if (DASH_treinamentos && DASH_treinamentos.length) return DASH_treinamentos;
+    try { const data = await _cachedFetch('treinamentostodos'); if(!data?.ok) return []; return Array.isArray(data.data) ? data.data : []; } catch(e){ return []; }
   }
 
   const __dataUrlCache = new Map();
@@ -1140,7 +1132,7 @@
     });
   })();
 
-  document.getElementById('btnDashAtualizar').addEventListener('click', dashAtualizar);
+  document.getElementById('btnDashAtualizar').addEventListener('click', () => dashAtualizar(true));
   document.getElementById('btnDashXLSNP').addEventListener('click', dashGerarXLS_NP);
   document.getElementById('btnDashXLSP').addEventListener('click', dashGerarXLS_P);
 
@@ -1152,11 +1144,9 @@
   });
 
   (async function dashInit(){
-    // dashEnsureData usa o mesmo _cachedFetch pré-disparado — sem fetch extra
-    await dashEnsureData();
-    await dashPopularSelects();
-    dashSugerirSemanaAtivaMaisRecente();
-    await dashAtualizar();
+    // dashAtualizar já chama dashEnsureData + dashPopularSelects internamente
+    // Passa false = não força refresh, reutiliza o _cachedFetch pré-disparado
+    await dashAtualizar(false);
   })();
 
   function _parseApiRows(json){
@@ -1173,7 +1163,7 @@
   async function dashEnsureData(){
     // Resolve as 3 fontes em paralelo — todas já disparadas no pré-carregamento
     const [jTrein, jFunc, jRegs] = await Promise.all([
-      !DASH_treinamentos ? _cachedFetch('treinamentos').catch(()=>null) : Promise.resolve(null),
+      !DASH_treinamentos ? _cachedFetch('treinamentostodos').catch(()=>null) : Promise.resolve(null),
       !DASH_funcionarios ? _cachedFetch('funcionarios').catch(()=>null) : Promise.resolve(null),
       !DASH_registrosAll ? _cachedFetch('registros').catch(()=>null)    : Promise.resolve(null),
     ]);
@@ -1187,27 +1177,16 @@
     const exactos = ['Titulo','titulo','TITULO','Title','title','TituloVideo','titulovideo'];
     const mapaISO = new Map();
 
-    // ── Fase 1: DASH_treinamentos já está em memória (dashEnsureData rodou antes) ─
+    // DASH_treinamentos já contém TODOS os títulos (treinamentostodos)
     const rows1 = DASH_treinamentos || [];
     const chaves = Object.keys(rows1[0]||{});
     const campo = exactos.find(c=>chaves.includes(c)) ?? chaves.find(k=>normF(k).includes('titul')) ?? null;
     if (campo) rows1.forEach(r=>{ const t=String(r[campo]??'').trim(); if(t) mapaISO.set(t,String(r.SemanaISO??'').trim()); });
 
-    // ISO oculto (parcial por ora)
     const isoSet = new Set(rows1.map(r=>String(r.SemanaISO||'')).filter(Boolean));
 
-    // Preenche dropdown imediatamente com treinamentos
+    // Preenche dropdown com todos os títulos disponíveis
     const titSel = document.getElementById('dashTitulo');
-    if (mapaISO.size){
-      titSel.innerHTML = '<option value="">Selecione um título...</option>'
-        + _buildTituloOpts(mapaISO, '');
-    }
-
-    // ── Fase 2: registros (já em memória via DASH_registrosAll) ─────────────────
-    const rows2 = DASH_registrosAll || [];
-    rows2.forEach(r=>{ const t=String(r.TituloVideo??r.Titulo??r.titulo??'').trim(); const iso=String(r.SemanaISO??'').trim(); if(t&&!mapaISO.has(t)) mapaISO.set(t,iso); else if(t&&!mapaISO.get(t)&&iso) mapaISO.set(t,iso); if(iso) isoSet.add(iso); });
-
-    // Atualiza dropdown preservando seleção
     const selAtual = titSel.value;
     titSel.innerHTML = '<option value="">Selecione um título...</option>'
       + _buildTituloOpts(mapaISO, '');
@@ -1246,14 +1225,35 @@
     }
   }
 
-  async function dashAtualizar(){
-  // 🔄 Limpa cache e dados para forçar recarregamento completo
-  delete _apiCache['treinamentos'];
-  delete _apiCache['registros'];
-  delete _apiCache['funcionarios'];
-  DASH_treinamentos = null;
-  DASH_funcionarios = null;
-  DASH_registrosAll = null;
+  // TTL de 3 minutos para reuso de cache sem re-fetch
+  const _CACHE_TTL_MS = 3 * 60 * 1000;
+  let _cacheTimestamp = 0;
+
+  // ── Funções auxiliares do Dashboard (definidas uma vez) ──────────────────────
+  function normalizarMatricula(v){ return String(v??'').replace(/\D/g,'').padStart(5,'0'); }
+  function normalizarSemanaISO(s){ const m=String(s||'').match(/^(\d{4})-W?(\d{1,2})$/i); if(!m) return ''; return `${m[1]}-W${String(m[2]).padStart(2,'0')}`; }
+  function ativoValido(v){ return ['true','1','sim','yes'].includes(String(v??'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim()); }
+
+  async function dashAtualizar(forceRefresh){
+  const agora = Date.now();
+  const cacheExpirado = (agora - _cacheTimestamp) > _CACHE_TTL_MS;
+
+  // Só limpa cache se o usuário clicar manualmente ou se o TTL expirou
+  if (forceRefresh || cacheExpirado || !DASH_treinamentos || !DASH_funcionarios || !DASH_registrosAll){
+    delete _apiCache['treinamentostodos'];
+    delete _apiCache['registros'];
+    delete _apiCache['funcionarios'];
+    DASH_treinamentos = null;
+    DASH_funcionarios = null;
+    DASH_registrosAll = null;
+    _cacheTimestamp = agora;
+  }
+
+  // Mostra skeleton imediato
+  const dashStatus = document.getElementById('dashStatus');
+  if (!DASH_treinamentos || !DASH_funcionarios || !DASH_registrosAll){
+    dashStatus.innerHTML = '<div class="warn" style="display:flex;align-items:center;gap:8px;"><span style="display:inline-block;width:16px;height:16px;border:2px solid #2563eb;border-top-color:transparent;border-radius:50%;animation:spin .7s linear infinite;"></span> Carregando dados...</div>';
+  }
 
   await dashEnsureData();
   afastRenderTags(); // atualizar nomes após carregar funcionários
@@ -1266,33 +1266,10 @@
   if (titAntes && [...sel.options].some(o => o.value === titAntes)) sel.value = titAntes;
   else dashSugerirSemanaAtivaMaisRecente();
 
-  const dashStatus = document.getElementById('dashStatus'); 
   dashStatus.innerHTML = '';
 
   const selISO = ''; // campo oculto — não usado diretamente pelo usuário
   const selTit = document.getElementById('dashTitulo').value.trim();
-
-  function normalizarMatricula(v){
-    return String(v ?? '')
-      .replace(/\D/g,'')
-      .padStart(5,'0');
-  }
-
-  function normalizarSemanaISO(s){
-    const m = String(s||'').match(/^(\d{4})-W?(\d{1,2})$/i);
-    if(!m) return '';
-    return `${m[1]}-W${String(m[2]).padStart(2,'0')}`;
-  }
-
-  function ativoValido(v){
-    return ['true','1','sim','yes'].includes(
-      String(v ?? '')
-        .toLowerCase()
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g,'')
-        .trim()
-    );
-  }
 
   let semanaAlvo = selISO;
 
@@ -1394,9 +1371,11 @@
     funcAtivos
   });
 
-  dashRender(naoParticipantesFull, participantesFull);
-
-  dashStatus.innerHTML = `<div class="ok">Dashboard atualizado: ${semanaNorm}</div>`;
+  // Renderiza tabelas no próximo frame para não bloquear a pintura dos KPIs
+  requestAnimationFrame(() => {
+    dashRender(naoParticipantesFull, participantesFull);
+    dashStatus.innerHTML = `<div class="ok">Dashboard atualizado: ${semanaNorm}</div>`;
+  });
 }
 
   function dashKPIs({ total, part, nPart, semana, titulo, registrosAll, funcAtivos }){
@@ -1565,7 +1544,7 @@
     box.style.display = 'block';
     closeBtn.style.display = 'inline-block';
     try {
-      const url = API_BASE + '?action=treinamentos&_t=' + Date.now();
+      const url = API_BASE + '?action=treinamentostodos&_t=' + Date.now();
       box.textContent += '\nURL: ' + url;
       const res = await fetch(url, { cache: 'no-store' });
       const txt = await res.text();
