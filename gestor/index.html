@@ -1143,11 +1143,14 @@
     document.getElementById('dashSemanaIso').value = (hit && hit.SemanaISO) ? String(hit.SemanaISO) : '';
   });
 
-  (async function dashInit(){
-    // dashAtualizar já chama dashEnsureData + dashPopularSelects internamente
-    // Passa false = não força refresh, reutiliza o _cachedFetch pré-disparado
+  // Flag para evitar inicializar o dashboard duas vezes
+  let _dashIniciado = false;
+
+  async function dashInit(){
+    if (_dashIniciado) return;
+    _dashIniciado = true;
     await dashAtualizar(false);
-  })();
+  }
 
   function _parseApiRows(json){
     if (Array.isArray(json))              return json;
@@ -1604,6 +1607,8 @@
       secFiltros?.classList.add('is-hidden');
       secResultados?.classList.add('is-hidden');
       secDashboard?.classList.remove('is-hidden');
+      // Inicializa o dashboard na primeira vez que a aba é aberta
+      dashInit();
     }
   })();
 </script>
