@@ -1149,7 +1149,13 @@
   async function dashInit(){
     if (_dashIniciado) return;
     _dashIniciado = true;
-    await dashAtualizar(false);
+    // Só garante os dados em cache e popula o dropdown — NÃO renderiza nada
+    await dashEnsureData();
+    await dashPopularSelects();
+    afastRenderTags();
+    // Limpa status (caso tenha mensagem de erro anterior)
+    document.getElementById('dashStatus').innerHTML =
+      '<div class="warn" style="color:#6b7280;font-size:13px;">Selecione um título e clique em <strong>Atualizar</strong>.</div>';
   }
 
   function _parseApiRows(json){
@@ -1245,14 +1251,11 @@
 
   async function dashAtualizar(forceRefresh){
   const agora = Date.now();
-  const cacheExpirado = (agora - _cacheTimestamp) > _CACHE_TTL_MS;
-  // Considera dados ausentes se null OU array vazio (fetch falhou silenciosamente)
-  const dadosFaltando = !DASH_treinamentos?.length || !DASH_funcionarios?.length || !DASH_registrosAll;
+  const cacheExpirado = _cacheTimestamp > 0 && (agora - _cacheTimestamp) > _CACHE_TTL_MS;
+  const dashStatus = document.getElementById('dashStatus');
 
-  // No primeiro carregamento (forceRefresh=false, _cacheTimestamp=0),
-  // NÃO apaga o _apiCache para reutilizar o pré-carregamento já disparado.
-  // Só apaga se for refresh manual ou TTL expirado.
-  if (forceRefresh || (cacheExpirado && _cacheTimestamp > 0)){
+  // Força novo fetch se: clique manual OU TTL expirado OU dados ausentes
+  if (forceRefresh || cacheExpirado || !DASH_treinamentos?.length || !DASH_funcionarios?.length || !DASH_registrosAll){
     delete _apiCache['treinamentostodos'];
     delete _apiCache['registros'];
     delete _apiCache['funcionarios'];
@@ -1260,50 +1263,41 @@
     DASH_funcionarios = null;
     DASH_registrosAll = null;
     _cacheTimestamp = agora;
-  } else if (dadosFaltando){
-    // Dados ausentes mas não é refresh — limpa só os nulos/vazios para re-tentar
-    if (!DASH_treinamentos?.length){ delete _apiCache['treinamentostodos']; DASH_treinamentos = null; }
-    if (!DASH_funcionarios?.length){ delete _apiCache['funcionarios'];      DASH_funcionarios = null; }
-    if (!DASH_registrosAll)        { delete _apiCache['registros'];         DASH_registrosAll = null; }
-    if (!_cacheTimestamp) _cacheTimestamp = agora;
+    dashStatus.innerHTML = '<div class="warn" style="display:flex;align-items:center;gap:8px;"><span style="display:inline-block;width:16px;height:16px;border:2px solid #2563eb;border-top-color:transparent;border-radius:50%;animation:spin .7s linear infinite;"></span> Buscando dados...</div>';
+    await dashEnsureData();
+    await dashPopularSelects();
+    afastRenderTags();
   }
-
-  // Mostra spinner se precisar buscar dados
-  const dashStatus = document.getElementById('dashStatus');
-  if (!DASH_treinamentos?.length || !DASH_funcionarios?.length || !DASH_registrosAll){
-    dashStatus.innerHTML = '<div class="warn" style="display:flex;align-items:center;gap:8px;"><span style="display:inline-block;width:16px;height:16px;border:2px solid #2563eb;border-top-color:transparent;border-radius:50%;animation:spin .7s linear infinite;"></span> Carregando dados...</div>';
-  }
-
-  await dashEnsureData();
-  afastRenderTags(); // atualizar nomes após carregar funcionários
-
-  // Re-popular o dropdown de títulos com dados frescos, preservando seleção atual
-  const titAntes = document.getElementById('dashTitulo').value;
-  await dashPopularSelects();
-  // Restaura seleção se ainda existir
-  const sel = document.getElementById('dashTitulo');
-  if (titAntes && [...sel.options].some(o => o.value === titAntes)) sel.value = titAntes;
-  else dashSugerirSemanaAtivaMaisRecente();
 
   dashStatus.innerHTML = '';
 
-  const selISO = ''; // campo oculto — não usado diretamente pelo usuário
   const selTit = document.getElementById('dashTitulo').value.trim();
 
-  let semanaAlvo = selISO;
-
-  if (!semanaAlvo && selTit){
-    const hit = (DASH_treinamentos||[])
-      .find(t => String(t.Titulo).trim() === selTit);
-
-    if (hit && hit.SemanaISO)
-      semanaAlvo = String(hit.SemanaISO);
-  }
-
-  if (!semanaAlvo){
+  if (!selTit){
     dashStatus.innerHTML = '<div class="warn">Selecione um Título para continuar.</div>';
     dashRender([],[]);
     dashKPIs({total:0, part:0, nPart:0, semana:'-', titulo:'-', registrosAll: DASH_registrosAll||[], funcAtivos: (DASH_funcionarios||[]).filter(f=>ativoValido(f.Ativo??f.ativo))});
+    return;
+  }
+
+  // ── Tudo abaixo é 100% local, sem fetch ─────────────────────────────────────
+  const selISO = '';
+
+  let semanaAlvo = selISO;
+  if (!semanaAlvo && selTit){
+    const hit = (DASH_treinamentos||[]).find(t => String(t.Titulo).trim() === selTit);
+    if (hit && hit.SemanaISO) semanaAlvo = String(hit.SemanaISO);
+  }
+  // Fallback: busca nos registros
+  if (!semanaAlvo){
+    const hit = (DASH_registrosAll||[]).find(r => (r.TituloVideo??r.Titulo??'').trim() === selTit);
+    if (hit && hit.SemanaISO) semanaAlvo = String(hit.SemanaISO);
+  }
+
+  if (!semanaAlvo){
+    dashStatus.innerHTML = '<div class="warn">Semana não encontrada para este título. Clique em Atualizar para recarregar.</div>';
+    dashRender([],[]);
+    dashKPIs({total:0, part:0, nPart:0, semana:'-', titulo: selTit, registrosAll: DASH_registrosAll||[], funcAtivos: (DASH_funcionarios||[]).filter(f=>ativoValido(f.Ativo??f.ativo))});
     return;
   }
 
