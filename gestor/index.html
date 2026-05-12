@@ -1043,14 +1043,35 @@
       if (!data.ok) { console.warn('getFeriasList falhou:', data.error); return; }
       AFAST_set.clear();
       AFAST_data.clear();
+      // Converte qualquer formato de data para dd/mm/aaaa
+      function normDateStr(v){
+        if(!v) return '';
+        const s = String(v).trim();
+        // Já está no formato dd/mm/aaaa
+        if(/^\d{2}\/\d{2}\/\d{4}$/.test(s)) return s;
+        // Formato yyyy-mm-dd (ISO)
+        const isoM = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+        if(isoM) return `${isoM[3]}/${isoM[2]}/${isoM[1]}`;
+        // Date object serializado pelo GAS (ex: "Fri May 08 2026 04:00:00 GMT-0300 ...")
+        // ou qualquer string parseable pelo Date
+        try {
+          const d = new Date(s);
+          if(!isNaN(d.getTime())){
+            const pad = n => String(n).padStart(2,'0');
+            return `${pad(d.getUTCDate())}/${pad(d.getUTCMonth()+1)}/${d.getUTCFullYear()}`;
+          }
+        } catch(e){}
+        return s; // fallback: retorna como veio
+      }
+
       (data.data || []).forEach(item => {
         const mat = afastNormMat(item.Matricula);
         if (!mat) return;
         AFAST_set.add(mat);
         AFAST_data.set(mat, {
           situacao:     String(item.Situacao     || 'Afastado INSS'),
-          inicioFerias: String(item.InicioFerias || ''),
-          fimFerias:    String(item.FimFerias    || '')
+          inicioFerias: normDateStr(item.InicioFerias),
+          fimFerias:    normDateStr(item.FimFerias)
         });
       });
     } catch(e) {
@@ -1120,7 +1141,11 @@
       const badgeColor = isFer ? '#2563eb' : '#f59e0b';
       const badgeText = isFer ? '🏖️ Férias' : '🏥 Afastado INSS';
       const datesHtml = isFer
-        ? `<span style="font-size:11px;color:#374151;">${inicioFerias ? '📅 '+inicioFerias : '<span style="color:#9ca3af">sem data</span>'} → ${fimFerias || '<span style="color:#9ca3af">sem data</span>'}</span>`
+        ? `<span style="font-size:12px;color:#374151;font-weight:500;">${
+            (inicioFerias || fimFerias)
+              ? `${inicioFerias || '?'} a ${fimFerias || '?'}`
+              : '<span style="color:#9ca3af;font-weight:400;">sem data</span>'
+          }</span>`
         : `<span style="font-size:11px;color:#9ca3af;">—</span>`;
       return `<tr data-mat="${mat}">
         <td>${mat}</td>
@@ -1208,6 +1233,14 @@
   }
 
   /* ===== Modal de Situação de Afastamento ===== */
+  // Converte dd/mm/aaaa → yyyy-mm-dd para input[type=date]
+  function toInputDate(v){
+    if(!v) return '';
+    const m = String(v).trim().match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    if(m) return `${m[3]}-${m[2]}-${m[1]}`;
+    return v; // já está em outro formato (ISO etc.)
+  }
+
   function afastAbrirModal(mat){
     const getFunc = m => (DASH_funcionarios||[]).find(f => afastNormMat(f.Matricula) === m) || {};
     const f = getFunc(mat);
@@ -1239,12 +1272,12 @@
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
             <div>
               <label style="display:block;font-size:13px;color:#374151;margin-bottom:5px;font-weight:600;">Início das Férias</label>
-              <input type="date" id="afastInicioFerias" value="${d.inicioFerias||''}"
+              <input type="date" id="afastInicioFerias" value="${toInputDate(d.inicioFerias)}"
                 style="height:38px;width:100%;padding:6px 10px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;box-sizing:border-box;" />
             </div>
             <div>
               <label style="display:block;font-size:13px;color:#374151;margin-bottom:5px;font-weight:600;">Fim das Férias</label>
-              <input type="date" id="afastFimFerias" value="${d.fimFerias||''}"
+              <input type="date" id="afastFimFerias" value="${toInputDate(d.fimFerias)}"
                 style="height:38px;width:100%;padding:6px 10px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;box-sizing:border-box;" />
             </div>
           </div>
