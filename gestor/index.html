@@ -1030,63 +1030,68 @@
 
   function afastNormMat(v){ return String(v??'').replace(/\D/g,'').padStart(5,'0'); }
 
-  function afastSalvar(){
-    try{
-      const arr = [...AFAST_set].map(mat => {
-        const d = AFAST_data.get(mat) || {};
-        return { mat, situacao: d.situacao || 'Afastado INSS', inicioFerias: d.inicioFerias || '', fimFerias: d.fimFerias || '' };
-      });
-      localStorage.setItem('dss_afast_v2', JSON.stringify(arr));
-      // Compatibilidade legada
-      localStorage.setItem('dss_afast', JSON.stringify([...AFAST_set]));
-    }catch(e){}
-  }
-  function afastCarregar(){
-    try{
-      const dv2 = localStorage.getItem('dss_afast_v2');
-      if(dv2){
-        const arr = JSON.parse(dv2);
-        arr.forEach(item => {
-          AFAST_set.add(item.mat);
-          AFAST_data.set(item.mat, { situacao: item.situacao || 'Afastado INSS', inicioFerias: item.inicioFerias || '', fimFerias: item.fimFerias || '' });
+  /* afastSalvar: dados são persistidos via API no Google Sheets.
+     localStorage não é mais usado como fonte de verdade. */
+  function afastSalvar(){ /* no-op intencional */ }
+
+  /* Carrega férias/afastamentos direto do Google Sheets (aba Ferias).
+     Popula AFAST_set e AFAST_data e re-renderiza a tabela. */
+  async function afastCarregarDoSheets(){
+    try {
+      const res  = await fetch(API_BASE + '?action=getferiaslist&_t=' + Date.now(), { cache: 'no-store' });
+      const data = await res.json();
+      if (!data.ok) { console.warn('getFeriasList falhou:', data.error); return; }
+      AFAST_set.clear();
+      AFAST_data.clear();
+      (data.data || []).forEach(item => {
+        const mat = afastNormMat(item.Matricula);
+        if (!mat) return;
+        AFAST_set.add(mat);
+        AFAST_data.set(mat, {
+          situacao:     String(item.Situacao     || 'Afastado INSS'),
+          inicioFerias: String(item.InicioFerias || ''),
+          fimFerias:    String(item.FimFerias    || '')
         });
-        return;
-      }
-      // Fallback legado
-      const d = localStorage.getItem('dss_afast');
-      if(d){ const arr=JSON.parse(d); arr.forEach(m=>{ AFAST_set.add(m); AFAST_data.set(m,{situacao:'Afastado INSS',inicioFerias:'',fimFerias:''}); }); }
-    }catch(e){}
+      });
+    } catch(e) {
+      console.warn('Erro ao carregar férias do Sheets:', e);
+    }
   }
+
+  /* Mantido para não quebrar chamadas legadas — substituído por afastCarregarDoSheets(). */
+  function afastCarregar(){ /* no-op: use afastCarregarDoSheets() */ }
 
   /* Envia registro de afastamento/férias para a aba Ferias do Google Sheets */
   async function afastEnviarGoogleSheets(mat, nome, situacao, inicioFerias, fimFerias){
     try {
-      const payload = {
-        action: 'salvarFerias',
-        matricula: mat,
-        funcionario: nome,
-        situacao: situacao,
-        inicioFerias: inicioFerias || '',
-        fimFerias: fimFerias || ''
-      };
-      await fetch(API_BASE + '?action=salvarFerias', {
+      const res = await fetch(API_BASE + '?action=salvarferias', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({
+          matricula:    mat,
+          funcionario:  nome,
+          situacao:     situacao,
+          inicioFerias: inicioFerias || '',
+          fimFerias:    fimFerias    || ''
+        }),
         cache: 'no-store'
       });
+      const data = await res.json();
+      if (!data.ok) console.warn('salvarFerias retornou erro:', data.error ?? data);
     } catch(e){ console.warn('Erro ao salvar no Sheets:', e); }
   }
 
   /* Remove registro de afastamento do Google Sheets */
   async function afastRemoverGoogleSheets(mat){
     try {
-      await fetch(API_BASE + '?action=removerFerias', {
+      const res = await fetch(API_BASE + '?action=removeferias', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'removerFerias', matricula: mat }),
+        body: JSON.stringify({ matricula: mat }),
         cache: 'no-store'
       });
+      const data = await res.json();
+      if (!data.ok) console.warn('removerFerias retornou erro:', data.error ?? data);
     } catch(e){ console.warn('Erro ao remover do Sheets:', e); }
   }
 
@@ -1137,15 +1142,14 @@
     }).join('');
 
     tbody.querySelectorAll('.afast-btn-retornar').forEach(btn => {
-      btn.addEventListener('click', e => {
+      btn.addEventListener('click', async e => {
         e.stopPropagation();
         const mat = btn.dataset.mat;
         const f = getFunc(mat);
         if (confirm(`Remover ${f.Nome ?? mat} do afastamento e retornar à lista de ativos?`)){
-          AFAST_set.delete(mat);
-          AFAST_data.delete(mat);
-          afastSalvar();
-          afastRemoverGoogleSheets(mat);
+          await afastRemoverGoogleSheets(mat);
+          // Recarrega do Sheets para garantir sincronização entre navegadores
+          await afastCarregarDoSheets();
           afastRenderTags();
         }
       });
@@ -1275,14 +1279,13 @@
       const inicioFerias = isFer ? (document.getElementById('afastInicioFerias').value || '') : '';
       const fimFerias   = isFer ? (document.getElementById('afastFimFerias').value || '') : '';
 
-      AFAST_set.add(mat);
-      AFAST_data.set(mat, { situacao, inicioFerias, fimFerias });
-      afastSalvar();
-      afastRenderTags();
-
       // Formata datas para dd/mm/aaaa (exibição) e envia ao Sheets
       const fmtDate = v => { if(!v) return ''; const [y,m,d2]=v.split('-'); return `${d2}/${m}/${y}`; };
       await afastEnviarGoogleSheets(mat, nome, situacao, fmtDate(inicioFerias), fmtDate(fimFerias));
+
+      // Recarrega do Sheets para refletir estado real (sincroniza todos os navegadores)
+      await afastCarregarDoSheets();
+      afastRenderTags();
 
       modal.remove();
       // Limpa busca
@@ -1293,8 +1296,8 @@
   }
 
   (function initAfast(){
-    afastCarregar();
-    afastRenderTags();
+    // Carrega do Google Sheets ao inicializar (fonte de verdade)
+    afastCarregarDoSheets().then(() => afastRenderTags());
 
     const inp = document.getElementById('afastBusca');
     const box = document.getElementById('afastCandidates');
@@ -1311,12 +1314,18 @@
         if (!inp.contains(e.target) && !box.contains(e.target)) box.style.display='none';
       });
     }
-    document.getElementById('btnAfastLimpar')?.addEventListener('click', () => {
+    document.getElementById('btnAfastLimpar')?.addEventListener('click', async () => {
       if (!AFAST_set.size) return;
       if (confirm('Remover todos os funcionários da lista de afastados/férias?')){
+        // Remove do Google Sheets
+        await fetch(API_BASE + '?action=clearferias', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({}),
+          cache: 'no-store'
+        });
         AFAST_set.clear();
         AFAST_data.clear();
-        afastSalvar();
         afastRenderTags();
       }
     });
@@ -1438,7 +1447,8 @@
   DASH_registrosAll = null;
 
   await dashEnsureData();
-  afastRenderTags(); // atualizar nomes após carregar funcionários
+  // Recarrega férias do Sheets e atualiza nomes após carregar funcionários
+  afastCarregarDoSheets().then(() => afastRenderTags());
 
   // Re-popular o dropdown de títulos com dados frescos, preservando seleção atual
   const titAntes = document.getElementById('dashTitulo').value;
