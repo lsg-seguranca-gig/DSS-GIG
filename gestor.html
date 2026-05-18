@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>DSS GIG — Painel do Gestor</title>
-  <link rel="icon" href="data:;base64,iVBORw0KGgo" />
+  <link class="no-print" rel="icon" href="data:;base64,iVBORw0KGgo" />
   
   <!-- Tailwind CSS CDN para estilização premium e moderna -->
   <script src="https://cdn.tailwindcss.com"></script>
@@ -103,27 +103,29 @@
 </head>
 <body class="text-slate-800 min-h-screen flex flex-col antialiased">
 
-  <!-- CABEÇALHO / HEADER -->
+  <!-- CABEÇALHO / HEADER (Melhorado para telemóveis em 2 linhas limpas) -->
   <header class="bg-white border-b border-slate-100 shadow-sm sticky top-0 z-50 transition-all-300 no-print">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
-      <div class="flex items-center gap-4">
-        <div class="bg-slate-50 p-2 rounded-xl border border-slate-100">
-          <img src="logo lsg.png" alt="logo LSG" class="h-10 w-auto object-contain" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'40\' height=\'40\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%232563eb\' stroke-width=\'2\'><rect x=\'3\' y=\'3\' width=\'18\' height=\'18\' rx=\'2\'/><path d=\'M9 17V7l7 5z\'/></svg>'"/>
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 md:py-0 md:h-20 flex flex-col md:flex-row items-center justify-between gap-4">
+      
+      <!-- Linha do Logo e Título -->
+      <div class="flex items-center gap-3 w-full md:w-auto">
+        <div class="bg-slate-50 p-1.5 rounded-xl border border-slate-100 shrink-0">
+          <img src="lsg sky chefs logo.png" alt="logo LSG Sky Chefs" class="h-10 w-auto object-contain" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'40\' height=\'40\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%232563eb\' stroke-width=\'2\'><rect x=\'3\' y=\'3\' width=\'18\' height=\'18\' rx=\'2\'/><path d=\'M9 17V7l7 5z\'/></svg>'"/>
         </div>
-        <div>
-          <h1 class="text-lg sm:text-xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
-            DSS GIG <span class="text-xs font-semibold px-2.5 py-0.5 bg-brand-50 text-brand-600 rounded-full border border-brand-100">Painel do Gestor</span>
+        <div class="truncate">
+          <h1 class="text-base sm:text-lg md:text-xl font-extrabold text-slate-900 tracking-tight flex flex-wrap items-center gap-2">
+            DSS GIG <span class="text-[10px] sm:text-xs font-semibold px-2 py-0.5 bg-brand-50 text-brand-600 rounded-full border border-brand-100">Painel do Gestor</span>
           </h1>
-          <p class="text-xs text-slate-500 hidden sm:block">Pesquise e gere relatórios de participação otimizados</p>
+          <p class="text-[11px] text-slate-500 hidden sm:block">Pesquise e gere relatórios de participação otimizados</p>
         </div>
       </div>
       
-      <!-- Navegação Alternável de Ecrãs -->
-      <nav class="flex bg-slate-100 p-1 rounded-xl" aria-label="Alternar ecrãs">
-        <button id="tabPrincipal" class="px-5 py-2 text-sm font-semibold rounded-lg transition-all duration-200" type="button">
+      <!-- Navegação de Ecrãs (Abaixo no Mobile, ao lado no Desktop) -->
+      <nav class="flex bg-slate-100 p-1 rounded-xl w-full md:w-auto justify-center md:justify-start" aria-label="Alternar ecrãs">
+        <button id="tabPrincipal" class="flex-1 md:flex-initial px-5 py-2 text-sm font-semibold rounded-lg transition-all duration-200" type="button">
           Principal
         </button>
-        <button id="tabDashboard" class="px-5 py-2 text-sm font-semibold rounded-lg transition-all duration-200" type="button">
+        <button id="tabDashboard" class="flex-1 md:flex-initial px-5 py-2 text-sm font-semibold rounded-lg transition-all duration-200" type="button">
           Dashboard
         </button>
       </nav>
@@ -199,9 +201,9 @@
           </div>
         </div>
 
-        <!-- Painel de Exportações Rápidas -->
-        <div class="mt-6 pt-6 border-t border-slate-100 flex flex-col sm:flex-row justify-between items-center gap-4">
-          <div class="flex flex-wrap gap-2 w-full sm:w-auto">
+        <!-- Painel de Exportações Rápidas e Ações de Colaboradores -->
+        <div class="mt-6 pt-6 border-t border-slate-100 flex flex-col lg:flex-row justify-between items-stretch lg:items-center gap-4">
+          <div class="flex flex-wrap gap-2 w-full lg:w-auto">
             <button id="btnXLS" class="flex-1 sm:flex-initial bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 font-medium py-2 px-4 rounded-lg text-sm transition-colors flex items-center justify-center gap-2">
               <svg class="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
               Exportar Excel (XLS)
@@ -211,10 +213,18 @@
               Gerar PDF
             </button>
           </div>
-          <button id="btnAddFunc" class="w-full sm:w-auto bg-brand-50 hover:bg-brand-100 text-brand-700 font-semibold py-2 px-4 rounded-lg text-sm transition-colors border border-brand-200 flex items-center justify-center gap-1.5">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/></svg>
-            Novo Colaborador
-          </button>
+          
+          <!-- Secção Administrativa de Colaboradores (Adição e Exclusão) -->
+          <div class="flex flex-col sm:flex-row gap-2 w-full lg:w-auto">
+            <button id="btnAddFunc" class="flex-1 bg-brand-50 hover:bg-brand-100 text-brand-700 font-semibold py-2 px-4 rounded-lg text-sm transition-colors border border-brand-200 flex items-center justify-center gap-1.5">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/></svg>
+              Novo Colaborador
+            </button>
+            <button id="btnDelFunc" class="flex-1 bg-rose-50 hover:bg-rose-100 text-rose-700 font-semibold py-2 px-4 rounded-lg text-sm transition-colors border border-rose-200 flex items-center justify-center gap-1.5">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+              Excluir Colaborador
+            </button>
+          </div>
         </div>
 
         <div id="status" class="mt-4 text-sm font-medium"></div>
@@ -307,43 +317,35 @@
         <pre id="diagBox" class="mt-3 p-4 bg-slate-900 text-slate-200 rounded-xl text-xs overflow-x-auto font-mono max-h-60 hidden custom-scrollbar"></pre>
       </section>
 
-      <!-- Painel de Ausências e Férias -->
+      <!-- Painel de Ausências e Férias (Obtido dinamicamente da planilha e guardado localmente) -->
       <details class="bg-white rounded-2xl border border-amber-200 shadow-sm p-6 overflow-hidden transition-all-300" id="afastPanel">
         <summary class="font-bold text-slate-800 cursor-pointer list-none flex items-center justify-between select-none">
           <div class="flex items-center gap-2">
             <span class="p-1.5 bg-amber-50 text-amber-600 rounded-lg">⚠️</span>
-            <span>Férias & Ausências Temporárias</span>
+            <span>Férias & Ausências Ativas</span>
             <span id="afastBadge" class="bg-amber-100 text-amber-800 text-xs font-bold px-2 py-0.5 rounded-full border border-amber-200">0</span>
           </div>
           <span class="text-slate-400 transition-transform duration-200 text-xs" id="afastChevron">▼</span>
         </summary>
         
         <div class="mt-6 space-y-4">
-          <p class="text-sm text-slate-500">Adicione colaboradores ausentes ou de férias. Estes serão temporariamente excluídos do montante total de ativos na semana selecionada para não penalizar os índices de conclusão de DSS da equipa.</p>
-          
-          <div class="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center relative">
-            <div class="relative flex-grow">
-              <input type="text" id="afastBusca" placeholder="Pesquise colaborador por nome ou matrícula para ausentar..." class="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all text-slate-900" autocomplete="off" />
-            </div>
-            <button type="button" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold py-2 px-4 rounded-xl text-sm transition-all" id="btnAfastLimpar">Limpar todos</button>
-            
-            <!-- Auto-complete Dropdown -->
-            <div id="afastCandidates" class="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 shadow-xl rounded-xl max-h-60 overflow-y-auto hidden z-10 custom-scrollbar"></div>
-          </div>
+          <p class="text-sm text-slate-500">
+            Abaixo estão listados os colaboradores que constam no banco de dados de <strong>Férias / Ausências</strong> no Google Sheets. Eles são excluídos automaticamente da lista de "Não Participaram" e da contagem total de ativos para evitar distorções nas métricas.
+          </p>
 
-          <!-- Tabela de Ausentes -->
+          <!-- Tabela de Ausentes do Sheets -->
           <div class="border border-slate-100 rounded-xl overflow-hidden mt-4">
             <table class="min-w-full divide-y divide-slate-100 text-sm" id="tblAfastados">
               <thead class="bg-slate-50 text-slate-600">
                 <tr>
                   <th scope="col" class="px-6 py-3 text-left font-semibold text-xs uppercase tracking-wider">Matrícula</th>
                   <th scope="col" class="px-6 py-3 text-left font-semibold text-xs uppercase tracking-wider">Funcionário</th>
-                  <th scope="col" class="px-6 py-3 text-left font-semibold text-xs uppercase tracking-wider">Setor</th>
-                  <th scope="col" class="px-6 py-3 text-center font-semibold text-xs uppercase tracking-wider w-28">Retorno</th>
+                  <th scope="col" class="px-6 py-3 text-left font-semibold text-xs uppercase tracking-wider">Situação</th>
+                  <th scope="col" class="px-6 py-3 text-left font-semibold text-xs uppercase tracking-wider">Período</th>
                 </tr>
               </thead>
               <tbody id="tbodyAfastados" class="bg-white divide-y divide-slate-100 text-slate-700">
-                <tr><td colspan="4" class="px-6 py-8 text-center text-slate-400">Nenhum funcionário ausente ou de férias.</td></tr>
+                <tr><td colspan="4" class="px-6 py-8 text-center text-slate-400">A carregar registos oficiais de férias...</td></tr>
               </tbody>
             </table>
           </div>
@@ -502,10 +504,11 @@
       return fetch(url, Object.assign({ cache: 'no-store', headers: { 'Cache-Control': 'no-cache' } }, options || {}));
     }
     
-    const LOGO_SRC = "logo lsg.png";
+    const LOGO_SRC = "lsg sky chefs logo.png";
     let LOGO_DATAURL = "";
     let registros = [];
     let registrosFiltrados = [];
+    let feriasServidor = []; // Guarda as informações da planilha "Ferias" do Google Sheets
 
     /* ====================================================
      * INSTRUTORES DO TREINAMENTO
@@ -516,1176 +519,1171 @@
         nome: 'Vitor Hugo Teixeira da Silva',
         cargo: 'Supervisor de Segurança / LSA AVSEC / Ramp Safety Owner',
         matricula: '15623',
-        assinatura: 'data:image/png;base64,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f7ejS6vnT5f///++/C+un+++f/+uX36/v///P/++/++//8v+++r///X9O////f8f++/f6ej/v///G/efx9/L5fX08Pp8Pr+/p8v++/z++/P9/PT/f8X7+/X///g///++/S5/Pr+nx6fv8vr/H98v9+nx9fN++f++/H+/7/++/++/+/T+fx6fPn///F5+fn8vl9Pl7er///h+/D+++L8/v6v99Hz+fp6PP5OnS/u///P///9vD8fn///P/9/f++/v6/f++/+++d+++b36v79PP0+3X/dP/x+//8f/++/b/vv6///f+//h+//f/u///v+//X///++/C++fn5er8enp9vr8+f/8Pn4fr0v9X7erX8fPn8Pp7ffU+fx///v/PP/f9/PT9X9O/x+vn6vX7fv9+v7e/U7dH/9X///D9fn///N6fb7ej+++D5+/X///v/9/3/df+++D8er6fr/vX++/h++3/9/vD7+++v/7/vv9Pv+++H98vl9vl7er///f+++z6er++/G///P99X+//C/N9en7fP7+//v8Xv/Pv///C8fP8f75ff++v7+9/H/+/H9+/6ev9///PP//8en///D8evp6PP//v9X6fbw///C///9X///D9PT/u7PP9+v++H+++rX///C++vx6P/6f31fj8un0///h/fn6/H9/r8en9///f6dfv+f5+///++/v+/+//fD8vnz/H8P7/F6f3n9/p8uXw+/3///++/v6PPp//++/D/vP9///N///X8vn4v39O///z+fC/fv/f9/PT9P///v/P/P7/v/b8/b5dH/f8'
-      },
-      {
-        nome: 'Francinele Ribeiro Machado',
-        cargo: 'Assistente Administrativo / DLSA AVSEC / Ramp Safety Deputy',
-        matricula: '16977',
-        assinatura: 'data:image/png;base64,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HclpTskfzeHp/P85XbLf778ZOnfrZ46dI/m9/eSgCh/Px8vE/tN0Xj8Q/j8UhXv6L8b/7u88Nf+g/xT/FvW++v8ff/Pfw+uYp/9Xm9e7u/x+8v7vV+8bV493Z+9X/v3/9f9W9Yv7fC7z3O998vv4/D+e/Z9P7tYv6//vN9df3f/p7vX8+PZ8P///O9v8X8ffZ/un7+/+f7rf+f/f7xHv6u+90vvn/ef59X1vWf5b7v/X7m/H9//B9+D38X/0b7vH8/T7dfp8fF0ef+/u9v8v7zX///T/u+/p/+X/fvT86Xbo//p9un3+b///X9un+///T/+9f36f/wffg9fj++Hz8fj9v9v8P/+D7/rX8fPn8fr+H8fT7eD0+X8fR8+v29ev3+H6+T8ef+++r/9b06fD/+T+ef26nr/m9el26v/0//A/fn9vB9/X86XTrfv9vB/3vN+++L/fn///h+fv++/T8PD6ezq+H+++N79f9O///M787v7On07/D98Pvxe/T5df9P/8ffg9eh86X///fX//P/eL+++Z6fv9/3/8f///d///+f++/39+v9P///N79Ln4fbyffU7dH90f/8Puxu/U7dH/9X9O/9Pv8H79Xv9Pp0O/Q+dH/0X30+X/g9en36Hfo//8f/8Pv1u3U9db98P96fb/6fbv1PfX++j2+Xb/u9v9vB99H18X1///PT+f7p/+n/enp9vD///g9fj++hz8Hp9Ph/PP/f9P/y+3/fP9+v9P///N6fX9Pf///B/vP/++///v/3//H++b8f///C8Pn8//9//++/+++f9/++//++L8H9/H5/X++/G///N8PD9Pr//r++j+++z9ev8fXw+++f9+PP1+PP/u8fx8Pl9vl9On7+//C8Pn6fv/f/++v///b+//++/++/v///d+T6er08/r83f4fXn///P+/8f99P/f+//+fT///d79Tv9/36dfn9Ph9P8/r8fn///P/P7/v/b8fv+ffU///f/e/m9H9P3x+//PP//9X9Pn3er///h9eH///C/H9H9/p+//D+//H6e7q+P9+r8Hv///C///9v6+vr8fr6P73/++///v/3//D8un++/b/8fv8Pz+3x6/p+fr/fU6Xf7ejS6vnT5f///++/C+un+++f/+uX36/v///P/++/++//8v+++r///X9O////f8f++/f6ej/v///G/efx9/L5fX08Pp8Pr+/p8v++/z++/P9/PT/f8X7+/X///g///++/S5/Pr+nx6fv8vr/H98v9+nx9fN++f++/H+/7/++/++/+/T+fx6fPn///F5+fn8vl9Pl7er///h+/D+++L8/v6v99Hz+fp6PP5OnS/u///P///9vD8fn///P/9/f++/v6/f++/+++d+++b36v79PP0+3X/dP/x+//8f/++/b/vv6///f+//h+//f/u///v+//X///++/C++fn5er8enp9vr8+f/8Pn4fr0v9X7erX8fPn8Pp7ffU+fx///v/PP/f9/PT9X9O/x+vn6vX7fv9+v7e/U7dH/9X///D9fn///N6fb7ej+++D5+/X///v/9/3/df+++D8er6fr/vX++/h++3/9/vD7+++v/7/vv9Pv+++H98vl9vl7er///f+++z6er++/G///P99X+//C/N9en7fP7+//v8Xv/Pv///C8fP8f75ff++v7+9/H/+/H9+/6ev9///PP//8en///D8evp6PP//v9X6fbw///C///9X///D9PT/u7PP9+v++H+++rX///C++vx6P/6f31fj8un0///h/fn6/H9/r8en9///f6dfv+f5+///++/v+/+//fD8vnz/H8P7/F6f3n9/p8uXw+/3///++/v6PPp//++/D/vP9///N///X8vn4v39O///z+fC/fv/f9/PT9P///v/P/P7/v/b8/b5dH/f8/f4ffU/t39vD/PP9/D+//fD8H/fR///H/fv+b4ffp++/s9H+++n/eP+++v9X///g//++/C+uvw/fT7dP98P57df6vPxfXR//T8fr/PT///g/Pj9un+///H///h+P19fX+D/vn8fn7fN9+n7fT8en9PPw9Pr+Hx/H6fN98Pn8/p7vX7vR/efr+/9+PPt+vX7dfp8fH0en/uPv93X/dP/x+/V8PD9+n/++/X8fn9Pr/PT8v/w/f99///C/PT9PH6e/m8Xn///P/f+++f74vP+fv9Pv/v+++L68vr8fn6vv4P/zf///N8Pn5PnS5dH///L6dD///L7+/++/f//F+++D/PT/v9vr/9X/v///h//+//P++/W/H8/r/dH8vn8Pn+/4ffr+v5efn6er7erX5fPn+++ff6eX++/f/v/H///n9/f7f++/r/PP++/v8Xv8vL9fD+fP9fP7+/p6fn8Pr8/T08en0/fT8P++/r/PT9Xl0Of3f///C+fP++rX6/b7e///L6fr8fF8/X9fD8fn9H/f///v6/f++/D79Pn+vr8ffp++/u9vX/u///P///f+H++fx+n+//F8ffv+/w+vU/b5ffp/en99X++r8PfT8vU///D++r///f+++//9/vD8vr0v3x//N9On/dfn8vp++/A/9b9f9///h+v++/D+++D5/v6e/n/PT9vn1////f8+3/dH/fS7dT++/g+//eH+evp///P/f+L///L+ev/7fH9fF+er///h9eD///H///d9e/9//98Pn4Pr+/X+//v8X34fPyffp/un+///g///g///P/f+H/8v9///L+//f++/D79Ln+/g9+B38vr+D8/X+fp6Pr5PH+D/uHv6vH///3///P///C+/++X08P74vr+//+/9/z8Hv4vn9P3+b9dPz+/++/W9Pl//++/h//++/v///P9/PT79H9+//8f9/X++H6/N9+v++H8fv1///L///h+P++/h+//D+//v6vn+fnU///D+/p/fn///N6dfv/e36ffU/dH+X96PnS///F9Ojw+/h///g//F9NTh++/6evy+/u/vP+++D58v30en///N79Ln4PP++/v9PT/e///f9PP/++//++L8H9/H5/X++/G///N8PD9Pr//r++j+++z9ev8fXw+++f9+PP1+PP/u8fx8Pl9vl9On7+//C8Pn6fv/f/++v///b+//++/++/v///d+T6er08/r83f4fXn///P+/8f99P/f+//+fT///d79Tv9/36dfn9Ph9P8/r8fn///P/P7/v/b8fv+ffU///f/e/m9H9P3x+//PP//9X9Pn3er///h9eH///C/H9H9/p+//D+//H6e7q+P9+r8Hv///C///9v6+vr8fr6P73/++///v/3//D8un++/b/8fv8Pz+3x6/p+fr/fU6Xf7ejS6vnT5f///++/C+un+++f/+uX36/v///P/++/++//8v+++r///X9O////f8f++/f6ej/v///G/efx9/L5fX08Pp8Pr+/p8v++/z++/P9/PT/f8X7+/X///g///++/S5/Pr+nx6fv8vr/H98v9+nx9fN++f++/H+/7/++/++/+/T+fx6fPn///F5+fn8vl9Pl7er///h+/D+++L8/v6v99Hz+fp6PP5OnS/u///P///9vD8fn///P/9/f++/v6/f++/+++d+++b36v79PP0+3X/dP/x+//8f/++/b/vv6///f+//h+//f/u///v+//X///++/C++fn5er8enp9vr8+f/8Pn4fr0v9X7erX8fPn8Pp7ffU+fx///v/PP/f9/PT9X9O/x+vn6vX7fv9+v7e/U7dH/9X///D9fn///N6fb7ej+++D5+/X///v/9/3/df+++D8er6fr/vX++/h++3/9/vD7+++v/7/vv9Pv+++H98vl9vl7er///f+++z6er++/G///P99X+//C/N9en7fP7+//v8Xv/Pv///C8fP8f75ff++v7+9/H/+/H9+/6ev9///PP//8en///D8evp6PP//v9X6fbw///C///9X///D9PT/u7PP9+v++H+++rX///C++vx6P/6f31fj8un0///h/fn6/H9/r8en9///f6dfv+f5+///++/v+/+//fD8vnz/H8P7/F6f3n9/p8uXw+/3///++/v6PPp//++/D/vP9///N///X8vn4v39O///z+fC/fv/f9/PT9P///v/P/P7/v/b8/b5dH/f8'
-      },
-    ];
+        assinatura: 'data:image/png;base64,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cAGWyzBTmkhDpF0zWfx+PZ2djoVY01IDkgPAHIUKIoks2NWwuoro8lRGvOKYTtmKkE4QlAxirnEcKVDGZsTodpz7PPPhU2VoDkgfAEIEP5/e1OgbfODgWDPiSoB4ztILkgPAHIQPX19UzTnkPF8Zg0yma1HC0qKoNL3lIMwhOADLRtW5M1Eldncgwvu92uT55/3psw1oDkgvAEIMOIokhONJ0qt1sdNxDEnOcoC3cUDQAITwAyTE8PsqgKsyAaT+Sabfz29794Bq4WHgAQngBkEFEUyeHdrSORIlxPdHyIZZXtCCFqrAPJB+EJQAY5fRo5OMFyezym2GwO+1szF5SdN9aA1MDGDwAA6YlSiqdeccdYjrH8HmN0iMPS4417X4VzOwcI9DwByBC1tVsZq8V2ZTwmsZoqfThvySifsQakDmP8AACQnkpKipzhgPpjnepRRKMbX6n/bzgEZABBzxOADNF67MzI3m5/PiJoS/XMa+FmzAEG4QlABqipqWFMZtc8luWDqqxv2bhxBRx4PMAgPAHIAK2tyNbXF5omq3JTgeRqNbaD1IPwBCADCIx5EqU4j2VI40ct6yVjO0g9GE8A0lxNTQ0fT2i3YYstylefH/fX9PLp8/7+z9fn9PTx++v+/8f36fv/D++/++f74vP+fv9Pv/v+++L68vr8fn6vv4P/zf///N8Pn5PnS5dH///L6dD///L7+/++/f//F+++D/PT/v9vr/9X/v///h//+//P++/W/H8/r/dH8vn8Pn+/4ffr+v5efn6er7erX5fPn+++ff6eX++/f/v/H///n9/f7f++/r/PP++/v8Xv/Pv///C8fP8f75ff++v7+9/H/+/H9+/6ev9///PP//8en///D8evp6PP//v9X6fbw///C///9X///D9PT/u7PP9+v++H+++rX///C++vx6P/6f31fj8un0///h/fn6/H9/r8en9///f6dfv+f5+///++/v+/+//fD8vnz/H8P7/F6f3n9/p8uXw+/3///++/v6PPp//++/D/vP9///N///X8vn4v39O///z+fC/fv/f9/PT9P///v/P/P7/v/b8/b5dH/f8'
+    },
+  ];
 
-    // Carregar logótipo da empresa para renderizar no cabeçalho do PDF
-    function loadLogoAsDataURL(){
-      return new Promise((resolve)=>{
-        const img = new Image();
-        img.crossOrigin = "anonymous";
-        img.onload = ()=>{
-          try { 
-            const c = document.createElement("canvas"); 
-            c.width = img.width; 
-            c.height = img.height; 
-            c.getContext("2d").drawImage(img, 0, 0); 
-            LOGO_DATAURL = c.toDataURL("image/png"); 
-            resolve(LOGO_DATAURL); 
-          } catch(e){ 
-            resolve(LOGO_DATAURL = ""); 
-          }
-        };
-        img.onerror = () => resolve(LOGO_DATAURL = "");
-        img.src = LOGO_SRC;
-      });
-    }
+  function loadLogoAsDataURL(){
+    return new Promise((resolve)=>{
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.onload = ()=>{
+        try { 
+          const c = document.createElement("canvas"); 
+          c.width = img.width; 
+          c.height = img.height; 
+          c.getContext("2d").drawImage(img, 0, 0); 
+          LOGO_DATAURL = c.toDataURL("image/png"); 
+          resolve(LOGO_DATAURL); 
+        } catch(e){ 
+          resolve(LOGO_DATAURL = ""); 
+        }
+      };
+      img.onerror = () => resolve(LOGO_DATAURL = "");
+      img.src = LOGO_SRC;
+    });
+  }
 
-    document.getElementById('btnBuscar').addEventListener('click', buscar);
-    document.getElementById('btnPDF').addEventListener('click', gerarPDF);
-    document.getElementById('btnXLS').addEventListener('click', gerarXLS);
-    document.getElementById('btnAddFunc').addEventListener('click', novoFuncionarioViaPrompt);
+  document.getElementById('btnBuscar').addEventListener('click', buscar);
+  document.getElementById('btnPDF').addEventListener('click', gerarPDF);
+  document.getElementById('btnXLS').addEventListener('click', gerarXLS);
+  document.getElementById('btnAddFunc').addEventListener('click', novoFuncionarioViaPrompt);
+  document.getElementById('btnDelFunc').addEventListener('click', excluirFuncionarioViaPrompt);
 
-    ['fMat','fNome','fDataInicio','fDataFinal','fSemanaTitulo'].forEach(id=>{
-      const el = document.getElementById(id); 
-      if(!el) return; 
-      el.addEventListener('keydown', e=>{ if(e.key === 'Enter'){ e.preventDefault(); buscar(); } });
+  ['fMat','fNome','fDataInicio','fDataFinal','fSemanaTitulo'].forEach(id=>{
+    const el = document.getElementById(id); 
+    if(!el) return; 
+    el.addEventListener('keydown', e=>{ if(e.key === 'Enter'){ e.preventDefault(); buscar(); } });
+  });
+
+  // Configuração dos Inputs de Data com suporte a Calendário Nativo
+  function setupDatePicker(textId, nativeId, calBtnId){
+    const txt    = document.getElementById(textId);
+    const native = document.getElementById(nativeId);
+    const btn    = document.getElementById(calBtnId);
+    if (!txt || !native || !btn) return;
+
+    // Aplicar máscara dd/mm/aaaa dinamicamente ao digitar
+    txt.addEventListener('input', function(){
+      let v = this.value.replace(/\D/g, '');
+      if (v.length > 8) v = v.slice(0, 8);
+      if      (v.length >= 5) this.value = v.slice(0, 2) + '/' + v.slice(2, 4) + '/' + v.slice(4);
+      else if (v.length >= 3) this.value = v.slice(0, 2) + '/' + v.slice(2);
+      else                    this.value = v;
     });
 
-    // Configuração dos Inputs de Data com suporte a Calendário Nativo
-    function setupDatePicker(textId, nativeId, calBtnId){
-      const txt    = document.getElementById(textId);
-      const native = document.getElementById(nativeId);
-      const btn    = document.getElementById(calBtnId);
-      if (!txt || !native || !btn) return;
-
-      // Aplicar máscara dd/mm/aaaa dinamicamente ao digitar
-      txt.addEventListener('input', function(){
-        let v = this.value.replace(/\D/g, '');
-        if (v.length > 8) v = v.slice(0, 8);
-        if      (v.length >= 5) this.value = v.slice(0, 2) + '/' + v.slice(2, 4) + '/' + v.slice(4);
-        else if (v.length >= 3) this.value = v.slice(0, 2) + '/' + v.slice(2);
-        else                    this.value = v;
-      });
-
-      // Abrir o datepicker nativo invisível ao clicar no ícone do calendário
-      btn.addEventListener('click', function(){
-        const m = txt.value.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-        if (m) native.value = `${m[3]}-${m[2]}-${m[1]}`;
-        native.showPicker ? native.showPicker() : native.click();
-      });
-
-      // Sincronizar o valor selecionado no nativo de volta para o input formatado
-      native.addEventListener('change', function(){
-        if (!this.value) return;
-        const [y, mo, d] = this.value.split('-');
-        txt.value = `${d}/${mo}/${y}`;
-      });
-    }
-    
-    setupDatePicker('fDataInicio', 'fDataInicioNative', 'btnCalInicio');
-    setupDatePicker('fDataFinal',  'fDataFinalNative',  'btnCalFinal');
-
-    ['fDataInicio','fDataFinal'].forEach(id => {
-      document.getElementById(id)?.addEventListener('keydown', e => { if(e.key === 'Enter'){ e.preventDefault(); buscar(); } });
+    // Abrir o datepicker nativo invisível ao clicar no ícone do calendário
+    btn.addEventListener('click', function(){
+      const m = txt.value.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+      if (m) native.value = `${m[3]}-${m[2]}-${m[1]}`;
+      native.showPicker ? native.showPicker() : native.click();
     });
 
-    // Gestão de chamadas paralelas de API em cache para evitar sobrecarga no servidor
-    const _apiCache = {};
-    function _cachedFetch(action){
-      if (!_apiCache[action]) {
-        _apiCache[action] = apiFetch('action=' + action)
-          .then(r => r.ok ? r.json().catch(() => null) : null)
-          .catch(() => null);
-      }
-      return _apiCache[action];
-    }
-    
-    _cachedFetch('treinamentos');
-    _cachedFetch('registros');
-    _cachedFetch('funcionarios');
-
-    // Descompactação das estruturas JSON retornadas pela API (GAS)
-    function _parseRows(json){
-      if (Array.isArray(json))         return json;
-      if (Array.isArray(json?.data))   return json.data;
-      if (Array.isArray(json?.result)) return json.result;
-      if (typeof json === 'object' && json){
-        const v = Object.values(json).find(v => Array.isArray(v)); 
-        if (v) return v;
-      }
-      return [];
-    }
-
-    // Auxiliar para a geração das opções (Dropdown) dos títulos e semanas
-    function _buildTituloOpts(mapaISO, prefixOpt){
-      return prefixOpt + [...mapaISO.entries()]
-        .sort((a,b)=>{ 
-          const pa = dashParseSemanaISO(a[1]), pb = dashParseSemanaISO(b[1]); 
-          if(pa.year !== pb.year) return pb.year - pa.year; 
-          return pb.week - pa.week; 
-        })
-        .map(([t]) => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join('');
-    }
-
-    // Popular os Selects com os Títulos de Formação (DSS)
-    (async function popularTitulos(){
-      const normF = s => String(s??'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
-      const exactos = ['Titulo','titulo','TITULO','Title','title','TituloVideo','titulovideo'];
-      const mapaISO = new Map();
-
-      try {
-        const rows = _parseRows(await _cachedFetch('treinamentos'));
-        const chaves = Object.keys(rows[0]||{});
-        const campo = exactos.find(c => chaves.includes(c)) ?? chaves.find(k => normF(k).includes('titul')) ?? null;
-        if (campo) rows.forEach(r => { const t = String(r[campo]??'').trim(); if(t) mapaISO.set(t, String(r.SemanaISO??'').trim()); });
-      } catch(e){}
-
-      const selP = document.getElementById('fSemanaTitulo');
-      if (mapaISO.size) selP.innerHTML = _buildTituloOpts(mapaISO, '<option value="">Todas</option>');
-
-      try {
-        const rows = _parseRows(await _cachedFetch('registros'));
-        rows.forEach(r => { 
-          const t = String(r.TituloVideo??r.Titulo??r.titulo??'').trim(); 
-          const iso = String(r.SemanaISO??'').trim(); 
-          if(t && !mapaISO.has(t)) mapaISO.set(t, iso); 
-          else if(t && !mapaISO.get(t) && iso) mapaISO.set(t, iso); 
-        });
-      } catch(e){}
-
-      const selAtual = selP.value;
-      selP.innerHTML = _buildTituloOpts(mapaISO, '<option value="">Todas</option>');
-      if (selAtual && [...selP.options].some(o => o.value === selAtual)) selP.value = selAtual;
-    })();
-
-    // Lógica principal de pesquisa de registos
-    async function buscar(){
-      const status = document.getElementById('status');
-      status.innerHTML = '';
-      const fMat = document.getElementById('fMat').value.trim();
-      const fNome = document.getElementById('fNome').value.trim();
-      const fTitulo = document.getElementById('fSemanaTitulo').value.trim();
-      const fDataI = document.getElementById('fDataInicio').value;
-      const fDataF = document.getElementById('fDataFinal').value;
-
-      const qs = new URLSearchParams({ action: 'registros' });
-      if (fMat) qs.append('matricula', fMat);
-      if (fNome) qs.append('nome', fNome);
-
-      try {
-        const res = await apiFetch(qs.toString());
-        let data; 
-        try { data = await res.json(); } catch { data = { ok: false, error: 'Resposta não-JSON do proxy' }; }
-        if (!data.ok) throw new Error(data.error || 'Erro na pesquisa');
-        registros = Array.isArray(data.data) ? data.data : [];
-
-        const di = normalizarDataInput(fDataI);
-        const df = fimDoDia(normalizarDataInput(fDataF));
-        let lista = registros.filter(r => {
-          const ts = parseTimestamp(r.Timestamp);
-          if (!ts) return false;
-          if (di && ts < di) return false;
-          if (df && ts > df) return false;
-          if (fTitulo && (r.TituloVideo ?? '') !== fTitulo) return false;
-          return true;
-        });
-
-        const mapa = new Map();
-        for (const r of lista){
-          const chave = `${r.Matricula ?? ''}__${r.SemanaISO ?? ''}__${r.TituloVideo ?? ''}`;
-          const atual = mapa.get(chave);
-          const novoTS = parseTimestamp(r.Timestamp);
-          if (!atual) mapa.set(chave, r);
-          else { 
-            const antigoTS = parseTimestamp(atual.Timestamp); 
-            if (novoTS && antigoTS && novoTS < antigoTS) mapa.set(chave, r); 
-          }
-        }
-
-        registrosFiltrados = Array.from(mapa.values()).sort((a,b) => String(a.Nome ?? '').localeCompare(String(b.Nome ?? ''), 'pt-PT', { sensitivity: 'base' }));
-        renderTabela(registrosFiltrados);
-        status.innerHTML = '<div class="text-emerald-600 font-semibold bg-emerald-50 px-4 py-2.5 rounded-lg border border-emerald-100">Pesquisa concluída: ' + registrosFiltrados.length + ' registo(s) encontrado(s).</div>';
-      } catch(err){ 
-        status.innerHTML = '<div class="text-rose-600 font-semibold bg-rose-50 px-4 py-2.5 rounded-lg border border-rose-100">Falha ao processar a consulta.</div>'; 
-      }
-    }
-
-    // Renderização da tabela de registos no ecrã principal
-    function renderTabela(list){
-      const tbody = document.getElementById('tbody');
-      tbody.innerHTML = '';
-      if (!list || list.length === 0){ 
-        tbody.innerHTML = '<tr><td colspan="7" class="px-6 py-10 text-center text-slate-400">Sem registos encontrados para os filtros aplicados.</td></tr>'; 
-        return; 
-      }
-      tbody.innerHTML = list.map(r => {
-        const dataPart = formatTimestamp(r.Timestamp);
-        const assinatura = r.AssinaturaPNG ? '<img class="sig-img" src="' + r.AssinaturaPNG + '" alt="Assinatura" />' : '-';
-        return `
-          <tr class="hover:bg-slate-50 transition-colors">
-            <td class="px-6 py-4 whitespace-nowrap font-medium text-slate-900">${escapeHtml(r.Matricula ?? '')}</td>
-            <td class="px-6 py-4 whitespace-nowrap">${escapeHtml(r.Nome ?? '')}</td>
-            <td class="px-6 py-4 whitespace-nowrap">${escapeHtml(r.Setor ?? '')}</td>
-            <td style="display:none">${escapeHtml(r.SemanaISO ?? '')}</td>
-            <td class="px-6 py-4 max-w-xs truncate" title="${escapeHtml(r.TituloVideo ?? '')}">${escapeHtml(r.TituloVideo ?? '')}</td>
-            <td class="px-6 py-4 whitespace-nowrap">${escapeHtml(dataPart)}</td>
-            <td class="px-6 py-4 whitespace-nowrap">${assinatura}</td>
-          </tr>`;
-      }).join('');
-    }
-
-    // Exportação em Excel (SheetJS)
-    function gerarXLS(){
-      const base = (registrosFiltrados && registrosFiltrados.length) ? registrosFiltrados : registros;
-      if (!base || !base.length) { alert('Efetue uma pesquisa primeiro.'); return; }
-      const ordenada = base === registros ? [...base].sort((a,b) => String(a.Nome ?? '').localeCompare(String(b.Nome ?? ''), 'pt-PT', { sensitivity: 'base' })) : base;
-      const linhas = ordenada.map(r => ({
-        'Matrícula': r.Matricula ?? '',
-        'Colaborador': r.Nome ?? '',
-        'Setor': r.Setor ?? '',
-        'Semana (ISO)': r.SemanaISO ?? '',
-        'Título do Vídeo': r.TituloVideo ?? '',
-        'Data de Participação': formatTimestamp(r.Timestamp),
-      }));
-      const wb = XLSX.utils.book_new();
-      const ws = XLSX.utils.json_to_sheet(linhas);
-      XLSX.utils.book_append_sheet(wb, ws, 'Pesquisa');
-      XLSX.writeFile(wb, nomeArquivo('xlsx'));
-    }
-
-    async function fetchTreinamentos(){
-      try { 
-        const res = await apiFetch('action=treinamentos'); 
-        const data = await res.json(); 
-        if(!data.ok) return []; 
-        return Array.isArray(data.data) ? data.data : []; 
-      } catch(e){ 
-        return []; 
-      }
-    }
-
-    // Auxiliares de Assinatura Digital e Parsing de URLs de Base64
-    const __dataUrlCache = new Map();
-    function isDataURLImage(v){ return (typeof v === 'string' && /^data:image\/(png|jpeg|jpg);base64,/i.test(v.trim())); }
-    async function urlToDataURL(url){ 
-      try { 
-        if(__dataUrlCache.has(url)) return __dataUrlCache.get(url); 
-        const res = await fetch(url, { mode: 'cors' }); 
-        const blob = await res.blob(); 
-        const dataUrl = await new Promise((resolve) => { 
-          const fr = new FileReader(); 
-          fr.onload = () => resolve(fr.result); 
-          fr.onerror = () => resolve(''); 
-          fr.readAsDataURL(blob);
-        }); 
-        __dataUrlCache.set(url, dataUrl || ''); 
-        return dataUrl || ''; 
-      } catch(e){ 
-        return ''; 
-      } 
-    }
-    
-    async function ensureDataURLImage(v){ 
-      if(!v) return ''; 
-      if(isDataURLImage(v)) return v; 
-      return await urlToDataURL(v); 
-    }
-    
-    async function resolveRowSignatures(rows){ 
-      const out = []; 
-      for(const r of rows){ 
-        const sig = await ensureDataURLImage(r._sig || r.AssinaturaPNG || ''); 
-        out.push({ ...r, _sig: sig }); 
-      } 
-      return out; 
-    }
-
-    // Geração Inteligente do Relatório de Presenças em formato PDF (A4)
-    async function gerarPDF(){
-      await loadLogoAsDataURL();
-      const baseSource = (Array.isArray(registrosFiltrados) && registrosFiltrados.length) ? registrosFiltrados : registros;
-      if (!baseSource || !baseSource.length){ alert('Sem dados disponíveis para gerar PDF.'); return; }
-      const base = [...baseSource].sort((a,b) => String(a.Nome ?? '').localeCompare(String(b.Nome ?? ''), 'pt-PT', { sensitivity: 'base' }));
-      const titulos = [...new Set(base.map(r => r.TituloVideo).filter(Boolean))];
-      const tituloSemana = titulos.length ? titulos.join('; ') : '-';
-
-      let assuntosCabecalho = '';
-      try {
-        const tList = await fetchTreinamentos();
-        const semanasISO = [...new Set(base.map(r => r.SemanaISO).filter(Boolean))];
-        if (tList && tList.length){
-          const setISO = new Set(semanasISO);
-          let hit = tList.find(t => setISO.has(String(t['SemanaISO'])));
-          if (!hit && titulos.length) hit = tList.find(t => String(t['Titulo']).trim() === titulos[0]);
-          assuntosCabecalho = hit && hit['Assuntos'] ? String(hit['Assuntos']) : '';
-        }
-      } catch(e){}
-
-      const { jsPDF } = window.jspdf;
-      const M_TOP = 28.35, M_BOTTOM = 28.35, M_LEFT = 14.17, M_RIGHT = 14.17;
-      const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4', compress: true });
-      const pageWidth = doc.internal.pageSize.getWidth();
-      const pageHeight = doc.internal.pageSize.getHeight();
-      const usableWidth = pageWidth - M_LEFT - M_RIGHT;
-      const LOGO_W = 120, LOGO_H = 52, L_H = 14;
-
-      let assuntosLines = [];
-      if (assuntosCabecalho) {
-        const raw = assuntosCabecalho.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-        const partes = raw.split('\n').map(s => s.trim()).filter(Boolean);
-        const linhasExpand = [];
-        partes.forEach(p => linhasExpand.push(p));
-        assuntosLines = linhasExpand.flatMap(linha => doc.splitTextToSize(linha, usableWidth - 8));
-      }
-
-      function drawHeader(pageNumber){
-        try { if (LOGO_DATAURL) doc.addImage(LOGO_DATAURL, 'PNG', pageWidth - M_RIGHT - LOGO_W, M_TOP, LOGO_W, LOGO_H); } catch(e){}
-        doc.setFont('helvetica', 'bold'); doc.setFontSize(18); doc.text('DIÁLOGO SEMANAL DE SEGURANÇA', M_LEFT, M_TOP + 20);
-        if (pageNumber === 1){
-          doc.setFont('helvetica', 'bold'); doc.setFontSize(14); doc.text('Semana: ' + (tituloSemana ?? '-'), M_LEFT, M_TOP + 20 + 2 * L_H);
-          if (assuntosLines.length){
-            doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
-            doc.text('Temas Abordados:', M_LEFT, M_TOP + 20 + 4 * L_H);
-            doc.setFont('helvetica', 'normal'); doc.setFontSize(11);
-            assuntosLines.forEach((linha, i) => {
-              doc.text(linha, M_LEFT + 8, M_TOP + 20 + 4 * L_H + (i + 1) * L_H);
-            });
-          }
-        }
-      }
-
-      function drawFooter(pageNumber, totalPagesText){
-        const footerY = pageHeight - M_BOTTOM; 
-        const generatedAt = new Date().toLocaleString('pt-PT');
-        doc.setFont('helvetica', 'italic'); doc.setFontSize(9); doc.text('Gerado em: ' + generatedAt, M_LEFT, footerY - 4 * L_H);
-        doc.setFont('helvetica', 'normal'); doc.setFontSize(9);
-        doc.text('Caterair Serviços de Bordo e Hotelaria LTDA - Base GIG', M_LEFT, footerY - 3 * L_H);
-        doc.text('CNPJ 33.375.601/0001-38', M_LEFT, footerY - 2 * L_H);
-        doc.text('Rua P, S/N, Área de Apoio do Aeroporto Internacional do Rio de Janeiro - Ilha do Governador - RJ', M_LEFT, footerY - 1 * L_H);
-        const pagText = `Página ${pageNumber} de ${totalPagesText}`.trim();
-        doc.text(pagText, pageWidth / 2, footerY, { align: 'center' });
-      }
-
-      const columns = [
-        { header: 'Matrícula', dataKey: 'Matricula' },
-        { header: 'Colaborador', dataKey: 'Nome' },
-        { header: 'Setor', dataKey: 'Setor' },
-        { header: 'Data de Participação', dataKey: 'DataFmt' },
-        { header: 'Assinatura', dataKey: '_sig' },
-      ];
-      
-      let rows = base.map(r => ({ Matricula: r.Matricula??'', Nome: r.Nome??'', Setor: r.Setor??'', DataFmt: formatTimestamp(r.Timestamp)??'', _sig: r.AssinaturaPNG ?? '' }));
-      rows = await resolveRowSignatures(rows);
-
-      const totalPagesExp = '{total_pages_count_string}';
-      let yStartFirstPage = M_TOP + 20 + 2 * L_H + (assuntosLines.length ? 2 * L_H + assuntosLines.length * L_H : 0) + 2 * L_H;
-      const yStartFirstPageMin = M_TOP + 20 + 6 * L_H; 
-      if (yStartFirstPage < yStartFirstPageMin) yStartFirstPage = yStartFirstPageMin;
-      const yStartOtherPages = M_TOP + LOGO_H + 5 * L_H;
-
-      doc.autoTable({
-        startY: yStartFirstPage,
-        margin: { left: M_LEFT, right: M_RIGHT, top: yStartOtherPages, bottom: M_BOTTOM + 80 },
-        pageBreak: 'auto', 
-        tableWidth: usableWidth,
-        columns, 
-        body: rows,
-        styles: { font: 'helvetica', fontSize: 10, cellPadding: 4, valign: 'middle', overflow: 'linebreak', minCellHeight: 36 },
-        headStyles: { fillColor: [33, 150, 243], textColor: 255, halign: 'center' },
-        columnStyles: { Matricula: { halign: 'left' }, Nome: { halign: 'left' }, Setor: { halign: 'left', cellWidth: 120 }, DataFmt: { halign: 'left' }, _sig: { halign: 'center', cellWidth: 150 } },
-        didParseCell: (data) => { 
-          if (data.section === 'body' && data.column.dataKey === '_sig'){ 
-            data.cell.text = ['']; 
-            if (data.cell && data.cell.styles){ data.cell.styles.lineWidth = 0; } 
-          } 
-        },
-        didDrawPage: (data) => { 
-          drawHeader(data.pageNumber); 
-          drawFooter(data.pageNumber, totalPagesExp); 
-          if (data.pageNumber > 1 && data.cursor && data.cursor.y < yStartOtherPages){ data.cursor.y = yStartOtherPages; } 
-        },
-        didDrawCell: (data) => {
-          if (data.section === 'body' && data.column && data.column.dataKey === '_sig'){
-            const val = data.row?.raw?._sig || '';
-            if (typeof val === 'string' && /^data:image\/(png|jpeg|jpg);base64,/i.test(val)){
-              try { 
-                const props = doc.getImageProperties(val); 
-                const wPtNat = (props.width * 72) / 96; 
-                const hPtNat = (props.height * 72) / 96; 
-                const pad = 4; 
-                const maxW = data.cell.width - pad * 2; 
-                const maxH = data.cell.height - pad * 2; 
-                const scale = Math.min(maxW / wPtNat, maxH / hPtNat, 1); 
-                const w = wPtNat * scale; 
-                const h = hPtNat * scale; 
-                const x = data.cell.x + (data.cell.width - w) / 2; 
-                const y = data.cell.y + (data.cell.height - h) / 2; 
-                doc.addImage(val, props.fileType || 'PNG', x, y, w, h); 
-              } catch(e){}
-            }
-          }
-        },
-      });
-
-      // Rúbricas Oficiais de Instrutores / Validadores ao final da tabela
-      const Formadores = PDF_INSTRUTORES || [];
-      if (Formadores.length > 0) {
-        const yAfterTable = doc.lastAutoTable.finalY ?? (pageHeight - M_BOTTOM - 120);
-        const footerAreaH = M_BOTTOM + 4 * L_H + 20; 
-        const instrBlockH = 80; 
-        const totalInstrH = Formadores.length * instrBlockH + 30;
-
-        let yInstr = yAfterTable + 20;
-        if (yInstr + totalInstrH > pageHeight - footerAreaH) {
-          doc.addPage();
-          drawHeader(doc.internal.getNumberOfPages());
-          drawFooter(doc.internal.getNumberOfPages(), totalPagesExp);
-          yInstr = yStartOtherPages + 10;
-        }
-
-        doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
-        doc.setFillColor(33, 150, 243);
-        doc.rect(M_LEFT, yInstr, usableWidth, 18, 'F');
-        doc.setTextColor(255, 255, 255);
-        doc.text('FORMADORES / VALIDATIVOS DO TREINAMENTO', M_LEFT + 6, yInstr + 13);
-        doc.setTextColor(0, 0, 0);
-        yInstr += 26;
-
-        const colW = usableWidth / Formadores.length;
-        const sigH = 52;
-        const cellH = sigH + 3 * L_H + 10;
-
-        for (let i = 0; i < Formadores.length; i++) {
-          const instr = Formadores[i];
-          const xCell = M_LEFT + i * colW;
-
-          doc.setDrawColor(200, 200, 200);
-          doc.rect(xCell, yInstr, colW, cellH);
-
-          if (instr.assinatura && /^data:image\/(png|jpeg|jpg);base64,/i.test(instr.assinatura)) {
-            try {
-              const props = doc.getImageProperties(instr.assinatura);
-              const maxW = colW - 20; const maxH = sigH;
-              const scale = Math.min(maxW / props.width, maxH / props.height, 1);
-              const w = props.width * scale; const h = props.height * scale;
-              const xImg = xCell + (colW - w) / 2;
-              doc.addImage(instr.assinatura, props.fileType || 'PNG', xImg, yInstr + 4, w, h);
-            } catch(e){}
-          }
-
-          doc.setDrawColor(200, 200, 200);
-          doc.line(xCell + 8, yInstr + sigH + 6, xCell + colW - 8, yInstr + sigH + 6);
-
-          doc.setFont('helvetica', 'bold'); doc.setFontSize(9);
-          const nomeLines = doc.splitTextToSize(instr.nome || '-', colW - 10);
-          doc.text(nomeLines, xCell + colW / 2, yInstr + sigH + 14, { align: 'center' });
-          doc.setFont('helvetica', 'normal'); doc.setFontSize(8);
-          doc.text(instr.cargo || '', xCell + colW / 2, yInstr + sigH + 14 + L_H, { align: 'center' });
-          doc.text(`N.º Registo: ${instr.matricula || '-'}`, xCell + colW / 2, yInstr + sigH + 14 + 2 * L_H, { align: 'center' });
-        }
-      }
-
-      if (typeof doc.putTotalPages === 'function'){ doc.putTotalPages(totalPagesExp); }
-      doc.save('Relatorio_Dialogo_Semanal_de_Seguranca.pdf');
-    }
-
-    // Prompt administrativo para cadastrar novos funcionários (pt-PT)
-    async function novoFuncionarioViaPrompt(){
-      const status = document.getElementById('status');
-      try {
-        let mRaw = prompt('Nova matrícula (5 algarismos, apenas números):');
-        if (mRaw === null) return; 
-        mRaw = (mRaw ?? '').replace(/\D/g, '');
-        while (!/^\d{5}$/.test(mRaw)){
-          mRaw = prompt('Número de registo inválido. Forneça exatamente 5 dígitos (ex.: 12345):', mRaw);
-          if (mRaw === null) return; 
-          mRaw = (mRaw ?? '').replace(/\D/g, '');
-        }
-        const matricula = mRaw;
-        let nome = prompt('Nome completo:'); 
-        if (nome === null) return; 
-        nome = (nome ?? '').trim();
-        if (!nome){ alert('O nome do colaborador é obrigatório.'); return; }
-        
-        let setor = prompt('Setor (opcional):'); 
-        if (setor === null) setor = ''; 
-        setor = (setor ?? '').trim();
-        
-        const ok = confirm(`Confirmar cadastro do novo colaborador?\n\nMatrícula: ${matricula}\nNome: ${nome}\nSetor: ${setor ?? '-'}\nAtivo: SIM`);
-        if (!ok){ status.innerHTML = '<div class="text-amber-600 bg-amber-50 px-4 py-2 rounded-lg border border-amber-100">Operação cancelada.</div>'; return; }
-        
-        const payload = { matricula, nome, setor, ativo: true };
-        status.innerHTML = '<div class="text-amber-500 bg-amber-50 px-4 py-2 rounded-lg border border-amber-100">A submeter novo registo ao servidor...</div>';
-        
-        const res = await fetch(API_BASE + '?action=addFuncionario', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-        let data; 
-        try { data = await res.json(); } catch { data = { ok: false, error: 'Erro de formatação na resposta' }; }
-        if (!data.ok) throw new Error(data.error ?? 'Falha ao incluir colaborador');
-        status.innerHTML = '<div class="text-emerald-600 bg-emerald-50 px-4 py-2 rounded-lg border border-emerald-100">Colaborador inserido com sucesso!</div>';
-      } catch(err){ 
-        status.innerHTML = '<div class="text-rose-600 bg-rose-50 px-4 py-2 rounded-lg border border-rose-100">' + (err && err.message ? err.message : 'Erro ao processar criação de colaborador') + '</div>'; 
-      }
-    }
-
-    function escapeHtml(str){
-      return String(str ?? '')
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/\x22/g, '&quot;')
-        .replace(/'/g, '&#39;');
-    }
-    
-    function nomeArquivo(ext){ 
-      const hoje = new Date(); 
-      const pad = n => String(n).padStart(2, '0'); 
-      return `DSS_GIG_Relatorio_${hoje.getFullYear()}-${pad(hoje.getMonth() + 1)}-${pad(hoje.getDate())}.${ext}`; 
-    }
-    
-    function normalizarDataInput(v){
-      if (!v) return null;
-      v = String(v).trim();
-      const m = v.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-      if (m) {
-        const [, dd, mm, yyyy] = m;
-        return new Date(Date.UTC(+yyyy, +mm - 1, +dd, 0, 0, 0));
-      }
-      const m2 = v.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-      if (m2) {
-        const [, yyyy, mm, dd] = m2;
-        return new Date(Date.UTC(+yyyy, +mm - 1, +dd, 0, 0, 0));
-      }
-      return null;
-    }
-    
-    function fimDoDia(dIniUTC){ 
-      if(!dIniUTC) return null; 
-      return new Date(dIniUTC.getTime() + 24 * 60 * 60 * 1000 - 1); 
-    }
-    
-    function parseTimestamp(valor){ 
-      if(!valor) return null; 
-      let d = new Date(valor); 
-      if(!Number.isNaN(d.getTime())) return d; 
-      const rx = /(^\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/; 
-      const m = String(valor).trim().match(rx); 
-      if(m){ 
-        const dd = +m[1], mm = +m[2], yy = +m[3]; 
-        const hh = +(m[4]??0), mi = +(m[5]??0), ss = +(m[6]??0); 
-        return new Date(yy, mm-1, dd, hh, mi, ss); 
-      } 
-      return null; 
-    }
-    
-    function formatTimestamp(ts){ 
-      const d = parseTimestamp(ts); 
-      if(!d) return String(ts ?? ''); 
-      const pad = n => String(n).padStart(2, '0'); 
-      return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`; 
-    }
-
-    /* ====== LÓGICA DO PAINEL DASHBOARD ====== */
-    let DASH_registrosAll = null, DASH_funcionarios = null, DASH_treinamentos = null;
-    let DASH_participantes = [], DASH_naoParticipantes = [];
-
-    /* ====== GESTÃO DE AUSÊNCIAS / FÉRIAS ====== */
-    let AFAST_set = new Set(); 
-
-    function afastNormMat(v){ return String(v??'').replace(/\D/g, '').padStart(5, '0'); }
-
-    function afastSalvar(){ 
-      try { localStorage.setItem('dss_afast', JSON.stringify([...AFAST_set])); } catch(e){} 
-    }
-    
-    function afastCarregar(){ 
-      try { 
-        const d = localStorage.getItem('dss_afast'); 
-        if(d){ JSON.parse(d).forEach(m => AFAST_set.add(m)); } 
-      } catch(e){} 
-    }
-
-    // Renderizar tags e tabela de colaboradores de folga/férias
-    function afastRenderTags(){
-      const badge = document.getElementById('afastBadge');
-      const tbody = document.getElementById('tbodyAfastados');
-      if (badge) badge.textContent = AFAST_set.size;
-      if (!tbody) return;
-
-      if (AFAST_set.size === 0){
-        tbody.innerHTML = '<tr><td colspan="4" class="px-6 py-8 text-center text-slate-400">Nenhum funcionário ausente ou de férias.</td></tr>';
-        return;
-      }
-
-      const getFunc = mat => (DASH_funcionarios||[]).find(f => afastNormMat(f.Matricula) === mat) || {};
-
-      tbody.innerHTML = [...AFAST_set].sort().map(mat => {
-        const f = getFunc(mat);
-        const nome = escapeHtml(f.Nome ?? mat);
-        const setor = escapeHtml(f.Setor ?? '-');
-        return `<tr data-mat="${mat}">
-          <td class="px-6 py-4 font-semibold text-slate-900">${mat}</td>
-          <td class="px-6 py-4">${nome}</td>
-          <td class="px-6 py-4">${setor}</td>
-          <td class="px-6 py-4 text-center">
-            <button type="button" class="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-xs font-semibold py-1.5 px-3 rounded-lg transition-colors afast-btn-retornar" data-mat="${mat}">
-              ↩ Retornar
-            </button>
-          </td>
-        </tr>`;
-      }).join('');
-
-      tbody.querySelectorAll('.afast-btn-retornar').forEach(btn => {
-        btn.addEventListener('click', e => {
-          e.stopPropagation();
-          const mat = btn.dataset.mat;
-          if (confirm(`Remover ${getFunc(mat).Nome ?? mat} da lista de férias/ausências?`)){
-            AFAST_set.delete(mat);
-            afastSalvar();
-            afastRenderTags();
-            dashAtualizar();
-          }
-        });
-      });
-    }
-
-    // Auto-complete inteligente de busca de colaboradores
-    function afastRenderCandidates(query){
-      const box = document.getElementById('afastCandidates');
-      if (!box) return;
-      const q = (query||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
-      const funcs = (DASH_funcionarios||[]).filter(f => {
-        const ativo = ['true','1','sim','yes'].includes(String(f.Ativo??f.ativo??'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim());
-        if (!ativo) return false;
-        if (!q) return true;
-        const nome = String(f.Nome??'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-        const mat = afastNormMat(f.Matricula);
-        return nome.includes(q) || mat.includes(q);
-      }).slice(0, 30);
-
-      if (!funcs.length){
-        box.innerHTML = '<div class="px-4 py-3 text-sm text-slate-400">Nenhum colaborador localizado.</div>';
-        box.style.display = 'block';
-        return;
-      }
-      
-      box.innerHTML = funcs.map(f => {
-        const mat = afastNormMat(f.Matricula);
-        const already = AFAST_set.has(mat);
-        return `<div class="px-4 py-3 text-sm cursor-pointer hover:bg-slate-50 flex items-center justify-between border-b border-slate-100 last:border-b-0 afast-item" data-mat="${mat}">
-          <div class="flex flex-col">
-            <span class="font-medium text-slate-800">${escapeHtml(f.Nome??'')}</span>
-            <span class="text-xs text-slate-400">Matrícula: ${mat} · Setor: ${escapeHtml(f.Setor??'')}</span>
-          </div>
-          ${already ? '<span class="text-amber-600 text-xs font-bold bg-amber-50 px-2 py-0.5 rounded border border-amber-200">Ausente</span>' : ''}
-        </div>`;
-      }).join('');
-      box.style.display = 'block';
-      
-      box.querySelectorAll('.afast-item').forEach(item => {
-        item.addEventListener('click', () => {
-          const mat = item.dataset.mat;
-          if (AFAST_set.has(mat)){ 
-            AFAST_set.delete(mat); 
-          } else { 
-            AFAST_set.add(mat); 
-          }
-          afastSalvar();
-          afastRenderTags();
-          dashAtualizar();
-          const q2 = document.getElementById('afastBusca')?.value || '';
-          afastRenderCandidates(q2);
-        });
-      });
-    }
-
-    // Inicialização da área de Ausências
-    (function initAfast(){
-      afastCarregar();
-      afastRenderTags();
-
-      const inp = document.getElementById('afastBusca');
-      const box = document.getElementById('afastCandidates');
-      const panel = document.getElementById('afastPanel');
-      const chevron = document.getElementById('afastChevron');
-      
-      // Rotacionar chevron do details nativo
-      if (panel && chevron) {
-        panel.addEventListener('toggle', () => {
-          chevron.textContent = panel.open ? '▲' : '▼';
-        });
-      }
-
-      if (inp){
-        inp.addEventListener('input', () => {
-          const q = inp.value.trim();
-          if (q.length === 0){ box.style.display = 'none'; return; }
-          afastRenderCandidates(q);
-        });
-        inp.addEventListener('focus', () => {
-          if(inp.value.trim()) afastRenderCandidates(inp.value.trim());
-        });
-        document.addEventListener('click', e => {
-          if (!inp.contains(e.target) && !box.contains(e.target)) box.style.display = 'none';
-        });
-      }
-      
-      document.getElementById('btnAfastLimpar')?.addEventListener('click', () => {
-        if (!AFAST_set.size) return;
-        if (confirm('Deseja retirar todos os colaboradores da lista de ausentes/férias?')){
-          AFAST_set.clear();
-          afastSalvar();
-          afastRenderTags();
-          dashAtualizar();
-        }
-      });
-    })();
-
-    document.getElementById('btnDashAtualizar').addEventListener('click', dashAtualizar);
-    document.getElementById('btnDashXLSNP').addEventListener('click', dashGerarXLS_NP);
-    document.getElementById('btnDashXLSP').addEventListener('click', dashGerarXLS_P);
-
-    document.getElementById('dashTitulo').addEventListener('change', function(){
-      const titVal = this.value.trim();
-      const hit = (DASH_treinamentos||[]).find(t => String(t.Titulo).trim() === titVal);
-      document.getElementById('dashSemanaIso').value = (hit && hit.SemanaISO) ? String(hit.SemanaISO) : '';
+    // Sincronizar o valor selecionado no nativo de volta para o input formatado
+    native.addEventListener('change', function(){
+      if (!this.value) return;
+      const [y, mo, d] = this.value.split('-');
+      txt.value = `${d}/${mo}/${y}`;
     });
+  }
+  
+  setupDatePicker('fDataInicio', 'fDataInicioNative', 'btnCalInicio');
+  setupDatePicker('fDataFinal',  'fDataFinalNative',  'btnCalFinal');
 
-    (async function dashInit(){
-      await dashEnsureData();
-      await dashPopularSelects();
-      dashSugerirSemanaAtivaMaisRecente();
-      await dashAtualizar();
-    })();
+  ['fDataInicio','fDataFinal'].forEach(id => {
+    document.getElementById(id)?.addEventListener('keydown', e => { if(e.key === 'Enter'){ e.preventDefault(); buscar(); } });
+  });
 
-    async function dashEnsureData(){
-      const [jTrein, jFunc, jRegs] = await Promise.all([
-        !DASH_treinamentos ? _cachedFetch('treinamentos').catch(() => null) : Promise.resolve(null),
-        !DASH_funcionarios ? _cachedFetch('funcionarios').catch(() => null) : Promise.resolve(null),
-        !DASH_registrosAll ? _cachedFetch('registros').catch(() => null)    : Promise.resolve(null),
-      ]);
-      if (!DASH_treinamentos) DASH_treinamentos = _parseRows(jTrein);
-      if (!DASH_funcionarios) DASH_funcionarios = _parseRows(jFunc);
-      if (!DASH_registrosAll) DASH_registrosAll = _parseRows(jRegs);
+  // Gestão de chamadas paralelas de API em cache para evitar sobrecarga no servidor
+  const _apiCache = {};
+  function _cachedFetch(action){
+    if (!_apiCache[action]) {
+      _apiCache[action] = apiFetch('action=' + action)
+        .then(r => r.ok ? r.json().catch(() => null) : null)
+        .catch(() => null);
     }
+    return _apiCache[action];
+  }
+  
+  _cachedFetch('treinamentos');
+  _cachedFetch('registros');
+  _cachedFetch('funcionarios');
 
-    async function dashPopularSelects(){
-      const normF = s => String(s??'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
-      const exactos = ['Titulo','titulo','TITULO','Title','title','TituloVideo','titulovideo'];
-      const mapaISO = new Map();
+  // Descompactação das estruturas JSON retornadas pela API (GAS)
+  function _parseRows(json){
+    if (Array.isArray(json))         return json;
+    if (Array.isArray(json?.data))   return json.data;
+    if (Array.isArray(json?.result)) return json.result;
+    if (typeof json === 'object' && json){
+      const v = Object.values(json).find(v => Array.isArray(v)); 
+      if (v) return v;
+    }
+    return [];
+  }
 
-      const rows1 = DASH_treinamentos || [];
-      const chaves = Object.keys(rows1[0]||{});
+  // Auxiliar para a geração das opções (Dropdown) dos títulos e semanas
+  function _buildTituloOpts(mapaISO, prefixOpt){
+    return prefixOpt + [...mapaISO.entries()]
+      .sort((a,b)=>{ 
+        const pa = dashParseSemanaISO(a[1]), pb = dashParseSemanaISO(b[1]); 
+        if(pa.year !== pb.year) return pb.year - pa.year; 
+        return pb.week - pa.week; 
+      })
+      .map(([t]) => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join('');
+  }
+
+  // Popular os Selects com os Títulos de Formação (DSS)
+  (async function popularTitulos(){
+    const normF = s => String(s??'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+    const exactos = ['Titulo','titulo','TITULO','Title','title','TituloVideo','titulovideo'];
+    const mapaISO = new Map();
+
+    try {
+      const rows = _parseRows(await _cachedFetch('treinamentos'));
+      const chaves = Object.keys(rows[0]||{});
       const campo = exactos.find(c => chaves.includes(c)) ?? chaves.find(k => normF(k).includes('titul')) ?? null;
-      if (campo) rows1.forEach(r => { const t = String(r[campo]??'').trim(); if(t) mapaISO.set(t, String(r.SemanaISO??'').trim()); });
+      if (campo) rows.forEach(r => { const t = String(r[campo]??'').trim(); if(t) mapaISO.set(t, String(r.SemanaISO??'').trim()); });
+    } catch(e){}
 
-      const isoSet = new Set(rows1.map(r => String(r.SemanaISO||'')).filter(Boolean));
+    const selP = document.getElementById('fSemanaTitulo');
+    if (mapaISO.size) selP.innerHTML = _buildTituloOpts(mapaISO, '<option value="">Todas</option>');
 
-      const titSel = document.getElementById('dashTitulo');
-      if (mapaISO.size){
-        titSel.innerHTML = '<option value="">Selecione um título...</option>' + _buildTituloOpts(mapaISO, '');
-      }
-
-      const rows2 = DASH_registrosAll || [];
-      rows2.forEach(r => { 
+    try {
+      const rows = _parseRows(await _cachedFetch('registros'));
+      rows.forEach(r => { 
         const t = String(r.TituloVideo??r.Titulo??r.titulo??'').trim(); 
         const iso = String(r.SemanaISO??'').trim(); 
         if(t && !mapaISO.has(t)) mapaISO.set(t, iso); 
         else if(t && !mapaISO.get(t) && iso) mapaISO.set(t, iso); 
-        if(iso) isoSet.add(iso); 
       });
+    } catch(e){}
 
-      const selAtual = titSel.value;
-      titSel.innerHTML = '<option value="">Selecione um título...</option>' + _buildTituloOpts(mapaISO, '');
-      if (selAtual && [...titSel.options].some(o => o.value === selAtual)) titSel.value = selAtual;
+    const selAtual = selP.value;
+    selP.innerHTML = _buildTituloOpts(mapaISO, '<option value="">Todas</option>');
+    if (selAtual && [...selP.options].some(o => o.value === selAtual)) selP.value = selAtual;
+  })();
 
-      const isoList = [...isoSet].sort(dashCompareSemanaISODesc);
-      document.getElementById('dashSemanaIso').innerHTML =
-        '<option value="">Selecione...</option>' + isoList.map(sem => `<option value="${escapeHtml(sem)}">${escapeHtml(sem)}</option>`).join('');
-    }
+  // Lógica principal de pesquisa de registos
+  async function buscar(){
+    const status = document.getElementById('status');
+    status.innerHTML = '';
+    const fMat = document.getElementById('fMat').value.trim();
+    const fNome = document.getElementById('fNome').value.trim();
+    const fTitulo = document.getElementById('fSemanaTitulo').value.trim();
+    const fDataI = document.getElementById('fDataInicio').value;
+    const fDataF = document.getElementById('fDataFinal').value;
 
-    function dashSugerirSemanaAtivaMaisRecente(){
-      const ativos = (DASH_treinamentos||[]).filter(t => { 
-        const v = String(t.Ativo??t.ativo??'').toLowerCase().trim(); 
-        return v === 'true' || v === '1' || v === 'sim' || v === 'yes'; 
-      });
-      const lista = ativos.length ? ativos : (DASH_treinamentos||[]);
-      let tituloSelecionado = null;
-      if (lista && lista.length){
-        const hasISO = lista.filter(t => t.SemanaISO && t.Titulo);
-        if (hasISO.length){
-          const maisRecente = hasISO.sort((a,b) => dashCompareSemanaISODesc(String(a.SemanaISO), String(b.SemanaISO)))[0];
-          tituloSelecionado = String(maisRecente.Titulo);
-        }
-      }
-      const titSel = document.getElementById('dashTitulo');
-      if (tituloSelecionado){
-        const opt = [...titSel.options].find(o => o.value === tituloSelecionado);
-        if (opt) titSel.value = opt.value;
-      } else if (titSel.options.length > 1){
-        titSel.selectedIndex = 1;
-      }
-      
-      const titVal = titSel.value;
-      if (titVal){
-        const hit = (DASH_treinamentos||[]).find(t => String(t.Titulo).trim() === titVal);
-        if (hit && hit.SemanaISO) document.getElementById('dashSemanaIso').value = String(hit.SemanaISO);
-      }
-    }
+    const qs = new URLSearchParams({ action: 'registros' });
+    if (fMat) qs.append('matricula', fMat);
+    if (fNome) qs.append('nome', fNome);
 
-    // Atualização de dados do dashboard com recarregamento limpo das fontes de dados
-    async function dashAtualizar(){
-      delete _apiCache['treinamentos'];
-      delete _apiCache['registros'];
-      delete _apiCache['funcionarios'];
-      DASH_treinamentos = null;
-      DASH_funcionarios = null;
-      DASH_registrosAll = null;
+    try {
+      const res = await apiFetch(qs.toString());
+      let data; 
+      try { data = await res.json(); } catch { data = { ok: false, error: 'Resposta não-JSON do proxy' }; }
+      if (!data.ok) throw new Error(data.error || 'Erro na pesquisa');
+      registros = Array.isArray(data.data) ? data.data : [];
 
-      await dashEnsureData();
-      afastRenderTags();
-
-      const titAntes = document.getElementById('dashTitulo').value;
-      await dashPopularSelects();
-      
-      const sel = document.getElementById('dashTitulo');
-      if (titAntes && [...sel.options].some(o => o.value === titAntes)) sel.value = titAntes;
-      else dashSugerirSemanaAtivaMaisRecente();
-
-      const dashStatus = document.getElementById('dashStatus'); 
-      dashStatus.innerHTML = '';
-
-      const selISO = ''; 
-      const selTit = document.getElementById('dashTitulo').value.trim();
-
-      function normalizarMatricula(v){
-        return String(v ?? '').replace(/\D/g, '').padStart(5, '0');
-      }
-
-      function normalizarSemanaISO(s){
-        const m = String(s||'').match(/^(\d{4})-W?(\d{1,2})$/i);
-        if(!m) return '';
-        return `${m[1]}-W${String(m[2]).padStart(2, '0')}`;
-      }
-
-      function ativoValido(v){
-        return ['true','1','sim','yes'].includes(String(v ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim());
-      }
-
-      let semanaAlvo = selISO;
-      if (!semanaAlvo && selTit){
-        const hit = (DASH_treinamentos||[]).find(t => String(t.Titulo).trim() === selTit);
-        if (hit && hit.SemanaISO) semanaAlvo = String(hit.SemanaISO);
-      }
-
-      if (!semanaAlvo){
-        dashStatus.innerHTML = '<div class="text-amber-600 bg-amber-50 px-4 py-2 rounded-lg border border-amber-100">Por favor, selecione um Tema para prosseguir.</div>';
-        dashRender([], []);
-        dashKPIs({ total: 0, part: 0, nPart: 0, semana: '-', titulo: '-', registrosAll: DASH_registrosAll||[], funcAtivos: (DASH_funcionarios||[]).filter(f => ativoValido(f.Ativo??f.ativo)) });
-        return;
-      }
-
-      const semanaNorm = normalizarSemanaISO(semanaAlvo);
-      const mapaPart = new Map();
-
-      for (const r of (DASH_registrosAll||[])){
-        if (normalizarSemanaISO(r.SemanaISO) !== semanaNorm) continue;
-        const key = normalizarMatricula(r.Matricula);
+      const di = normalizarDataInput(fDataI);
+      const df = fimDoDia(normalizarDataInput(fDataF));
+      let lista = registros.filter(r => {
         const ts = parseTimestamp(r.Timestamp);
+        if (!ts) return false;
+        if (di && ts < di) return false;
+        if (df && ts > df) return false;
+        if (fTitulo && (r.TituloVideo ?? '') !== fTitulo) return false;
+        return true;
+      });
 
-        if (!mapaPart.has(key)){
+      const mapa = new Map();
+      for (const r of lista){
+        const chave = `${r.Matricula ?? ''}__${r.SemanaISO ?? ''}__${r.TituloVideo ?? ''}`;
+        const atual = mapa.get(chave);
+        const novoTS = parseTimestamp(r.Timestamp);
+        if (!atual) mapa.set(chave, r);
+        else { 
+          const antigoTS = parseTimestamp(atual.Timestamp); 
+          if (novoTS && antigoTS && novoTS < antigoTS) mapa.set(chave, r); 
+        }
+      }
+
+      registrosFiltrados = Array.from(mapa.values()).sort((a,b) => String(a.Nome ?? '').localeCompare(String(b.Nome ?? ''), 'pt-PT', { sensitivity: 'base' }));
+      renderTabela(registrosFiltrados);
+      status.innerHTML = '<div class="text-emerald-600 font-semibold bg-emerald-50 px-4 py-2.5 rounded-lg border border-emerald-100">Pesquisa concluída: ' + registrosFiltrados.length + ' registo(s) encontrado(s).</div>';
+    } catch(err){ 
+      status.innerHTML = '<div class="text-rose-600 font-semibold bg-rose-50 px-4 py-2.5 rounded-lg border border-rose-100">Falha ao processar a consulta.</div>'; 
+    }
+  }
+
+  // Renderização da tabela de registos no ecrã principal
+  function renderTabela(list){
+    const tbody = document.getElementById('tbody');
+    tbody.innerHTML = '';
+    if (!list || list.length === 0){ 
+      tbody.innerHTML = '<tr><td colspan="7" class="px-6 py-10 text-center text-slate-400">Sem registos encontrados para os filtros aplicados.</td></tr>'; 
+      return; 
+    }
+    tbody.innerHTML = list.map(r => {
+      const dataPart = formatTimestamp(r.Timestamp);
+      const assinatura = r.AssinaturaPNG ? '<img class="sig-img" src="' + r.AssinaturaPNG + '" alt="Assinatura" />' : '-';
+      return `
+        <tr class="hover:bg-slate-50 transition-colors">
+          <td class="px-6 py-4 whitespace-nowrap font-medium text-slate-900">${escapeHtml(r.Matricula ?? '')}</td>
+          <td class="px-6 py-4 whitespace-nowrap">${escapeHtml(r.Nome ?? '')}</td>
+          <td class="px-6 py-4 whitespace-nowrap">${escapeHtml(r.Setor ?? '')}</td>
+          <td style="display:none">${escapeHtml(r.SemanaISO ?? '')}</td>
+          <td class="px-6 py-4 max-w-xs truncate" title="${escapeHtml(r.TituloVideo ?? '')}">${escapeHtml(r.TituloVideo ?? '')}</td>
+          <td class="px-6 py-4 whitespace-nowrap">${escapeHtml(dataPart)}</td>
+          <td class="px-6 py-4 whitespace-nowrap">${assinatura}</td>
+        </tr>`;
+    }).join('');
+  }
+
+  // Exportação em Excel (SheetJS)
+  function gerarXLS(){
+    const base = (registrosFiltrados && registrosFiltrados.length) ? registrosFiltrados : registros;
+    if (!base || !base.length) { alert('Efetue uma pesquisa primeiro.'); return; }
+    const ordenada = base === registros ? [...base].sort((a,b) => String(a.Nome ?? '').localeCompare(String(b.Nome ?? ''), 'pt-PT', { sensitivity: 'base' })) : base;
+    const linhas = ordenada.map(r => ({
+      'Matrícula': r.Matricula ?? '',
+      'Colaborador': r.Nome ?? '',
+      'Setor': r.Setor ?? '',
+      'Semana (ISO)': r.SemanaISO ?? '',
+      'Título do Vídeo': r.TituloVideo ?? '',
+      'Data de Participação': formatTimestamp(r.Timestamp),
+    }));
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(linhas);
+    XLSX.utils.book_append_sheet(wb, ws, 'Pesquisa');
+    XLSX.writeFile(wb, nomeArquivo('xlsx'));
+  }
+
+  async function fetchTreinamentos(){
+    try { 
+      const res = await apiFetch('action=treinamentos'); 
+      const data = await res.json(); 
+      if(!data.ok) return []; 
+      return Array.isArray(data.data) ? data.data : []; 
+    } catch(e){ 
+      return []; 
+    }
+  }
+
+  // Auxiliares de Assinatura Digital e Parsing de URLs de Base64
+  const __dataUrlCache = new Map();
+  function isDataURLImage(v){ return (typeof v === 'string' && /^data:image\/(png|jpeg|jpg);base64,/i.test(v.trim())); }
+  async function urlToDataURL(url){ 
+    try { 
+      if(__dataUrlCache.has(url)) return __dataUrlCache.get(url); 
+      const res = await fetch(url, { mode: 'cors' }); 
+      const blob = await res.blob(); 
+      const dataUrl = await new Promise((resolve) => { 
+        const fr = new FileReader(); 
+        fr.onload = () => resolve(fr.result); 
+        fr.onerror = () => resolve(''); 
+        fr.readAsDataURL(blob);
+      }); 
+      __dataUrlCache.set(url, dataUrl || ''); 
+      return dataUrl || ''; 
+    } catch(e){ 
+      return ''; 
+    } 
+  }
+  
+  async function ensureDataURLImage(v){ 
+    if(!v) return ''; 
+    if(isDataURLImage(v)) return v; 
+    return await urlToDataURL(v); 
+  }
+  
+  async function resolveRowSignatures(rows){ 
+    const out = []; 
+    for(const r of rows){ 
+      const sig = await ensureDataURLImage(r._sig || r.AssinaturaPNG || ''); 
+      out.push({ ...r, _sig: sig }); 
+    } 
+    return out; 
+  }
+
+  // Geração Inteligente do Relatório de Presenças em formato PDF (A4)
+  async function gerarPDF(){
+    await loadLogoAsDataURL();
+    const baseSource = (Array.isArray(registrosFiltrados) && registrosFiltrados.length) ? registrosFiltrados : registros;
+    if (!baseSource || !baseSource.length){ alert('Sem dados disponíveis para gerar PDF.'); return; }
+    const base = [...baseSource].sort((a,b) => String(a.Nome ?? '').localeCompare(String(b.Nome ?? ''), 'pt-PT', { sensitivity: 'base' }));
+    const titulos = [...new Set(base.map(r => r.TituloVideo).filter(Boolean))];
+    const tituloSemana = titulos.length ? titulos.join('; ') : '-';
+
+    let assuntosCabecalho = '';
+    try {
+      const tList = await fetchTreinamentos();
+      const semanasISO = [...new Set(base.map(r => r.SemanaISO).filter(Boolean))];
+      if (tList && tList.length){
+        const setISO = new Set(semanasISO);
+        let hit = tList.find(t => setISO.has(String(t['SemanaISO'])));
+        if (!hit && titulos.length) hit = tList.find(t => String(t['Titulo']).trim() === titulos[0]);
+        assuntosCabecalho = hit && hit['Assuntos'] ? String(hit['Assuntos']) : '';
+      }
+    } catch(e){}
+
+    const { jsPDF } = window.jspdf;
+    const M_TOP = 28.35, M_BOTTOM = 28.35, M_LEFT = 14.17, M_RIGHT = 14.17;
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4', compress: true });
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const usableWidth = pageWidth - M_LEFT - M_RIGHT;
+    const LOGO_W = 120, LOGO_H = 52, L_H = 14;
+
+    let assuntosLines = [];
+    if (assuntosCabecalho) {
+      const raw = assuntosCabecalho.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+      const partes = raw.split('\n').map(s => s.trim()).filter(Boolean);
+      const linhasExpand = [];
+      partes.forEach(p => linhasExpand.push(p));
+      assuntosLines = linhasExpand.flatMap(linha => doc.splitTextToSize(linha, usableWidth - 8));
+    }
+
+    function drawHeader(pageNumber){
+      try { if (LOGO_DATAURL) doc.addImage(LOGO_DATAURL, 'PNG', pageWidth - M_RIGHT - LOGO_W, M_TOP, LOGO_W, LOGO_H); } catch(e){}
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(18); doc.text('DIÁLOGO SEMANAL DE SEGURANÇA', M_LEFT, M_TOP + 20);
+      if (pageNumber === 1){
+        doc.setFont('helvetica', 'bold'); doc.setFontSize(14); doc.text('Semana: ' + (tituloSemana ?? '-'), M_LEFT, M_TOP + 20 + 2 * L_H);
+        if (assuntosLines.length){
+          doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
+          doc.text('Temas Abordados:', M_LEFT, M_TOP + 20 + 4 * L_H);
+          doc.setFont('helvetica', 'normal'); doc.setFontSize(11);
+          assuntosLines.forEach((linha, i) => {
+            doc.text(linha, M_LEFT + 8, M_TOP + 20 + 4 * L_H + (i + 1) * L_H);
+          });
+        }
+      }
+    }
+
+    function drawFooter(pageNumber, totalPagesText){
+      const footerY = pageHeight - M_BOTTOM; 
+      const generatedAt = new Date().toLocaleString('pt-PT');
+      doc.setFont('helvetica', 'italic'); doc.setFontSize(9); doc.text('Gerado em: ' + generatedAt, M_LEFT, footerY - 4 * L_H);
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(9);
+      doc.text('Caterair Serviços de Bordo e Hotelaria LTDA - Base GIG', M_LEFT, footerY - 3 * L_H);
+      doc.text('CNPJ 33.375.601/0001-38', M_LEFT, footerY - 2 * L_H);
+      doc.text('Rua P, S/N, Área de Apoio do Aeroporto Internacional do Rio de Janeiro - Ilha do Governador - RJ', M_LEFT, footerY - 1 * L_H);
+      const pagText = `Página ${pageNumber} de ${totalPagesText}`.trim();
+      doc.text(pagText, pageWidth / 2, footerY, { align: 'center' });
+    }
+
+    const columns = [
+      { header: 'Matrícula', dataKey: 'Matricula' },
+      { header: 'Colaborador', dataKey: 'Nome' },
+      { header: 'Setor', dataKey: 'Setor' },
+      { header: 'Data de Participação', dataKey: 'DataFmt' },
+      { header: 'Assinatura', dataKey: '_sig' },
+    ];
+    
+    let rows = base.map(r => ({ Matricula: r.Matricula??'', Nome: r.Nome??'', Setor: r.Setor??'', DataFmt: formatTimestamp(r.Timestamp)??'', _sig: r.AssinaturaPNG ?? '' }));
+    rows = await resolveRowSignatures(rows);
+
+    const totalPagesExp = '{total_pages_count_string}';
+    let yStartFirstPage = M_TOP + 20 + 2 * L_H + (assuntosLines.length ? 2 * L_H + assuntosLines.length * L_H : 0) + 2 * L_H;
+    const yStartFirstPageMin = M_TOP + 20 + 6 * L_H; 
+    if (yStartFirstPage < yStartFirstPageMin) yStartFirstPage = yStartFirstPageMin;
+    const yStartOtherPages = M_TOP + LOGO_H + 5 * L_H;
+
+    doc.autoTable({
+      startY: yStartFirstPage,
+      margin: { left: M_LEFT, right: M_RIGHT, top: yStartOtherPages, bottom: M_BOTTOM + 80 },
+      pageBreak: 'auto', 
+      tableWidth: usableWidth,
+      columns, 
+      body: rows,
+      styles: { font: 'helvetica', fontSize: 10, cellPadding: 4, valign: 'middle', overflow: 'linebreak', minCellHeight: 36 },
+      headStyles: { fillColor: [33, 150, 243], textColor: 255, halign: 'center' },
+      columnStyles: { Matricula: { halign: 'left' }, Nome: { halign: 'left' }, Setor: { halign: 'left', cellWidth: 120 }, DataFmt: { halign: 'left' }, _sig: { halign: 'center', cellWidth: 150 } },
+      didParseCell: (data) => { 
+        if (data.section === 'body' && data.column.dataKey === '_sig'){ 
+          data.cell.text = ['']; 
+          if (data.cell && data.cell.styles){ data.cell.styles.lineWidth = 0; } 
+        } 
+      },
+      didDrawPage: (data) => { 
+        drawHeader(data.pageNumber); 
+        drawFooter(data.pageNumber, totalPagesExp); 
+        if (data.pageNumber > 1 && data.cursor && data.cursor.y < yStartOtherPages){ data.cursor.y = yStartOtherPages; } 
+      },
+      didDrawCell: (data) => {
+        if (data.section === 'body' && data.column && data.column.dataKey === '_sig'){
+          const val = data.row?.raw?._sig || '';
+          if (typeof val === 'string' && /^data:image\/(png|jpeg|jpg);base64,/i.test(val)){
+            try { 
+              const props = doc.getImageProperties(val); 
+              const wPtNat = (props.width * 72) / 96; 
+              const hPtNat = (props.height * 72) / 96; 
+              const pad = 4; 
+              const maxW = data.cell.width - pad * 2; 
+              const maxH = data.cell.height - pad * 2; 
+              const scale = Math.min(maxW / wPtNat, maxH / hPtNat, 1); 
+              const w = wPtNat * scale; 
+              const h = hPtNat * scale; 
+              const x = data.cell.x + (data.cell.width - w) / 2; 
+              const y = data.cell.y + (data.cell.height - h) / 2; 
+              doc.addImage(val, props.fileType || 'PNG', x, y, w, h); 
+            } catch(e){}
+          }
+        }
+      },
+    });
+
+    // Rúbricas Oficiais de Instrutores / Validadores ao final da tabela (Posicionamento Corrigido)
+    const Formadores = PDF_INSTRUTORES || [];
+    if (Formadores.length > 0) {
+      const yAfterTable = doc.lastAutoTable.finalY ?? (pageHeight - M_BOTTOM - 120);
+      const footerAreaH = M_BOTTOM + 4 * L_H + 20; 
+      const instrBlockH = 95; // Aumentado ligeiramente para comportar a assinatura e textos sem sobreposições
+      const totalInstrH = Formadores.length * instrBlockH + 30;
+
+      let yInstr = yAfterTable + 20;
+      if (yInstr + totalInstrH > pageHeight - footerAreaH) {
+        doc.addPage();
+        drawHeader(doc.internal.getNumberOfPages());
+        drawFooter(doc.internal.getNumberOfPages(), totalPagesExp);
+        yInstr = yStartOtherPages + 10;
+      }
+
+      doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
+      doc.setFillColor(33, 150, 243);
+      doc.rect(M_LEFT, yInstr, usableWidth, 18, 'F');
+      doc.text('FORMADORES / VALIDATIVOS DO TREINAMENTO', M_LEFT + 6, yInstr + 13);
+      doc.setTextColor(0, 0, 0);
+      yInstr += 26;
+
+      const colW = usableWidth / Formadores.length;
+      const sigH = 45; // Altura reservada à imagem da assinatura
+      const cellH = sigH + 3 * L_H + 12;
+
+      for (let i = 0; i < Formadores.length; i++) {
+        const instr = Formadores[i];
+        const xCell = M_LEFT + i * colW;
+
+        // Borda externa
+        doc.setDrawColor(200, 200, 200);
+        doc.rect(xCell, yInstr, colW, cellH);
+
+        // Assinatura (Exibida ACIMA da linha de assinatura, centralizada)
+        if (instr.assinatura && /^data:image\/(png|jpeg|jpg);base64,/i.test(instr.assinatura)) {
+          try {
+            const props = doc.getImageProperties(instr.assinatura);
+            const maxW = colW - 30; const maxH = sigH - 6;
+            const scale = Math.min(maxW / props.width, maxH / props.height, 1);
+            const w = props.width * scale; const h = props.height * scale;
+            const xImg = xCell + (colW - w) / 2;
+            const yImg = yInstr + 6 + (sigH - h) / 2; // Centralizado verticalmente na área de assinatura superior
+            doc.addImage(instr.assinatura, props.fileType || 'PNG', xImg, yImg, w, h);
+          } catch(e){}
+        }
+
+        // Linha divisória clássica (Régua de Assinatura)
+        doc.setDrawColor(200, 200, 200);
+        doc.line(xCell + 12, yInstr + sigH + 6, xCell + colW - 12, yInstr + sigH + 6);
+
+        // Textos Oficiais (Exibidos exatamente ABAIXO da linha de assinatura)
+        doc.setFont('helvetica', 'bold'); doc.setFontSize(9);
+        const nomeLines = doc.splitTextToSize(instr.nome || '-', colW - 10);
+        doc.text(nomeLines, xCell + colW / 2, yInstr + sigH + 16, { align: 'center' });
+        doc.setFont('helvetica', 'normal'); doc.setFontSize(8);
+        doc.text(instr.cargo || '', xCell + colW / 2, yInstr + sigH + 16 + L_H, { align: 'center' });
+        doc.text(`N.º Registo: ${instr.matricula || '-'}`, xCell + colW / 2, yInstr + sigH + 16 + 2 * L_H, { align: 'center' });
+      }
+    }
+
+    if (typeof doc.putTotalPages === 'function'){ doc.putTotalPages(totalPagesExp); }
+    doc.save('Relatorio_Dialogo_Semanal_de_Seguranca.pdf');
+  }
+
+  // Prompt administrativo para cadastrar novos funcionários (pt-PT)
+  async function novoFuncionarioViaPrompt(){
+    const status = document.getElementById('status');
+    try {
+      let mRaw = prompt('Nova matrícula (5 algarismos, apenas números):');
+      if (mRaw === null) return; 
+      mRaw = (mRaw ?? '').replace(/\D/g, '');
+      while (!/^\d{5}$/.test(mRaw)){
+        mRaw = prompt('Número de registo inválido. Forneça exatamente 5 dígitos (ex.: 12345):', mRaw);
+        if (mRaw === null) return; 
+        mRaw = (mRaw ?? '').replace(/\D/g, '');
+      }
+      const matricula = mRaw;
+      let nome = prompt('Nome completo:'); 
+      if (nome === null) return; 
+      nome = (nome ?? '').trim();
+      if (!nome){ alert('O nome do colaborador é obrigatório.'); return; }
+      
+      let setor = prompt('Setor (opcional):'); 
+      if (setor === null) setor = ''; 
+      setor = (setor ?? '').trim();
+      
+      const ok = confirm(`Confirmar cadastro do novo colaborador?\n\nMatrícula: ${matricula}\nNome: ${nome}\nSetor: ${setor ?? '-'}\nAtivo: SIM`);
+      if (!ok){ status.innerHTML = '<div class="text-amber-600 bg-amber-50 px-4 py-2 rounded-lg border border-amber-100">Operação cancelada.</div>'; return; }
+      
+      const payload = { matricula, nome, setor, ativo: true };
+      status.innerHTML = '<div class="text-amber-500 bg-amber-50 px-4 py-2 rounded-lg border border-amber-100">A submeter novo registo ao servidor...</div>';
+      
+      const res = await fetch(API_BASE + '?action=addFuncionario', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+      let data; 
+      try { data = await res.json(); } catch { data = { ok: false, error: 'Erro de formatação na resposta' }; }
+      if (!data.ok) throw new Error(data.error ?? 'Falha ao incluir colaborador');
+      status.innerHTML = '<div class="text-emerald-600 bg-emerald-50 px-4 py-2 rounded-lg border border-emerald-100">Colaborador inserido com sucesso!</div>';
+    } catch(err){ 
+      status.innerHTML = '<div class="text-rose-600 bg-rose-50 px-4 py-2 rounded-lg border border-rose-100">' + (err && err.message ? err.message : 'Erro ao processar criação de colaborador') + '</div>'; 
+    }
+  }
+
+  // Prompt administrativo para excluir/desativar funcionários (Alterando Ativo para FALSE)
+  async function excluirFuncionarioViaPrompt(){
+    const status = document.getElementById('status');
+    try {
+      let mRaw = prompt('Digite a matrícula (5 dígitos) do colaborador que deseja excluir:');
+      if (mRaw === null) return;
+      mRaw = mRaw.replace(/\D/g, '');
+      while (!/^\d{5}$/.test(mRaw)){
+        mRaw = prompt('Matrícula inválida. Digite exatamente 5 números (ex.: 12345):', mRaw);
+        if (mRaw === null) return;
+        mRaw = mRaw.replace(/\D/g, '');
+      }
+      const matricula = mRaw;
+
+      // Buscar localmente os dados do colaborador para confirmar
+      await dashEnsureData();
+      const colab = (DASH_funcionarios || []).find(f => afastNormMat(f.Matricula) === matricula);
+      
+      let confirmMsg = `Deseja realmente excluir/desativar o colaborador com a matrícula ${matricula}?`;
+      if (colab && colab.Nome) {
+        confirmMsg = `Deseja realmente desativar o colaborador abaixo?\n\nNome: ${colab.Nome}\nMatrícula: ${matricula}\nSetor: ${colab.Setor ?? '-'}\n\nNota: A exclusão mudará o status "Ativo" para FALSE no Sheets.`;
+      }
+
+      const ok = confirm(confirmMsg);
+      if (!ok){ status.innerHTML = '<div class="text-amber-600 bg-amber-50 px-4 py-2 rounded-lg border border-amber-100">Exclusão cancelada.</div>'; return; }
+
+      status.innerHTML = '<div class="text-rose-500 bg-rose-50 px-4 py-2 rounded-lg border border-rose-100">A processar exclusão no Google Sheets...</div>';
+      
+      // Chamada para desativação (Ativo = FALSE)
+      const res = await fetch(API_BASE + '?action=addFuncionario', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ matricula, nome: colab ? colab.Nome : '', setor: colab ? colab.Setor : '', ativo: false })
+      });
+
+      let data;
+      try { data = await res.json(); } catch { data = { ok: false, error: 'Erro de resposta' }; }
+      if (!data.ok) throw new Error(data.error ?? 'Falha ao desativar colaborador no Sheets');
+
+      status.innerHTML = '<div class="text-emerald-600 bg-emerald-50 px-4 py-2 rounded-lg border border-emerald-100">Colaborador desativado (Inativo) com sucesso no Sheets!</div>';
+      
+      // Limpar cache local para forçar recarregamento na próxima busca
+      delete _apiCache['funcionarios'];
+      DASH_funcionarios = null;
+    } catch(err){
+      status.innerHTML = '<div class="text-rose-600 bg-rose-50 px-4 py-2 rounded-lg border border-rose-100">' + (err && err.message ? err.message : 'Erro ao excluir colaborador') + '</div>';
+    }
+  }
+
+  function escapeHtml(str){
+    return String(str ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/\x22/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+  
+  function nomeArquivo(ext){ 
+    const hoje = new Date(); 
+    const pad = n => String(n).padStart(2, '0'); 
+    return `DSS_GIG_Relatorio_${hoje.getFullYear()}-${pad(hoje.getMonth() + 1)}-${pad(hoje.getDate())}.${ext}`; 
+  }
+  
+  function normalizarDataInput(v){
+    if (!v) return null;
+    v = String(v).trim();
+    const m = v.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (m) {
+      const [, dd, mm, yyyy] = m;
+      return new Date(Date.UTC(+yyyy, +mm - 1, +dd, 0, 0, 0));
+    }
+    const m2 = v.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (m2) {
+      const [, yyyy, mm, dd] = m2;
+      return new Date(Date.UTC(+yyyy, +mm - 1, +dd, 0, 0, 0));
+    }
+    return null;
+  }
+  
+  function fimDoDia(dIniUTC){ 
+    if(!dIniUTC) return null; 
+    return new Date(dIniUTC.getTime() + 24 * 60 * 60 * 1000 - 1); 
+  }
+  
+  function parseTimestamp(valor){ 
+    if(!valor) return null; 
+    let d = new Date(valor); 
+    if(!Number.isNaN(d.getTime())) return d; 
+    const rx = /(^\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?$/; 
+    const m = String(valor).trim().match(rx); 
+    if(m){ 
+      const dd = +m[1], mm = +m[2], yy = +m[3]; 
+      const hh = +(m[4]??0), mi = +(m[5]??0), ss = +(m[6]??0); 
+      return new Date(yy, mm-1, dd, hh, mi, ss); 
+    } 
+    return null; 
+  }
+  
+  function formatTimestamp(ts){ 
+    const d = parseTimestamp(ts); 
+    if(!d) return String(ts ?? ''); 
+    const pad = n => String(n).padStart(2, '0'); 
+    return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`; 
+  }
+
+  /* ====== LÓGICA DO PAINEL DASHBOARD ====== */
+  let DASH_registrosAll = null, DASH_funcionarios = null, DASH_treinamentos = null;
+  let DASH_participantes = [], DASH_naoParticipantes = [];
+
+  /* ====== GESTÃO DE AUSÊNCIAS / FÉRIAS ====== */
+  let AFAST_set = new Set(); 
+
+  // Funções de Gestão de cache das ausências re-definidas para evitar erros de referência (ReferenceError)
+  function afastSalvar(){ 
+    try { localStorage.setItem('dss_afast', JSON.stringify([...AFAST_set])); } catch(e){} 
+  }
+  
+  function afastCarregar(){ 
+    try { 
+      const d = localStorage.getItem('dss_afast'); 
+      if(d){ JSON.parse(d).forEach(m => AFAST_set.add(m)); } 
+    } catch(e){} 
+  }
+
+  function afastNormMat(v){ return String(v??'').replace(/\D/g, '').padStart(5, '0'); }
+
+  // Gestão de Ausências conectada diretamente à planilha oficial "Ferias"
+  function afastRenderTags(){
+    const badge = document.getElementById('afastBadge');
+    const tbody = document.getElementById('tbodyAfastados');
+    if (!tbody) return;
+
+    if (feriasServidor.length === 0){
+      if (badge) badge.textContent = '0';
+      tbody.innerHTML = '<tr><td colspan="4" class="px-6 py-8 text-center text-slate-400">Nenhum funcionário oficial de férias registado no Sheets.</td></tr>';
+      return;
+    }
+
+    if (badge) badge.textContent = feriasServidor.length;
+
+    // Renderiza a listagem oficial de férias vinda da planilha Google Sheets
+    tbody.innerHTML = feriasServidor.map(f => {
+      const mat = afastNormMat(f.Matricula || f.matricula);
+      const nome = escapeHtml(f.Funcionario || f.funcionario || f.Nome || '-');
+      const situacao = escapeHtml(f.Situacao || f.situacao || 'Férias');
+      
+      // Formatar datas se existirem
+      const dIni = f.InicioFerias || f.inicioferias ? formatTimestamp(f.InicioFerias || f.inicioferias).split(' ')[0] : '';
+      const dFim = f.FimFerias || f.fimferias ? formatTimestamp(f.FimFerias || f.fimferias).split(' ')[0] : '';
+      const periodo = dIni && dFim ? `${dIni} a ${dFim}` : (dIni || dFim || 'Período Ativo');
+
+      return `<tr>
+        <td class="px-6 py-4 font-semibold text-slate-900">${mat}</td>
+        <td class="px-6 py-4">${nome}</td>
+        <td class="px-6 py-4">
+          <span class="px-2.5 py-1 bg-amber-100 text-amber-800 text-xs font-semibold rounded-full border border-amber-200">
+            ${situacao}
+          </span>
+        </td>
+        <td class="px-6 py-4 text-slate-500 font-medium text-xs">${periodo}</td>
+      </tr>`;
+    }).join('');
+  }
+
+  // Inicialização da área de Ausências
+  (function initAfast(){
+    afastCarregar(); // Agora definido com sucesso!
+    afastRenderTags();
+
+    const panel = document.getElementById('afastPanel');
+    const chevron = document.getElementById('afastChevron');
+    
+    if (panel && chevron) {
+      panel.addEventListener('toggle', () => {
+        chevron.textContent = panel.open ? '▲' : '▼';
+      });
+    }
+  })();
+
+  document.getElementById('btnDashAtualizar').addEventListener('click', dashAtualizar);
+  document.getElementById('btnDashXLSNP').addEventListener('click', dashGerarXLS_NP);
+  document.getElementById('btnDashXLSP').addEventListener('click', dashGerarXLS_P);
+
+  document.getElementById('dashTitulo').addEventListener('change', function(){
+    const titVal = this.value.trim();
+    const hit = (DASH_treinamentos||[]).find(t => String(t.Titulo).trim() === titVal);
+    document.getElementById('dashSemanaIso').value = (hit && hit.SemanaISO) ? String(hit.SemanaISO) : '';
+  });
+
+  (async function dashInit(){
+    await dashEnsureData();
+    await dashPopularSelects();
+    dashSugerirSemanaAtivaMaisRecente();
+    await dashAtualizar();
+  })();
+
+  async function dashEnsureData(){
+    const [jTrein, jFunc, jRegs] = await Promise.all([
+      !DASH_treinamentos ? _cachedFetch('treinamentos').catch(() => null) : Promise.resolve(null),
+      !DASH_funcionarios ? _cachedFetch('funcionarios').catch(() => null) : Promise.resolve(null),
+      !DASH_registrosAll ? _cachedFetch('registros').catch(() => null)    : Promise.resolve(null),
+    ]);
+    if (!DASH_treinamentos) DASH_treinamentos = _parseRows(jTrein);
+    if (!DASH_funcionarios) DASH_funcionarios = _parseRows(jFunc);
+    if (!DASH_registrosAll) DASH_registrosAll = _parseRows(jRegs);
+
+    // Mapeamento e unificação da aba oficial "Ferias" do Sheets enviada na chamada de API
+    try {
+      const resFerias = await apiFetch('action=ferias');
+      const dataFerias = await resFerias.json();
+      if (dataFerias && dataFerias.ok) {
+        feriasServidor = _parseRows(dataFerias);
+      } else {
+        // Fallback: Filtrar ausências pela situação nas propriedades de funcionários se disponível
+        feriasServidor = (DASH_funcionarios || []).filter(f => 
+          ['ferias', 'afastado', 'licenca'].includes(String(f.Situacao || f.situacao || '').toLowerCase().trim())
+        ).map(f => ({
+          Matricula: f.Matricula,
+          Funcionario: f.Nome,
+          Situacao: f.Situacao || 'Férias',
+          InicioFerias: f.InicioFerias || '',
+          FimFerias: f.FimFerias || ''
+        }));
+      }
+      
+      // Sincronizar conjunto local AFAST_set para o filtro do dashboard
+      AFAST_set.clear();
+      feriasServidor.forEach(f => {
+        const m = afastNormMat(f.Matricula || f.matricula);
+        if (m && m !== '00000') AFAST_set.add(m);
+      });
+    } catch(e) {
+      console.warn("Módulo de conexão direta da aba Férias não respondeu.", e);
+    }
+  }
+
+  async function dashPopularSelects(){
+    const normF = s => String(s??'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+    const exactos = ['Titulo','titulo','TITULO','Title','title','TituloVideo','titulovideo'];
+    const mapaISO = new Map();
+
+    const rows1 = DASH_treinamentos || [];
+    const chaves = Object.keys(rows1[0]||{});
+    const campo = exactos.find(c => chaves.includes(c)) ?? chaves.find(k => normF(k).includes('titul')) ?? null;
+    if (campo) rows1.forEach(r => { const t = String(r[campo]??'').trim(); if(t) mapaISO.set(t, String(r.SemanaISO??'').trim()); });
+
+    const isoSet = new Set(rows1.map(r => String(r.SemanaISO||'')).filter(Boolean));
+
+    const titSel = document.getElementById('dashTitulo');
+    if (mapaISO.size){
+      titSel.innerHTML = '<option value="">Selecione um título...</option>' + _buildTituloOpts(mapaISO, '');
+    }
+
+    const rows2 = DASH_registrosAll || [];
+    rows2.forEach(r => { 
+      const t = String(r.TituloVideo??r.Titulo??r.titulo??'').trim(); 
+      const iso = String(r.SemanaISO??'').trim(); 
+      if(t && !mapaISO.has(t)) mapaISO.set(t, iso); 
+      else if(t && !mapaISO.get(t) && iso) mapaISO.set(t, iso); 
+      if(iso) isoSet.add(iso); 
+    });
+
+    const selAtual = titSel.value;
+    titSel.innerHTML = '<option value="">Selecione um título...</option>' + _buildTituloOpts(mapaISO, '');
+    if (selAtual && [...titSel.options].some(o => o.value === selAtual)) titSel.value = selAtual;
+
+    const isoList = [...isoSet].sort(dashCompareSemanaISODesc);
+    document.getElementById('dashSemanaIso').innerHTML =
+      '<option value="">Selecione...</option>' + isoList.map(sem => `<option value="${escapeHtml(sem)}">${escapeHtml(sem)}</option>`).join('');
+  }
+
+  function dashSugerirSemanaAtivaMaisRecente(){
+    const ativos = (DASH_treinamentos||[]).filter(t => { 
+      const v = String(t.Ativo??t.ativo??'').toLowerCase().trim(); 
+      return v === 'true' || v === '1' || v === 'sim' || v === 'yes'; 
+    });
+    const lista = ativos.length ? ativos : (DASH_treinamentos||[]);
+    let tituloSelecionado = null;
+    if (lista && lista.length){
+      const hasISO = lista.filter(t => t.SemanaISO && t.Titulo);
+      if (hasISO.length){
+        const maisRecente = hasISO.sort((a,b) => dashCompareSemanaISODesc(String(a.SemanaISO), String(b.SemanaISO)))[0];
+        tituloSelecionado = String(maisRecente.Titulo);
+      }
+    }
+    const titSel = document.getElementById('dashTitulo');
+    if (tituloSelecionado){
+      const opt = [...titSel.options].find(o => o.value === tituloSelecionado);
+      if (opt) titSel.value = opt.value;
+    } else if (titSel.options.length > 1){
+      titSel.selectedIndex = 1;
+    }
+    
+    const titVal = titSel.value;
+    if (titVal){
+      const hit = (DASH_treinamentos||[]).find(t => String(t.Titulo).trim() === titVal);
+      if (hit && hit.SemanaISO) document.getElementById('dashSemanaIso').value = String(hit.SemanaISO);
+    }
+  }
+
+  // Atualização de dados do dashboard com recarregamento limpo das fontes de dados
+  async function dashAtualizar(){
+    delete _apiCache['treinamentos'];
+    delete _apiCache['registros'];
+    delete _apiCache['funcionarios'];
+    DASH_treinamentos = null;
+    DASH_funcionarios = null;
+    DASH_registrosAll = null;
+
+    await dashEnsureData();
+    afastRenderTags();
+
+    const titAntes = document.getElementById('dashTitulo').value;
+    await dashPopularSelects();
+    
+    const sel = document.getElementById('dashTitulo');
+    if (titAntes && [...sel.options].some(o => o.value === titAntes)) sel.value = titAntes;
+    else dashSugerirSemanaAtivaMaisRecente();
+
+    const dashStatus = document.getElementById('dashStatus'); 
+    dashStatus.innerHTML = '';
+
+    const selISO = ''; 
+    const selTit = document.getElementById('dashTitulo').value.trim();
+
+    function normalizarMatricula(v){
+      return String(v ?? '').replace(/\D/g, '').padStart(5, '0');
+    }
+
+    function normalizarSemanaISO(s){
+      const m = String(s||'').match(/^(\d{4})-W?(\d{1,2})$/i);
+      if(!m) return '';
+      return `${m[1]}-W${String(m[2]).padStart(2, '0')}`;
+    }
+
+    // Função de validação de atividade de colaboradores
+    function ativoValido(v){
+      return ['true','1','sim','yes'].includes(String(v ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim());
+    }
+
+    let semanaAlvo = selISO;
+    if (!semanaAlvo && selTit){
+      const hit = (DASH_treinamentos||[]).find(t => String(t.Titulo).trim() === selTit);
+      if (hit && hit.SemanaISO) semanaAlvo = String(hit.SemanaISO);
+    }
+
+    if (!semanaAlvo){
+      dashStatus.innerHTML = '<div class="text-amber-600 bg-amber-50 px-4 py-2 rounded-lg border border-amber-100">Por favor, selecione um Tema para prosseguir.</div>';
+      dashRender([], []);
+      dashKPIs({ total: 0, part: 0, nPart: 0, semana: '-', titulo: '-', registrosAll: DASH_registrosAll||[], funcAtivos: (DASH_funcionarios||[]).filter(f => ativoValido(f.Ativo??f.ativo)) });
+      return;
+    }
+
+    const semanaNorm = normalizarSemanaISO(semanaAlvo);
+    const mapaPart = new Map();
+
+    for (const r of (DASH_registrosAll||[])){
+      if (normalizarSemanaISO(r.SemanaISO) !== semanaNorm) continue;
+      const key = normalizarMatricula(r.Matricula);
+      const ts = parseTimestamp(r.Timestamp);
+
+      if (!mapaPart.has(key)){
+        mapaPart.set(key, r);
+      } else {
+        const antigo = mapaPart.get(key);
+        const tsAnt = parseTimestamp(antigo.Timestamp);
+        if (ts && tsAnt && ts < tsAnt){
           mapaPart.set(key, r);
-        } else {
-          const antigo = mapaPart.get(key);
-          const tsAnt = parseTimestamp(antigo.Timestamp);
-          if (ts && tsAnt && ts < tsAnt){
-            mapaPart.set(key, r);
-          }
         }
       }
-
-      const participantes = [...mapaPart.values()];
-      const funcAtivos = (DASH_funcionarios||[]).filter(f => ativoValido(f.Ativo ?? f.ativo));
-      const setMatPart = new Set(participantes.map(p => normalizarMatricula(p.Matricula)));
-
-      const naoPart = funcAtivos.filter(f =>
-        !setMatPart.has(normalizarMatricula(f.Matricula)) && !AFAST_set.has(afastNormMat(f.Matricula))
-      );
-
-      const mapFunc = new Map(funcAtivos.map(f => [normalizarMatricula(f.Matricula), f]));
-
-      const participantesFull = participantes.map(p => {
-        const f = mapFunc.get(normalizarMatricula(p.Matricula)) || {};
-        return {
-          Matricula: normalizarMatricula(p.Matricula ?? f.Matricula ?? ''),
-          Nome: p.Nome ?? f.Nome ?? '',
-          Setor: p.Setor ?? f.Setor ?? '',
-          Timestamp: p.Timestamp ?? ''
-        };
-      }).sort((a,b) => String(a.Nome ?? '').localeCompare(String(b.Nome ?? ''), 'pt-PT', { sensitivity: 'base' }));
-
-      const naoParticipantesFull = naoPart.map(f => ({
-        Matricula: normalizarMatricula(f.Matricula ?? ''),
-        Nome: f.Nome ?? '',
-        Setor: f.Setor ?? ''
-      })).sort((a,b) => String(a.Nome ?? '').localeCompare(String(b.Nome ?? ''), 'pt-PT', { sensitivity: 'base' }));
-
-      DASH_participantes = participantesFull; 
-      DASH_naoParticipantes = naoParticipantesFull;
-
-      const total = funcAtivos.filter(f => !AFAST_set.has(afastNormMat(f.Matricula))).length;
-      const part = participantesFull.length;
-      const nPart = naoParticipantesFull.length;
-
-      const tituloAlvo = (() => { 
-        const t = (DASH_treinamentos||[]).find(t => normalizarSemanaISO(t.SemanaISO) === semanaNorm);
-        return t && t.Titulo ? String(t.Titulo) : (selTit || '-');
-      })();
-
-      dashKPIs({ total, part, nPart, semana: semanaNorm, titulo: tituloAlvo, registrosAll: DASH_registrosAll || [], funcAtivos });
-      dashRender(naoParticipantesFull, participantesFull);
-      dashStatus.innerHTML = `<div class="text-emerald-600 bg-emerald-50 px-4 py-2 rounded-lg border border-emerald-100">Painel atualizado para a semana: ${semanaNorm}</div>`;
     }
 
-    // Cálculo e renderização de KPIs executivos no Dashboard
-    function dashKPIs({ total, part, nPart, semana, titulo, registrosAll, funcAtivos }){
-      const pct   = total > 0 ? Math.round((part  / total) * 100) : 0;
-      const pctNP = total > 0 ? Math.round((nPart / total) * 100) : 0;
+    const participantes = [...mapaPart.values()];
+    const funcAtivos = (DASH_funcionarios||[]).filter(f => ativoValido(f.Ativo ?? f.ativo));
+    const setMatPart = new Set(participantes.map(p => normalizarMatricula(p.Matricula)));
 
-      document.getElementById('kpiTotalAtivos').textContent     = String(total ?? '-');
-      document.getElementById('kpiParticiparam').textContent    = String(part  ?? '-');
-      document.getElementById('kpiNaoParticiparam').textContent = String(nPart ?? '-');
-      document.getElementById('kpiParticiparamPct').textContent = total ? `${pct}%` : '-';
-      document.getElementById('kpiPctNum').textContent          = total ? `${pct}%` : '-';
-      document.getElementById('kpiSemanaSel').textContent       = String(semana ?? '-');
-      document.getElementById('kpiTituloSel').textContent       = String(titulo ?? '-');
+    const naoPart = funcAtivos.filter(f =>
+      !setMatPart.has(normalizarMatricula(f.Matricula)) && !AFAST_set.has(afastNormMat(f.Matricula))
+    );
 
-      document.getElementById('barPart').style.width    = total ? `${pct}%`   : '0%';
-      document.getElementById('barNaoPart').style.width = total ? `${pctNP}%` : '0%';
+    const mapFunc = new Map(funcAtivos.map(f => [normalizarMatricula(f.Matricula), f]));
 
-      // Renderização dinâmica do gráfico de rosca nativo usando HTML5 Canvas
-      const canvas = document.getElementById('kpiDonut');
-      if (canvas) {
-        const ctx = canvas.getContext('2d');
-        const cx = canvas.width / 2, cy = canvas.height / 2, r = 54, thick = 16;
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        
-        const arc = (s, e, color) => {
-          ctx.beginPath(); 
-          ctx.arc(cx, cy, r, (s / 100) * 2 * Math.PI - Math.PI / 2, (e / 100) * 2 * Math.PI - Math.PI / 2);
-          ctx.strokeStyle = color; 
-          ctx.lineWidth = thick; 
-          ctx.lineCap = 'round'; 
-          ctx.stroke();
-        };
+    const participantesFull = participantes.map(p => {
+      const f = mapFunc.get(normalizarMatricula(p.Matricula)) || {};
+      return {
+        Matricula: normalizarMatricula(p.Matricula ?? f.Matricula ?? ''),
+        Nome: p.Nome ?? f.Nome ?? '',
+        Setor: p.Setor ?? f.Setor ?? '',
+        Timestamp: p.Timestamp ?? ''
+      };
+    }).sort((a,b) => String(a.Nome ?? '').localeCompare(String(b.Nome ?? ''), 'pt-PT', { sensitivity: 'base' }));
 
-        ctx.beginPath(); 
-        ctx.arc(cx, cy, r, 0, 2 * Math.PI);
-        ctx.strokeStyle = '#f3f4f6'; 
-        ctx.lineWidth = thick; 
-        ctx.stroke();
+    const naoParticipantesFull = naoPart.map(f => ({
+      Matricula: normalizarMatricula(f.Matricula ?? ''),
+      Nome: f.Nome ?? '',
+      Setor: f.Setor ?? ''
+    })).sort((a,b) => String(a.Nome ?? '').localeCompare(String(b.Nome ?? ''), 'pt-PT', { sensitivity: 'base' }));
 
-        if (total > 0){
-          if (pctNP > 0) arc(0, pctNP, '#ef4444');
-          if (pct   > 0) arc(pctNP, pctNP + pct, '#22c55e');
-        }
-      }
+    DASH_participantes = participantesFull; 
+    DASH_naoParticipantes = naoParticipantesFull;
 
-      // KPIs Secundários: Colaboradores sem nenhuma adesão (Nunca Participaram)
-      const nuncaEl   = document.getElementById('kpiNuncaCount');
-      const nuncaList = document.getElementById('kpiNuncaList');
-      const regs = Array.isArray(registrosAll) ? registrosAll : [];
-      const ativos = Array.isArray(funcAtivos) ? funcAtivos : [];
+    const total = funcAtivos.filter(f => !AFAST_set.has(afastNormMat(f.Matricula))).length;
+    const part = participantesFull.length;
+    const nPart = naoParticipantesFull.length;
 
-      const normMat = v => String(v??'').replace(/\D/g, '').padStart(5, '0');
-      const jaParticiparam = new Set(regs.map(r => normMat(r.Matricula)));
-      const nunca = ativos.filter(f =>
-        !jaParticiparam.has(normMat(f.Matricula)) && !AFAST_set.has(afastNormMat(f.Matricula))
-      ).sort((a,b) => String(a.Nome??'').localeCompare(String(b.Nome??''), 'pt-PT', { sensitivity: 'base' }));
-
-      if (nuncaEl) nuncaEl.textContent = nunca.length || '0';
-      if (nuncaList){
-        if (!nunca.length){
-          nuncaList.innerHTML = '<span class="text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-1 rounded">✅ Todos os colaboradores ativos já participaram!</span>';
-        } else {
-          nuncaList.innerHTML = nunca.slice(0, 5).map(f =>
-            `<div class="flex items-center gap-2 text-xs">
-              <span class="w-4 h-4 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center font-bold">!</span>
-              <span class="truncate flex-grow text-slate-700 font-medium">${escapeHtml(f.Nome??f.Matricula??'')}</span>
-              <span class="text-slate-400 font-mono">${normMat(f.Matricula)}</span>
-            </div>`
-          ).join('') + (nunca.length > 5 ? `<div class="text-[10px] text-slate-400 mt-1">+ ${nunca.length - 5} colaboradores na lista</div>` : '');
-        }
-      }
-
-      // Algoritmo de Assiduidade e Agilidade (Top 5 mais frequentes)
-      const assiduosEl = document.getElementById('kpiAssiduosList');
-      if (assiduosEl){
-        const regsPorMatSemana = new Map();
-        for (const r of regs){
-          const mat = normMat(r.Matricula);
-          const iso = String(r.SemanaISO??'');
-          const ts  = parseTimestamp(r.Timestamp);
-          if (!mat || !iso || !ts) continue;
-          const chave = mat + '__' + iso;
-          const atual = regsPorMatSemana.get(chave);
-          if (!atual || ts < atual.ts) regsPorMatSemana.set(chave, { mat, iso, ts, nome: r.Nome??'' });
-        }
-
-        const contagem = new Map();
-        for (const { mat, iso, ts, nome } of regsPorMatSemana.values()){
-          const m = iso.match(/^(\d{4})-W(\d{1,2})$/i);
-          let segsDesdeInicio = 0;
-          if (m){
-            const ano = +m[1], sem = +m[2];
-            const jan4 = new Date(ano, 0, 4);
-            const segunda = new Date(jan4);
-            segunda.setDate(jan4.getDate() - ((jan4.getDay() + 6) % 7) + (sem - 1) * 7);
-            segsDesdeInicio = Math.max(0, (ts - segunda) / 1000);
-          }
-          const entry = contagem.get(mat) || { nome, totalSegs: 0, semanas: 0 };
-          entry.totalSegs += segsDesdeInicio;
-          entry.semanas   += 1;
-          entry.nome = entry.nome || nome;
-          contagem.set(mat, entry);
-        }
-
-        const ranking = [...contagem.entries()]
-          .filter(([,v]) => v.semanas > 0)
-          .sort((a,b) => {
-            if (b[1].semanas !== a[1].semanas) return b[1].semanas - a[1].semanas;
-            return (a[1].totalSegs / a[1].semanas) - (b[1].totalSegs / b[1].semanas);
-          })
-          .slice(0, 5);
-
-        const rankBg = ['bg-amber-100 text-amber-800', 'bg-slate-200 text-slate-800', 'bg-orange-100 text-orange-800', 'bg-slate-100 text-slate-600', 'bg-slate-100 text-slate-600'];
-        assiduosEl.innerHTML = ranking.length
-          ? ranking.map(([mat, v], i) => {
-              return `<div class="flex items-center gap-2 text-xs">
-                <span class="w-4 h-4 rounded-full font-bold flex items-center justify-center text-[10px] ${rankBg[i]}">${i + 1}</span>
-                <span class="truncate flex-grow text-slate-700 font-medium">${escapeHtml(v.nome || mat)}</span>
-                <span class="text-brand-600 font-semibold bg-brand-50 px-1.5 py-0.5 rounded text-[10px]" title="${v.semanas} sessões concluídas">${v.semanas}✓</span>
-              </div>`;
-            }).join('')
-          : '<span class="text-xs text-slate-400">Dados insuficientes para gerar classificação</span>';
-      }
-    }
-
-    // Renderização das tabelas auxiliares do Dashboard
-    function dashRender(naoParticipantes, participantes){
-      const tbodyNP = document.getElementById('tbodyNP');
-      const tbodyP = document.getElementById('tbodyP');
-      if (!naoParticipantes || !naoParticipantes.length){ 
-        tbodyNP.innerHTML = '<tr><td colspan="3" class="px-4 py-8 text-center text-emerald-600 font-semibold bg-emerald-50">Todos os colaboradores participaram! 🎉</td></tr>'; 
-      } else { 
-        tbodyNP.innerHTML = naoParticipantes.map(n => `<tr><td class="px-4 py-3 font-semibold text-slate-900">${escapeHtml(n.Matricula ?? '')}</td><td class="px-4 py-3">${escapeHtml(n.Nome ?? '')}</td><td class="px-4 py-3">${escapeHtml(n.Setor ?? '')}</td></tr>`).join(''); 
-      }
-      if (!participantes || !participantes.length){ 
-        tbodyP.innerHTML = '<tr><td colspan="4" class="px-4 py-8 text-center text-slate-400">Nenhum registo de participação processado.</td></tr>'; 
-      } else { 
-        tbodyP.innerHTML = participantes.map(p => `<tr><td class="px-4 py-3 font-semibold text-slate-900">${escapeHtml(p.Matricula ?? '')}</td><td class="px-4 py-3">${escapeHtml(p.Nome ?? '')}</td><td class="px-4 py-3">${escapeHtml(p.Setor ?? '')}</td><td class="px-4 py-3">${escapeHtml(formatTimestamp(p.Timestamp))}</td></tr>`).join(''); 
-      }
-    }
-
-    // Exportações em formato Excel dedicadas para o Dashboard
-    function dashGerarXLS_NP(){
-      const base = DASH_naoParticipantes || []; 
-      if(!base.length){ alert('Não existem dados de ausentes para exportar.'); return; }
-      const wb = XLSX.utils.book_new();
-      const ws = XLSX.utils.json_to_sheet(base.map(r => ({ 'Matrícula': r.Matricula ?? '', 'Funcionário': r.Nome ?? '', 'Setor': r.Setor ?? '' })));
-      XLSX.utils.book_append_sheet(wb, ws, 'Ausentes');
-      XLSX.writeFile(wb, `DSS_GIG_NaoParticipantes_${(document.getElementById('kpiSemanaSel').textContent || 'semana')}.xlsx`);
-    }
-    
-    function dashGerarXLS_P(){
-      const base = DASH_participantes || []; 
-      if(!base.length){ alert('Não existem dados de presenças para exportar.'); return; }
-      const wb = XLSX.utils.book_new();
-      const ws = XLSX.utils.json_to_sheet(base.map(r => ({ 'Matrícula': r.Matricula ?? '', 'Funcionário': r.Nome ?? '', 'Setor': r.Setor ?? '', 'Data de Participação': formatTimestamp(r.Timestamp) })));
-      XLSX.utils.book_append_sheet(wb, ws, 'Presencas');
-      XLSX.writeFile(wb, `DSS_GIG_Participantes_${(document.getElementById('kpiSemanaSel').textContent || 'semana')}.xlsx`);
-    }
-
-    function dashCompareSemanaISODesc(a, b){ 
-      const pa = dashParseSemanaISO(a), pb = dashParseSemanaISO(b); 
-      if (pa.year !== pb.year) return pb.year - pa.year; 
-      return pb.week - pa.week; 
-    }
-    
-    function dashParseSemanaISO(s){ 
-      const m = String(s||'').match(/^(\d{4})-W?(\d{1,2})$/i); 
-      if(!m) return { year: 0, week: 0 }; 
-      return { year: +m[1], week: +m[2] }; 
-    }
-
-    // Painel de diagnóstico de conexões brutas da API
-    document.getElementById('btnDiag')?.addEventListener('click', async function(){
-      const box = document.getElementById('diagBox');
-      const closeBtn = document.getElementById('btnDiagClear');
-      box.textContent = '⏳ A carregar registos da API...';
-      box.style.display = 'block';
-      closeBtn.style.display = 'inline-block';
-      try {
-        const url = API_BASE + '?action=treinamentos&_t=' + Date.now();
-        box.textContent += '\nURL de Origem: ' + url;
-        const res = await fetch(url, { cache: 'no-store' });
-        const txt = await res.text();
-        box.textContent = 'Estado HTTP: ' + res.status + '\nTipo de Conteúdo: ' + (res.headers.get('content-type') || '?') + '\n\nResposta recebida do servidor:\n' + txt;
-      } catch(e) {
-        box.textContent = 'Erro crítico de comunicação: ' + e.message;
-      }
-    });
-    
-    document.getElementById('btnDiagClear')?.addEventListener('click', function(){
-      document.getElementById('diagBox').style.display = 'none';
-      this.style.display = 'none';
-    });
-
-    // Controlo de Abas / Navegação Principal com classes dinâmicas do Tailwind
-    (function initTabs(){
-      const btnPrincipal = document.getElementById('tabPrincipal');
-      const btnDashboard = document.getElementById('tabDashboard');
-      const secFiltros = document.getElementById('cardFiltros');
-      const secResultados = document.getElementById('cardResultados');
-      const secDashboard = document.getElementById('dashCard');
-
-      showPrincipal();
-
-      btnPrincipal.addEventListener('click', showPrincipal);
-      btnDashboard.addEventListener('click', showDashboard);
-
-      function setActive(btnOn, btnOff){
-        // Botão Ativo: Fundo branco com sombra de destaque
-        btnOn.classList.add('bg-white', 'text-slate-900', 'shadow-sm');
-        btnOn.classList.remove('text-slate-600', 'hover:text-slate-900');
-
-        // Botão Inativo: Fundo transparente, sem sombras
-        btnOff.classList.remove('bg-white', 'text-slate-900', 'shadow-sm');
-        btnOff.classList.add('text-slate-600', 'hover:text-slate-900');
-      }
-
-      function showPrincipal(){
-        setActive(btnPrincipal, btnDashboard);
-        secFiltros?.classList.remove('is-hidden');
-        secResultados?.classList.remove('is-hidden');
-        secDashboard?.classList.add('is-hidden');
-      }
-
-      function showDashboard(){
-        setActive(btnDashboard, btnPrincipal);
-        secFiltros?.classList.add('is-hidden');
-        secResultados?.classList.add('is-hidden');
-        secDashboard?.classList.remove('is-hidden');
-        dashAtualizar();
-      }
+    const tituloAlvo = (() => { 
+      const t = (DASH_treinamentos||[]).find(t => normalizarSemanaISO(t.SemanaISO) === semanaNorm);
+      return t && t.Titulo ? String(t.Titulo) : (selTit || '-');
     })();
-  </script>
+
+    dashKPIs({ total, part, nPart, semana: semanaNorm, titulo: tituloAlvo, registrosAll: DASH_registrosAll || [], funcAtivos });
+    dashRender(naoParticipantesFull, participantesFull);
+    dashStatus.innerHTML = `<div class="text-emerald-600 bg-emerald-50 px-4 py-2 rounded-lg border border-emerald-100">Painel atualizado para a semana: ${semanaNorm}</div>`;
+  }
+
+  // Cálculo e renderização de KPIs executivos no Dashboard
+  function dashKPIs({ total, part, nPart, semana, titulo, registrosAll, funcAtivos }){
+    const pct   = total > 0 ? Math.round((part  / total) * 100) : 0;
+    const pctNP = total > 0 ? Math.round((nPart / total) * 100) : 0;
+
+    document.getElementById('kpiTotalAtivos').textContent     = String(total ?? '-');
+    document.getElementById('kpiParticiparam').textContent    = String(part  ?? '-');
+    document.getElementById('kpiNaoParticiparam').textContent = String(nPart ?? '-');
+    document.getElementById('kpiParticiparamPct').textContent = total ? `${pct}%` : '-';
+    document.getElementById('kpiPctNum').textContent          = total ? `${pct}%` : '-';
+    document.getElementById('kpiSemanaSel').textContent       = String(semana ?? '-');
+    document.getElementById('kpiTituloSel').textContent       = String(titulo ?? '-');
+
+    document.getElementById('barPart').style.width    = total ? `${pct}%`   : '0%';
+    document.getElementById('barNaoPart').style.width = total ? `${pctNP}%` : '0%';
+
+    // Renderização dinâmica do gráfico de rosca nativo usando HTML5 Canvas
+    const canvas = document.getElementById('kpiDonut');
+    if (canvas) {
+      const ctx = canvas.getContext('2d');
+      const cx = canvas.width / 2, cy = canvas.height / 2, r = 54, thick = 16;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      
+      const arc = (s, e, color) => {
+        ctx.beginPath(); 
+        ctx.arc(cx, cy, r, (s / 100) * 2 * Math.PI - Math.PI / 2, (e / 100) * 2 * Math.PI - Math.PI / 2);
+        ctx.strokeStyle = color; 
+        ctx.lineWidth = thick; 
+        ctx.lineCap = 'round'; 
+        ctx.stroke();
+      };
+
+      ctx.beginPath(); 
+      ctx.arc(cx, cy, r, 0, 2 * Math.PI);
+      ctx.strokeStyle = '#f3f4f6'; 
+      ctx.lineWidth = thick; 
+      ctx.stroke();
+
+      if (total > 0){
+        if (pctNP > 0) arc(0, pctNP, '#ef4444');
+        if (pct   > 0) arc(pctNP, pctNP + pct, '#22c55e');
+      }
+    }
+
+    // KPIs Secundários: Colaboradores sem nenhuma adesão (Nunca Participaram)
+    const nuncaEl   = document.getElementById('kpiNuncaCount');
+    const nuncaList = document.getElementById('kpiNuncaList');
+    const regs = Array.isArray(registrosAll) ? registrosAll : [];
+    const ativos = Array.isArray(funcAtivos) ? funcAtivos : [];
+
+    const normMat = v => String(v??'').replace(/\D/g, '').padStart(5, '0');
+    const jaParticiparam = new Set(regs.map(r => normMat(r.Matricula)));
+    const nunca = ativos.filter(f =>
+      !jaParticiparam.has(normMat(f.Matricula)) && !AFAST_set.has(afastNormMat(f.Matricula))
+    ).sort((a,b) => String(a.Nome??'').localeCompare(String(b.Nome??''), 'pt-PT', { sensitivity: 'base' }));
+
+    if (nuncaEl) nuncaEl.textContent = nunca.length || '0';
+    if (nuncaList){
+      if (!nunca.length){
+        nuncaList.innerHTML = '<span class="text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-1 rounded">✅ Todos os colaboradores ativos já participaram!</span>';
+      } else {
+        nuncaList.innerHTML = nunca.slice(0, 5).map(f =>
+          `<div class="flex items-center gap-2 text-xs">
+            <span class="w-4 h-4 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center font-bold">!</span>
+            <span class="truncate flex-grow text-slate-700 font-medium">${escapeHtml(f.Nome??f.Matricula??'')}</span>
+            <span class="text-slate-400 font-mono">${normMat(f.Matricula)}</span>
+          </div>`
+        ).join('') + (nunca.length > 5 ? `<div class="text-[10px] text-slate-400 mt-1">+ ${nunca.length - 5} colaboradores na lista</div>` : '');
+      }
+    }
+
+    // Algoritmo de Assiduidade e Agilidade (Top 5 mais frequentes)
+    const assiduosEl = document.getElementById('kpiAssiduosList');
+    if (assiduosEl){
+      const regsPorMatSemana = new Map();
+      for (const r of regs){
+        const mat = normMat(r.Matricula);
+        const iso = String(r.SemanaISO??'');
+        const ts  = parseTimestamp(r.Timestamp);
+        if (!mat || !iso || !ts) continue;
+        const chave = mat + '__' + iso;
+        const atual = regsPorMatSemana.get(chave);
+        if (!atual || ts < atual.ts) regsPorMatSemana.set(chave, { mat, iso, ts, nome: r.Nome??'' });
+      }
+
+      const contagem = new Map();
+      for (const { mat, iso, ts, nome } of regsPorMatSemana.values()){
+        const m = iso.match(/^(\d{4})-W(\d{1,2})$/i);
+        let segsDesdeInicio = 0;
+        if (m){
+          const ano = +m[1], sem = +m[2];
+          const jan4 = new Date(ano, 0, 4);
+          const segunda = new Date(jan4);
+          segunda.setDate(jan4.getDate() - ((jan4.getDay() + 6) % 7) + (sem - 1) * 7);
+          segsDesdeInicio = Math.max(0, (ts - segunda) / 1000);
+        }
+        const entry = contagem.get(mat) || { nome, totalSegs: 0, semanas: 0 };
+        entry.totalSegs += segsDesdeInicio;
+        entry.semanas   += 1;
+        entry.nome = entry.nome || nome;
+        contagem.set(mat, entry);
+      }
+
+      const ranking = [...contagem.entries()]
+        .filter(([,v]) => v.semanas > 0)
+        .sort((a,b) => {
+          if (b[1].semanas !== a[1].semanas) return b[1].semanas - a[1].semanas;
+          return (a[1].totalSegs / a[1].semanas) - (b[1].totalSegs / b[1].semanas);
+        })
+        .slice(0, 5);
+
+      const rankBg = ['bg-amber-100 text-amber-800', 'bg-slate-200 text-slate-800', 'bg-orange-100 text-orange-800', 'bg-slate-100 text-slate-600', 'bg-slate-100 text-slate-600'];
+      assiduosEl.innerHTML = ranking.length
+        ? ranking.map(([mat, v], i) => {
+            return `<div class="flex items-center gap-2 text-xs">
+              <span class="w-4 h-4 rounded-full font-bold flex items-center justify-center text-[10px] ${rankBg[i]}">${i + 1}</span>
+              <span class="truncate flex-grow text-slate-700 font-medium">${escapeHtml(v.nome || mat)}</span>
+              <span class="text-brand-600 font-semibold bg-brand-50 px-1.5 py-0.5 rounded text-[10px]" title="${v.semanas} sessões concluídas">${v.semanas}✓</span>
+            </div>`;
+          }).join('')
+        : '<span class="text-xs text-slate-400">Dados insuficientes para gerar classificação</span>';
+    }
+  }
+
+  // Renderização das tabelas auxiliares do Dashboard
+  function dashRender(naoParticipantes, participantes){
+    const tbodyNP = document.getElementById('tbodyNP');
+    const tbodyP = document.getElementById('tbodyP');
+    if (!naoParticipantes || !naoParticipantes.length){ 
+      tbodyNP.innerHTML = '<tr><td colspan="3" class="px-4 py-8 text-center text-emerald-600 font-semibold bg-emerald-50">Todos os colaboradores participaram! 🎉</td></tr>'; 
+    } else { 
+      tbodyNP.innerHTML = naoParticipantes.map(n => `<tr><td class="px-4 py-3 font-semibold text-slate-900">${escapeHtml(n.Matricula ?? '')}</td><td class="px-4 py-3">${escapeHtml(n.Nome ?? '')}</td><td class="px-4 py-3">${escapeHtml(n.Setor ?? '')}</td></tr>`).join(''); 
+    }
+    if (!participantes || !participantes.length){ 
+      tbodyP.innerHTML = '<tr><td colspan="4" class="px-4 py-8 text-center text-slate-400">Nenhum registo de participação processado.</td></tr>'; 
+    } else { 
+      tbodyP.innerHTML = participantes.map(p => `<tr><td class="px-4 py-3 font-semibold text-slate-900">${escapeHtml(p.Matricula ?? '')}</td><td class="px-4 py-3">${escapeHtml(p.Nome ?? '')}</td><td class="px-4 py-3">${escapeHtml(p.Setor ?? '')}</td><td class="px-4 py-3">${escapeHtml(formatTimestamp(p.Timestamp))}</td></tr>`).join(''); 
+    }
+  }
+
+  // Exportações em formato Excel dedicadas para o Dashboard
+  function dashGerarXLS_NP(){
+    const base = DASH_naoParticipantes || []; 
+    if(!base.length){ alert('Não existem dados de ausentes para exportar.'); return; }
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(base.map(r => ({ 'Matrícula': r.Matricula ?? '', 'Funcionário': r.Nome ?? '', 'Setor': r.Setor ?? '' })));
+    XLSX.utils.book_append_sheet(wb, ws, 'Ausentes');
+    XLSX.writeFile(wb, `DSS_GIG_NaoParticipantes_${(document.getElementById('kpiSemanaSel').textContent || 'semana')}.xlsx`);
+  }
+  
+  function dashGerarXLS_P(){
+    const base = DASH_participantes || []; 
+    if(!base.length){ alert('Não existem dados de presenças para exportar.'); return; }
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(base.map(r => ({ 'Matrícula': r.Matricula ?? '', 'Funcionário': r.Nome ?? '', 'Setor': r.Setor ?? '', 'Data de Participação': formatTimestamp(r.Timestamp) })));
+    XLSX.utils.book_append_sheet(wb, ws, 'Presencas');
+    XLSX.writeFile(wb, `DSS_GIG_Participantes_${(document.getElementById('kpiSemanaSel').textContent || 'semana')}.xlsx`);
+  }
+
+  function dashCompareSemanaISODesc(a, b){ 
+    const pa = dashParseSemanaISO(a), pb = dashParseSemanaISO(b); 
+    if (pa.year !== pb.year) return pb.year - pa.year; 
+    return pb.week - pa.week; 
+  }
+  
+  function dashParseSemanaISO(s){ 
+    const m = String(s||'').match(/^(\d{4})-W?(\d{1,2})$/i); 
+    if(!m) return { year: 0, week: 0 }; 
+    return { year: +m[1], week: +m[2] }; 
+  }
+
+  // Painel de diagnóstico de conexões brutas da API
+  document.getElementById('btnDiag')?.addEventListener('click', async function(){
+    const box = document.getElementById('diagBox');
+    const closeBtn = document.getElementById('btnDiagClear');
+    box.textContent = '⏳ A carregar registos da API...';
+    box.style.display = 'block';
+    closeBtn.style.display = 'inline-block';
+    try {
+      const url = API_BASE + '?action=treinamentos&_t=' + Date.now();
+      box.textContent += '\nURL de Origem: ' + url;
+      const res = await fetch(url, { cache: 'no-store' });
+      const txt = await res.text();
+      box.textContent = 'Estado HTTP: ' + res.status + '\nTipo de Conteúdo: ' + (res.headers.get('content-type') || '?') + '\n\nResposta recebida do servidor:\n' + txt;
+    } catch(e) {
+      box.textContent = 'Erro crítico de comunicação: ' + e.message;
+    }
+  });
+  
+  document.getElementById('btnDiagClear')?.addEventListener('click', function(){
+    document.getElementById('diagBox').style.display = 'none';
+    this.style.display = 'none';
+  });
+
+  // Controlo de Abas / Navegação Principal com classes dinâmicas do Tailwind
+  (function initTabs(){
+    const btnPrincipal = document.getElementById('tabPrincipal');
+    const btnDashboard = document.getElementById('tabDashboard');
+    const secFiltros = document.getElementById('cardFiltros');
+    const secResultados = document.getElementById('cardResultados');
+    const secDashboard = document.getElementById('dashCard');
+
+    showPrincipal();
+
+    btnPrincipal.addEventListener('click', showPrincipal);
+    btnDashboard.addEventListener('click', showDashboard);
+
+    function setActive(btnOn, btnOff){
+      // Botão Ativo: Fundo branco com sombra de destaque
+      btnOn.classList.add('bg-white', 'text-slate-900', 'shadow-sm');
+      btnOn.classList.remove('text-slate-600', 'hover:text-slate-900');
+
+      // Botão Inativo: Fundo transparente, sem sombras
+      btnOff.classList.remove('bg-white', 'text-slate-900', 'shadow-sm');
+      btnOff.classList.add('text-slate-600', 'hover:text-slate-900');
+    }
+
+    function showPrincipal(){
+      setActive(btnPrincipal, btnDashboard);
+      secFiltros?.classList.remove('is-hidden');
+      secResultados?.classList.remove('is-hidden');
+      secDashboard?.classList.add('is-hidden');
+    }
+
+    function showDashboard(){
+      setActive(btnDashboard, btnPrincipal);
+      secFiltros?.classList.add('is-hidden');
+      secResultados?.classList.add('is-hidden');
+      secDashboard?.classList.remove('is-hidden');
+      dashAtualizar();
+    }
+  })();
+</script>
 </body>
 </html>
