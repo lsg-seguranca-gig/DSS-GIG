@@ -103,29 +103,29 @@
 </head>
 <body class="text-slate-800 min-h-screen flex flex-col antialiased">
 
-  <!-- CABEÇALHO / HEADER (Melhorado para telemóveis em 2 linhas limpas) -->
+  <!-- CABEÇALHO / HEADER (Otimizado para telemóveis em linhas limpas de alta qualidade) -->
   <header class="bg-white border-b border-slate-100 shadow-sm sticky top-0 z-50 transition-all-300 no-print">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 md:py-0 md:h-20 flex flex-col md:flex-row items-center justify-between gap-4">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 md:py-0 md:h-20 flex flex-col md:flex-row items-center justify-between gap-4">
       
-      <!-- Linha do Logo e Título -->
-      <div class="flex items-center gap-3 w-full md:w-auto">
+      <!-- Logo e Título (Sem compressão ou visual esmagado) -->
+      <div class="flex items-center gap-3 w-full md:w-auto justify-start">
         <div class="bg-slate-50 p-1.5 rounded-xl border border-slate-100 shrink-0">
           <img src="lsg sky chefs logo.png" alt="logo LSG Sky Chefs" class="h-10 w-auto object-contain" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'40\' height=\'40\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%232563eb\' stroke-width=\'2\'><rect x=\'3\' y=\'3\' width=\'18\' height=\'18\' rx=\'2\'/><path d=\'M9 17V7l7 5z\'/></svg>'"/>
         </div>
         <div class="truncate">
-          <h1 class="text-base sm:text-lg md:text-xl font-extrabold text-slate-900 tracking-tight flex flex-wrap items-center gap-2">
-            DSS GIG <span class="text-[10px] sm:text-xs font-semibold px-2 py-0.5 bg-brand-50 text-brand-600 rounded-full border border-brand-100">Painel do Gestor</span>
+          <h1 class="text-base sm:text-lg md:text-xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
+            DSS GIG <span class="text-[10px] sm:text-xs font-semibold px-2.5 py-0.5 bg-brand-50 text-brand-600 rounded-full border border-brand-100">Painel do Gestor</span>
           </h1>
           <p class="text-[11px] text-slate-500 hidden sm:block">Pesquise e gere relatórios de participação otimizados</p>
         </div>
       </div>
       
-      <!-- Navegação de Ecrãs (Abaixo no Mobile, ao lado no Desktop) -->
-      <nav class="flex bg-slate-100 p-1 rounded-xl w-full md:w-auto justify-center md:justify-start" aria-label="Alternar ecrãs">
-        <button id="tabPrincipal" class="flex-1 md:flex-initial px-5 py-2 text-sm font-semibold rounded-lg transition-all duration-200" type="button">
+      <!-- Navegação de Ecrãs -->
+      <nav class="flex bg-slate-100 p-1 rounded-xl w-full md:w-auto justify-center" aria-label="Alternar ecrãs">
+        <button id="tabPrincipal" class="flex-grow md:flex-initial px-6 py-2.5 text-sm font-semibold rounded-lg transition-all duration-200 text-center" type="button">
           Principal
         </button>
-        <button id="tabDashboard" class="flex-1 md:flex-initial px-5 py-2 text-sm font-semibold rounded-lg transition-all duration-200" type="button">
+        <button id="tabDashboard" class="flex-grow md:flex-initial px-6 py-2.5 text-sm font-semibold rounded-lg transition-all duration-200 text-center" type="button">
           Dashboard
         </button>
       </nav>
@@ -214,7 +214,7 @@
             </button>
           </div>
           
-          <!-- Secção Administrativa de Colaboradores (Adição e Exclusão) -->
+          <!-- Secção Administrativa de Colaboradores (Adição e Exclusão Direta) -->
           <div class="flex flex-col sm:flex-row gap-2 w-full lg:w-auto">
             <button id="btnAddFunc" class="flex-1 bg-brand-50 hover:bg-brand-100 text-brand-700 font-semibold py-2 px-4 rounded-lg text-sm transition-colors border border-brand-200 flex items-center justify-center gap-1.5">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/></svg>
@@ -317,20 +317,20 @@
         <pre id="diagBox" class="mt-3 p-4 bg-slate-900 text-slate-200 rounded-xl text-xs overflow-x-auto font-mono max-h-60 hidden custom-scrollbar"></pre>
       </section>
 
-      <!-- Painel de Ausências e Férias (Obtido dinamicamente da planilha e guardado localmente) -->
-      <details class="bg-white rounded-2xl border border-amber-200 shadow-sm p-6 overflow-hidden transition-all-300" id="afastPanel">
+      <!-- Painel de Ausências e Férias (Sincronizado Dinamicamente com a Planilha Oficial) -->
+      <details class="bg-white rounded-2xl border border-amber-200 shadow-sm p-6 overflow-hidden transition-all-300" id="afastPanel" open>
         <summary class="font-bold text-slate-800 cursor-pointer list-none flex items-center justify-between select-none">
           <div class="flex items-center gap-2">
             <span class="p-1.5 bg-amber-50 text-amber-600 rounded-lg">⚠️</span>
             <span>Férias & Ausências Ativas</span>
             <span id="afastBadge" class="bg-amber-100 text-amber-800 text-xs font-bold px-2 py-0.5 rounded-full border border-amber-200">0</span>
           </div>
-          <span class="text-slate-400 transition-transform duration-200 text-xs" id="afastChevron">▼</span>
+          <span class="text-slate-400 transition-transform duration-200 text-xs" id="afastChevron">▲</span>
         </summary>
         
         <div class="mt-6 space-y-4">
           <p class="text-sm text-slate-500">
-            Abaixo estão listados os colaboradores que constam no banco de dados de <strong>Férias / Ausências</strong> no Google Sheets. Eles são excluídos automaticamente da lista de "Não Participaram" e da contagem total de ativos para evitar distorções nas métricas.
+            Abaixo estão listados os colaboradores que constam no banco de dados de <strong>Férias / Ausências</strong> na planilha do Google Sheets. Estes colaboradores são excluídos automaticamente da lista de "Não Participaram" e da contagem de ativos.
           </p>
 
           <!-- Tabela de Ausentes do Sheets -->
@@ -339,13 +339,13 @@
               <thead class="bg-slate-50 text-slate-600">
                 <tr>
                   <th scope="col" class="px-6 py-3 text-left font-semibold text-xs uppercase tracking-wider">Matrícula</th>
-                  <th scope="col" class="px-6 py-3 text-left font-semibold text-xs uppercase tracking-wider">Funcionário</th>
+                  <th scope="col" class="px-6 py-3 text-left font-semibold text-xs uppercase tracking-wider">Colaborador</th>
                   <th scope="col" class="px-6 py-3 text-left font-semibold text-xs uppercase tracking-wider">Situação</th>
                   <th scope="col" class="px-6 py-3 text-left font-semibold text-xs uppercase tracking-wider">Período</th>
                 </tr>
               </thead>
               <tbody id="tbodyAfastados" class="bg-white divide-y divide-slate-100 text-slate-700">
-                <tr><td colspan="4" class="px-6 py-8 text-center text-slate-400">A carregar registos oficiais de férias...</td></tr>
+                <tr><td colspan="4" class="px-6 py-8 text-center text-slate-400">A carregar registos oficiais de férias do Google Sheets...</td></tr>
               </tbody>
             </table>
           </div>
@@ -519,7 +519,13 @@
         nome: 'Vitor Hugo Teixeira da Silva',
         cargo: 'Supervisor de Segurança / LSA AVSEC / Ramp Safety Owner',
         matricula: '15623',
-        assinatura: 'data:image/png;base64,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cAGWyzBTmkhDpF0zWfx+PZ2djoVY01IDkgPAHIUKIoks2NWwuoro8lRGvOKYTtmKkE4QlAxirnEcKVDGZsTodpz7PPPhU2VoDkgfAEIEP5/e1OgbfODgWDPiSoB4ztILkgPAHIQPX19UzTnkPF8Zg0yma1HC0qKoNL3lIMwhOADLRtW5M1Eldncgwvu92uT55/3psw1oDkgvAEIMOIokhONJ0qt1sdNxDEnOcoC3cUDQAITwAyTE8PsqgKsyAaT+Sabfz29794Bq4WHgAQngBkEFEUyeHdrSORIlxPdHyIZZXtCCFqrAPJB+EJQAY5fRo5OMFyezym2GwO+1szF5SdN9aA1MDGDwAA6YlSiqdeccdYjrH8HmN0iMPS4417X4VzOwcI9DwByBC1tVsZq8V2ZTwmsZoqfThvySifsQakDmP8AACQnkpKipzhgPpjnepRRKMbX6n/bzgEZABBzxOADNF67MzI3m5/PiJoS/XMa+FmzAEG4QlABqipqWFMZtc8luWDqqxv2bhxBRx4PMAgPAHIAK2tyNbXF5omq3JTgeRqNbaD1IPwBCADCIx5EqU4j2VI40ct6yVjO0g9GE8A0lxNTQ0fT2i3YYstylefH/fX9PLp8/7+z9fn9PTx++v+/8f36fv/D++/++f74vP+fv9Pv/v+++L68vr8fn6vv4P/zf///N8Pn5PnS5dH///L6dD///L7+/++/f//F+++D/PT/v9vr/9X/v///h//+//P++/W/H8/r/dH8vn8Pn+/4ffr+v5efn6er7erX5fPn+++ff6eX++/f/v/H///n9/f7f++/r/PP++/v8Xv/Pv///C8fP8f75ff++v7+9/H/+/H9+/6ev9///PP//8en///D8evp6PP//v9X6fbw///C///9X///D9PT/u7PP9+v++H+++rX///C++vx6P/6f31fj8un0///h/fn6/H9/r8en9///f6dfv+f5+///++/v+/+//fD8vnz/H8P7/F6f3n9/p8uXw+/3///++/v6PPp//++/D/vP9///N///X8vn4v39O///z+fC/fv/f9/PT9P///v/P/P7/v/b8/b5dH/f8'
+        assinatura: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAU8AAADXCAYAAACaj9NoAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAAFiUAABYlAUlSJPAAAAGHaVRYdFhNTDpjb20uYWRvYmUueG1wAAAAAAA8P3hwYWNrZXQgYmVnaW49J++7vycgaWQ9J1c1TTBNcENlaGlIenJlU3pOVGN6a2M5ZCc/Pg0KPHg6eG1wbWV0YSB4bWxuczp4PSJhZG9iZTpuczptZXRhLyI+PHJkZjpSREYgeG1sbnM6cmRmPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5LzAyLzIyLXJkZi1zeW50YXgtbnMjIj48cmRmOkRlc2NyaXB0aW9uIHJkZjphYm91dD0idXVpZDpmYWY1YmRkNS1iYTNkLTExZGEtYWQzMS1kMzNkNzUxODJmMWIiIHhtbG5zOnRpZmY9Imh0dHA6Ly9ucy5hZG9iZS5jb20vdGlmZi8xLjAvIj48dGlmZjpPcmllbnRhdGlvbj4xPC90aWZmOk9yaWVudGF0aW9uPjwvcmRmOkRlc2NyaXB0aW9uPjwvcmRmOlJERj48L3g6eG1wbWV0YT4NCjw/eHBhY2tldCBlbmQ9J3cnPz4slJgLAAAnHUlEQVR4Xu3dd3RU170v8L33adObuoSQAIFAFIvejKnGJbhb2L7husQO5MUmDsZ+8Xq59x3NLXEch0sIMb4iieNuR7Id9wLYRsZgijFVognRhLqmt1P3++O+rJWc2AlFM5oZ/T5/zv4NZo3X+bL32Q0hAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgCTCxg8AANlDFEUSCCAHQgj96le1QYwxNdaAS8MYPwAAZI/S0imWr3Z+Oe3smbOlxz450L6zeadqrAGXhhg/AABkD4uFZTVVK9cUPCqRJ5iM7eDSQXgCkMXcyI0sZid22JxU06hubAeXDsITgCwmY9Wm6oinGusThFjC2A4uHYQnAFlMRYqTxSYtpyD3zK/X/1o2toNLB+EJQJailOKO8x3ORDwad+VZWzGCmfb+BOEJQJZaurSBnD3bYWYIiQvCyD5jO7g8EJ4AZKmhQ8+YdKrbCkuK1I0bVyjGdnB5IDwByFKMrLkFk8VdXFoQNbaBywfhCUCWkuPISTVi4VnWZ2wDlw/CE4AsJIoie+rcuTxVVpi4qvYY28Hlg/AEIAvJfnfOuTPtVZRgwobVgLEdXD4ITwCyDEUUf71vfwnDc1WyFJH8yBQ31oDLBweDAJBtxHLTV3v2T6Y6mjCqsmJ3w5tPHjGWgMsHPU8AskwiEcy3mW3jqa538hxz2NgO+geEJwBZpL6mnjm8v6UsGpNCRWfhjLtIbjfWgP4B4QlAFtnrbrXFQvIYk2DhhpcPbV6/fr1krAH9A8ITgCxysrOnhOrMdEppD8H4pLEd9B8ITwCyhCiKbFdbzxBdR8Mp1c5Z8wJdxhrQfyA8AcgSiUSxVUPMiEg0FB82oujQxo0bYT97EkF4ApAl9u3eVm628IskOXpCxtG9xnbQvyA8AcgCq1c/ZZUSUlVXVydjtvCfT5hQ0GusAf0LwhOALGCzWQtUDc8jLGobMWzIbq/XC/cVJRmEJwAZbt26dcKHb306JhZXK3M97hPOgkinsQb0PwhPADKcz8c5WcE6QxCsfpvd9DlMFKUGhCcAGe6zj77MEXjrFVJCbicm5qyxHSQHhCcAGWzdunWCTtCIeDRhtdmsh/z+3KCxBiQHhCcAGWyzBTmkhDpF0zWfx+PZ2djoVY01IDkgPAHIUKIoks2NWwuoro8lRGvOKYTtmKkE4QlAxirnEcKVDGZsTodpz7PPPhU2VoDkgfAEIEP5/e1OgbfODgWDPiSoB4ztILkgPAHIQPX19UzTnkPF8Zg0yma1HC0qKoNL3lIMwhOADLRtW5M1Eldncgwvu92uT55/3psw1oDkgvAEIMOIokhONJ0qt1sdNxDEnOcoC3cUDQAITwAyTE8PsqgKsyAaT+Sabfz29794Bq4WHgAQngBkEFEUyeHdrSORIlxPdHyIZZXtCCFqrAPJB+EJQAY5fRo5OMFyezym2GwO+1szF5SdN9aA1MDGDwAA6YlSiqdeccdYjrH8HmN0iMPS4417X4VzOwcI9DwByBC1tVsZq8V2ZTwmsZoqfThvySifsQakDmP8AACQnkpKipzhgPpjnepRRKMbX6n/bzgEZABBzxOADNF67MzI3m5/PiJoS/XMa+FmzAEG4QlABqipqWFMZtc8luWDqqxv2bhxBRx4PMAgPAHIAK2tyNbXF5omq3JTgeRqNbaD1IPwBCADCIx5EqU4j2VI40ct6yVjO0g9GE8A0lxNTQ0fT2i3YYxVs4kcNbaDgQHhCUCaa22NOxRVn6DpSisy0T5jOxgYEH4ApAl9u3eVm628IskOXpCxtG9xnbQvyA8AcgCq1c/ZZUSUlVXVydjtvCfT5hQ0GusAf0LwhOALGCzWQtUDc8jLGobMWzIbq/XC/cVJRmEJwAZbt26dcKHb306JhZXK3M97hPOgkinsQb0PwhPADKcz8c5WcE6QxCsfpvd9DlMFKUGhCcAGe6zj77MEXjrFVJCbicm5qyxHSQHhCcAGWzdunWCTtCIeDRhtdmsh/z+3KCxBiQHhCcAGWyzBTmkhDpF0zWfx+PZ2djoVY01IDkgPAHIUKIoks2NWwuoro8lRGvOKYTtmKkE4QlAxirnEcKVDGZsTodpz7PPPhU2VoDkgfAEIEP5/e1OgbfODgWDPiSoB4ztILkgPAHIQPX19UzTnkPF8Zg0yma1HC0qKoNL3lIMwhOADLRtW5M1Eldncgwvu92uT55/3psw1oDkgvAEIMOIokhONJ0qt1sdNxDEnOcoC3cUDQAITwAyTE8PsqgKsyAaT+Sabfz29794Bq4WHgAQngBkEFEUyeHdrSORIlxPdHyIZZXtCCFqrAPJB+EJQAY5fRo5OMFyezym2GwO+1szF5SdN9aA1MDGDwAA6YlSiqdeccdYjrH8HmN0iMPS4417X4VzOwcI9DwByBC1tVsZq8V2ZTwmsZoqfThvySifsQakDmP8AACQnkpKipzhgPpjnepRRKMbX6n/bzgEZABBzxOADNF67MzI3m5/PiJoS/XMa+FmzAEG4QlABqipqWFMZtc8luWDqqxv2bhxBRx4PMAgPAHIAK2tyNbXF5omq3JTgeRqNbaD1IPwBCADCIx5EqU4j2VI40ct6yVjO0g9GE8A0lxNTQ0fT2i3YYxVs4kcNbaDgQHhCUCaa22NOxRVn6DpSisy0T5jOxgYEG4ApAl9u3eVm628IskOXpCxtG9xnbQvyA8AcgCq1c/ZZUSUlVXVydjtvCfT5hQ0GusAf0LwhOALGCzWQtUDc8jLGobMWzIbq/XC/cVJRmEJwAZbt26dcKHb306JhZXK3M97hPOgkinsQb0PwhPADKcz8c5WcE6QxCsfpvd9DlMFKUGhCcAGe6zj77MEXjrFVJCbicm5qyxHSQHhCcAGWzdunWCTtCIeDRhtdmsh/z+3KCxBiQHhCcAGWyzBTmkhDpF0zWfx+PZ2djoVY01IDkgPAHIUKIoks2NWwuoro8lRGvOKYTtmKkE4QlAxirnEcKVDGZsTodpz7PPPhU2VoDkgfAEIEP5/e1OgbfODgWDPiSoB4ztILkgPAHIQPX19UzTnkPF8Zg0yma1HC0qKoNL3lIMwhOADLRtW5M1Eldncgwvu92uT55/3psw1oDkgvAEIMOIokhONJ0qt1sdNxDEnOcoC3cUDQAITwAyTE8PsqgKsyAaT+Sabfz29794Bq4WHgAQngBkEFEUyeHdrSORIlxPdHyIZZXtCCFqrAPJB+EJQAY5fRo5OMFyezym2GwO+1szF5SdN9aA1MDGDwAA6YlSiqdeccdYjrH8HmN0iMPS4417X4VzOwcI9DwByBC1tVsZq8V2ZTwmsZoqfThvySifsQakDmP8AACQnkpKipzhgPpjnepRRKMbX6n/bzgEZABBzxOADNF67MzI3m5/PiJoS/XMa+FmzAEG4QlABqipqWFMZtc8luWDqqxv2bhxBRx4PMAgPAHIAK2tyNbXF5omq3JTgeRqNbaD1IPwBCADCIx5EqU4j2VI40ct6yVjO0g9GE8A0lxNTQ0fT2i3YYxVs4kcNbaDgQHhCUCaa22NOxRVn6DpSisy0T5jOxgYEG4ApAl9u3eVm628IskOXpCxtG9xnbQvyA8AcgCq1c/ZZUSUlVXVydjtvCfT5hQ0GusAf0LwhOALGCzWQtUDc8jLGobMWzIbq/XC/cVJRmEJwAZbt26dcKHb306JhZXK3M97hPOgkinsQb0PwhPADKcz8c5WcE6QxCsfpvd9DlMFKUGhCcAGe6zj77MEXjrFVJCbicm5qyxHSQHhCcAGWzdunWCTtCIeDRhtdmsh/z+3KCxBiQHhCcAGWyzBTmkhDpF0zWfx+PZ2djoVY01IDkgPAHIUKIoks2NWwuoro8lRGvOKYTtmKkE4QlAxirnEcKVDGZsTodpz7PPPhU2VoDkgfAEIEP5/e1OgbfODgWDPiSoB4ztILkgPAHIQPX19UzTnkPF8Zg0yma1HC0qKoNL3lIMwhOADLRtW5M1Eldncgwvu92uT55/3psw1oDkgvAEIMOIokhONJ0qt1sdNxDEnOcoC3cUDQAITwAyTE8PsqgKsyAaT+Sabfz29794Bq4WHgAQngBkEFEUyeHdrSORIlxPdHyIZZXtCCFqrAPJB+EJQAY5fRo5OMFyezym2GwO+1szF5SdN9aA1MDGDwAA6YlSiqdeccdYjrH8HmN0iMPS4417X4VzOwcI9DwByBC1tVsZq8V2ZTwmsZoqfThvySifsQakDmP8AACQnkpKipzhgPpjnepRRKMbX6n/bzgEZABBzxOADNF67MzI3m5/PiJoS/XMa+FmzAEG4QlABqipqWFMZtc8luWDqqxv2bhxBRx4PMAgPAHIAK2tyNbXF5omq3JTgeRqNbaD1IPwBCADCIx5EqU4j2VI40ct6yVjO0g9GE8A0lxNTQ0fT2i3YYstylefH/fX9PLp8/7+z9fn9PTx++v+/8f36fv/D++/++f74vP+fv9Pv/v+++L68vr8fn6vv4P/zf///N8Pn5PnS5dH///L6dD///L7+/++/f//F+++D/PT/v9vr/9X/v///h//+//P++/W/H8/r/dH8vn8Pn+/4ffr+v5efn6er7erX5fPn+++ff6eX++/f/v/H///n9/f7f++/r/PP++/v8Xv/Pv///C8fP8f75ff++v7+9/H/+/H9+/6ev9///PP//8en///D8evp6PP//v9X6fbw///C///9X///D9PT/u7PP9+v++H+++rX///C++vx6P/6f31fj8un0///h/fn6/H9/r8en9///f6dfv+f5+///++/v+/+//fD8vnz/H8P7/F6f3n9/p8uXw+/3///++/v6PPp//++/D/vP9///N///X8vn4v39O///z+fC/fv/f9/PT9P///v/P/P7/v/b8/b5dH/f8'
+    },
+    {
+      nome: 'Francinele Ribeiro Machado',
+      cargo: 'Assistente Administrativo / DLSA AVSEC / Ramp Safety Deputy',
+      matricula: '16977',
+      assinatura: 'data:image/png;base64,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'
     },
   ];
 
@@ -937,7 +943,7 @@
     if (Formadores.length > 0) {
       const yAfterTable = doc.lastAutoTable.finalY ?? (pageHeight - M_BOTTOM - 120);
       const footerAreaH = M_BOTTOM + 4 * L_H + 20; 
-      const instrBlockH = 95; // Aumentado ligeiramente para comportar a assinatura e textos sem sobreposições
+      const instrBlockH = 95; // Aumentado para comportar a assinatura e textos sem sobreposições
       const totalInstrH = Formadores.length * instrBlockH + 30;
 
       let yInstr = yAfterTable + 20;
@@ -951,7 +957,8 @@
       doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
       doc.setFillColor(33, 150, 243);
       doc.rect(M_LEFT, yInstr, usableWidth, 18, 'F');
-      doc.text('FORMADORES / VALIDATIVOS DO TREINAMENTO', M_LEFT + 6, yInstr + 13);
+      doc.setTextColor(255, 255, 255);
+      doc.text('INSTRUTORES DO TREINAMENTO', M_LEFT + 6, yInstr + 13);
       doc.setTextColor(0, 0, 0);
       yInstr += 26;
 
@@ -970,14 +977,15 @@
         // Assinatura (Exibida ACIMA da linha de assinatura, centralizada)
         if (instr.assinatura && /^data:image\/(png|jpeg|jpg);base64,/i.test(instr.assinatura)) {
           try {
-            const props = doc.getImageProperties(instr.assinatura);
-            const maxW = colW - 30; const maxH = sigH - 6;
-            const scale = Math.min(maxW / props.width, maxH / props.height, 1);
-            const w = props.width * scale; const h = props.height * scale;
+            // Props de alta confiabilidade pré-definidas para evitar quebras silenciosas
+            const w = 110; 
+            const h = 40; 
             const xImg = xCell + (colW - w) / 2;
-            const yImg = yInstr + 6 + (sigH - h) / 2; // Centralizado verticalmente na área de assinatura superior
-            doc.addImage(instr.assinatura, props.fileType || 'PNG', xImg, yImg, w, h);
-          } catch(e){}
+            const yImg = yInstr + 4; 
+            doc.addImage(instr.assinatura, 'PNG', xImg, yImg, w, h);
+          } catch(e){
+            console.error("Erro ao renderizar assinatura", e);
+          }
         }
 
         // Linha divisória clássica (Régua de Assinatura)
@@ -990,7 +998,7 @@
         doc.text(nomeLines, xCell + colW / 2, yInstr + sigH + 16, { align: 'center' });
         doc.setFont('helvetica', 'normal'); doc.setFontSize(8);
         doc.text(instr.cargo || '', xCell + colW / 2, yInstr + sigH + 16 + L_H, { align: 'center' });
-        doc.text(`N.º Registo: ${instr.matricula || '-'}`, xCell + colW / 2, yInstr + sigH + 16 + 2 * L_H, { align: 'center' });
+        doc.text(`Matrícula: ${instr.matricula || '-'}`, xCell + colW / 2, yInstr + sigH + 16 + 2 * L_H, { align: 'center' });
       }
     }
 
@@ -1036,11 +1044,11 @@
     }
   }
 
-  // Prompt administrativo para excluir/desativar funcionários (Alterando Ativo para FALSE)
+  // Prompt administrativo para excluir/deletar funcionário do banco de dados definitivamente
   async function excluirFuncionarioViaPrompt(){
     const status = document.getElementById('status');
     try {
-      let mRaw = prompt('Digite a matrícula (5 dígitos) do colaborador que deseja excluir:');
+      let mRaw = prompt('Digite a matrícula (5 dígitos) do colaborador que deseja EXCLUIR definitivamente do banco de dados:');
       if (mRaw === null) return;
       mRaw = mRaw.replace(/\D/g, '');
       while (!/^\d{5}$/.test(mRaw)){
@@ -1050,32 +1058,83 @@
       }
       const matricula = mRaw;
 
-      // Buscar localmente os dados do colaborador para confirmar
+      // Buscar localmente os dados do colaborador para confirmar exclusão
       await dashEnsureData();
       const colab = (DASH_funcionarios || []).find(f => afastNormMat(f.Matricula) === matricula);
       
-      let confirmMsg = `Deseja realmente excluir/desativar o colaborador com a matrícula ${matricula}?`;
+      let confirmMsg = `Deseja realmente apagar em definitivo o colaborador com a matrícula ${matricula}?`;
       if (colab && colab.Nome) {
-        confirmMsg = `Deseja realmente desativar o colaborador abaixo?\n\nNome: ${colab.Nome}\nMatrícula: ${matricula}\nSetor: ${colab.Setor ?? '-'}\n\nNota: A exclusão mudará o status "Ativo" para FALSE no Sheets.`;
+        confirmMsg = `Deseja realmente EXCLUIR em definitivo o colaborador abaixo do banco de dados?\n\nNome: ${colab.Nome}\nMatrícula: ${matricula}\nSetor: ${colab.Setor ?? '-'}\n\nNota: Esta ação irá apagar o registo do colaborador do Sheets.`;
       }
 
       const ok = confirm(confirmMsg);
       if (!ok){ status.innerHTML = '<div class="text-amber-600 bg-amber-50 px-4 py-2 rounded-lg border border-amber-100">Exclusão cancelada.</div>'; return; }
 
-      status.innerHTML = '<div class="text-rose-500 bg-rose-50 px-4 py-2 rounded-lg border border-rose-100">A processar exclusão no Google Sheets...</div>';
+      status.innerHTML = '<div class="text-rose-500 bg-rose-50 px-4 py-2 rounded-lg border border-rose-100">A remover registo do Google Sheets...</div>';
       
-      // Chamada para desativação (Ativo = FALSE)
-      const res = await fetch(API_BASE + '?action=addFuncionario', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ matricula, nome: colab ? colab.Nome : '', setor: colab ? colab.Setor : '', ativo: false })
-      });
+      let success = false;
+      let errorMsg = '';
+      
+      // Prova de exclusão primária: action=excluirFuncionario
+      try {
+        const res = await fetch(API_BASE + '?action=excluirFuncionario', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ matricula })
+        });
+        const data = await res.json();
+        if (data && data.ok) {
+          success = true;
+        } else {
+          errorMsg = data.error || '';
+        }
+      } catch(e) {
+        errorMsg = e.message;
+      }
 
-      let data;
-      try { data = await res.json(); } catch { data = { ok: false, error: 'Erro de resposta' }; }
-      if (!data.ok) throw new Error(data.error ?? 'Falha ao desativar colaborador no Sheets');
+      // Fallback 1: action=deleteFuncionario
+      if (!success) {
+        try {
+          const res = await fetch(API_BASE + '?action=deleteFuncionario', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ matricula })
+          });
+          const data = await res.json();
+          if (data && data.ok) {
+            success = true;
+          } else {
+            errorMsg = data.error || errorMsg;
+          }
+        } catch(e) {
+          errorMsg = e.message || errorMsg;
+        }
+      }
 
-      status.innerHTML = '<div class="text-emerald-600 bg-emerald-50 px-4 py-2 rounded-lg border border-emerald-100">Colaborador desativado (Inativo) com sucesso no Sheets!</div>';
+      // Fallback 2: action=excluirColaborador
+      if (!success) {
+        try {
+          const res = await fetch(API_BASE + '?action=excluirColaborador', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ matricula })
+          });
+          const data = await res.json();
+          if (data && data.ok) {
+            success = true;
+          } else {
+            errorMsg = data.error || errorMsg;
+          }
+        } catch(e) {
+          errorMsg = e.message || errorMsg;
+        }
+      }
+
+      if (!success) {
+        throw new Error(errorMsg || 'Erro desconhecido na remoção do Sheets');
+      }
+
+      status.innerHTML = '<div class="text-emerald-600 bg-emerald-50 px-4 py-2 rounded-lg border border-emerald-100">Colaborador removido em definitivo do Sheets!</div>';
       
       // Limpar cache local para forçar recarregamento na próxima busca
       delete _apiCache['funcionarios'];
@@ -1163,6 +1222,22 @@
 
   function afastNormMat(v){ return String(v??'').replace(/\D/g, '').padStart(5, '0'); }
 
+  // Normalização flexível das chaves das colunas retornadas pela API (GAS)
+  function mapFeriasRow(row) {
+    const keys = Object.keys(row);
+    const findVal = (possibleKeys) => {
+      const foundKey = keys.find(k => possibleKeys.includes(k.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')));
+      return foundKey ? row[foundKey] : '';
+    };
+    return {
+      Matricula: String(findVal(['matricula', 'mat', 'numregisto']) || '').trim(),
+      Funcionario: String(findVal(['funcionario', 'nome', 'colaborador']) || '').trim(),
+      Situacao: String(findVal(['situacao', 'status', 'tipo', 'motivo']) || 'Férias').trim(),
+      InicioFerias: String(findVal(['inicioferias', 'inicio', 'datainicio', 'datadeinicio']) || '').trim(),
+      FimFerias: String(findVal(['fimferias', 'fim', 'datafim', 'datadefim']) || '').trim()
+    };
+  }
+
   // Gestão de Ausências conectada diretamente à planilha oficial "Ferias"
   function afastRenderTags(){
     const badge = document.getElementById('afastBadge');
@@ -1179,13 +1254,13 @@
 
     // Renderiza a listagem oficial de férias vinda da planilha Google Sheets
     tbody.innerHTML = feriasServidor.map(f => {
-      const mat = afastNormMat(f.Matricula || f.matricula);
-      const nome = escapeHtml(f.Funcionario || f.funcionario || f.Nome || '-');
-      const situacao = escapeHtml(f.Situacao || f.situacao || 'Férias');
+      const mat = afastNormMat(f.Matricula);
+      const nome = escapeHtml(f.Funcionario || '-');
+      const situacao = escapeHtml(f.Situacao || 'Férias');
       
       // Formatar datas se existirem
-      const dIni = f.InicioFerias || f.inicioferias ? formatTimestamp(f.InicioFerias || f.inicioferias).split(' ')[0] : '';
-      const dFim = f.FimFerias || f.fimferias ? formatTimestamp(f.FimFerias || f.fimferias).split(' ')[0] : '';
+      const dIni = f.InicioFerias ? f.InicioFerias : '';
+      const dFim = f.FimFerias ? f.FimFerias : '';
       const periodo = dIni && dFim ? `${dIni} a ${dFim}` : (dIni || dFim || 'Período Ativo');
 
       return `<tr>
@@ -1203,7 +1278,7 @@
 
   // Inicialização da área de Ausências
   (function initAfast(){
-    afastCarregar(); // Agora definido com sucesso!
+    afastCarregar(); // Inicialização restaurada com segurança
     afastRenderTags();
 
     const panel = document.getElementById('afastPanel');
@@ -1243,16 +1318,24 @@
     if (!DASH_funcionarios) DASH_funcionarios = _parseRows(jFunc);
     if (!DASH_registrosAll) DASH_registrosAll = _parseRows(jRegs);
 
-    // Mapeamento e unificação da aba oficial "Ferias" do Sheets enviada na chamada de API
+    // Mapeamento e unificação da aba oficial "Ferias" do Sheets de forma extremamente robusta e flexível
     try {
-      const resFerias = await apiFetch('action=ferias');
-      const dataFerias = await resFerias.json();
+      let resFerias = await apiFetch('action=ferias');
+      let dataFerias = await resFerias.json();
+      
+      // Fallback caso a folha se chame "Ferias" (casing)
+      if (!dataFerias || !dataFerias.ok || !_parseRows(dataFerias).length) {
+        const resFeriasCap = await apiFetch('action=Ferias');
+        dataFerias = await resFeriasCap.json();
+      }
+
       if (dataFerias && dataFerias.ok) {
-        feriasServidor = _parseRows(dataFerias);
+        const rawRows = _parseRows(dataFerias);
+        feriasServidor = rawRows.map(mapFeriasRow).filter(f => f.Matricula && f.Matricula !== '00000');
       } else {
-        // Fallback: Filtrar ausências pela situação nas propriedades de funcionários se disponível
+        // Fallback dinâmico: filtra diretamente das observações dos funcionários
         feriasServidor = (DASH_funcionarios || []).filter(f => 
-          ['ferias', 'afastado', 'licenca'].includes(String(f.Situacao || f.situacao || '').toLowerCase().trim())
+          ['ferias', 'afastado', 'licenca', 'inss'].includes(String(f.Situacao || f.situacao || '').toLowerCase().trim())
         ).map(f => ({
           Matricula: f.Matricula,
           Funcionario: f.Nome,
@@ -1265,11 +1348,21 @@
       // Sincronizar conjunto local AFAST_set para o filtro do dashboard
       AFAST_set.clear();
       feriasServidor.forEach(f => {
-        const m = afastNormMat(f.Matricula || f.matricula);
+        const m = afastNormMat(f.Matricula);
         if (m && m !== '00000') AFAST_set.add(m);
       });
     } catch(e) {
-      console.warn("Módulo de conexão direta da aba Férias não respondeu.", e);
+      // Outro fallback defensivo silencioso
+      try {
+        const resFeriasCap = await apiFetch('action=Ferias');
+        const dataFeriasCap = await resFeriasCap.json();
+        if (dataFeriasCap && dataFeriasCap.ok) {
+          const rawRows = _parseRows(dataFeriasCap);
+          feriasServidor = rawRows.map(mapFeriasRow).filter(f => f.Matricula && f.Matricula !== '00000');
+        }
+      } catch(err){
+        console.warn("Erro ao buscar dados da folha Ferias", err);
+      }
     }
   }
 
@@ -1678,8 +1771,8 @@
 
     function showDashboard(){
       setActive(btnDashboard, btnPrincipal);
-      secFiltros?.classList.add('is-hidden');
-      secResultados?.classList.add('is-hidden');
+      secFiltros?.add('is-hidden');
+      secResultados?.add('is-hidden');
       secDashboard?.classList.remove('is-hidden');
       dashAtualizar();
     }
