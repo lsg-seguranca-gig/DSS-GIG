@@ -940,6 +940,10 @@
       },
     });
 
+    // Garante que estamos na última página absoluta para desenhar os instrutores
+    const totalPages = doc.internal.getNumberOfPages();
+    doc.setPage(totalPages);
+
     // Rúbricas Oficiais de Instrutores / Validadores ao final da tabela (Posicionamento Corrigido)
     const Formadores = PDF_INSTRUTORES || [];
     if (Formadores.length > 0) {
@@ -951,8 +955,10 @@
       let yInstr = yAfterTable + 20;
       if (yInstr + totalInstrH > pageHeight - footerAreaH) {
         doc.addPage();
-        drawHeader(doc.internal.getNumberOfPages());
-        drawFooter(doc.internal.getNumberOfPages(), totalPagesExp);
+        const newPageNum = doc.internal.getNumberOfPages();
+        doc.setPage(newPageNum);
+        drawHeader(newPageNum);
+        drawFooter(newPageNum, totalPagesExp);
         yInstr = yStartOtherPages + 10;
       }
 
@@ -1326,7 +1332,7 @@
 
       const contagem = new Map();
       for (const { mat, iso, ts, nome } of regsPorMatSemana.values()){
-        const m = iso.match(/^(\d{4})-W(\d{1,2})$/i);
+        const m = iso.match(/^(\d{4})-W\d{1,2}$/i);
         let segsDesdeInicio = 0;
         if (m){
           const ano = +m[1], sem = +m[2];
@@ -1729,6 +1735,54 @@
     if(!m) return { year: 0, week: 0 }; 
     return { year: +m[1], week: +m[2] }; 
   }
+
+  // Controlo de Abas / Navegação Principal com classes dinâmicas do Tailwind (Otimizado para touch)
+  (function initTabs(){
+    const btnPrincipal = document.getElementById('tabPrincipal');
+    const btnDashboard = document.getElementById('tabDashboard');
+    const secFiltros = document.getElementById('cardFiltros');
+    const secResultados = document.getElementById('cardResultados');
+    const secDashboard = document.getElementById('dashCard');
+
+    showPrincipal();
+
+    // Eventos rápidos de clique
+    btnPrincipal.addEventListener('click', showPrincipal);
+    btnDashboard.addEventListener('click', showDashboard);
+
+    // Eventos rápidos de toque para telemóveis/tablets
+    btnPrincipal.addEventListener('touchstart', function(e) {
+      e.preventDefault();
+      showPrincipal();
+    }, { passive: false });
+
+    btnDashboard.addEventListener('touchstart', function(e) {
+      e.preventDefault();
+      showDashboard();
+    }, { passive: false });
+
+    function setActive(btnOn, btnOff){
+      btnOn.classList.add('bg-white', 'text-slate-900', 'shadow-sm');
+      btnOn.classList.remove('text-slate-600', 'hover:text-slate-900');
+      btnOff.classList.remove('bg-white', 'text-slate-900', 'shadow-sm');
+      btnOff.classList.add('text-slate-600', 'hover:text-slate-900');
+    }
+
+    function showPrincipal(){
+      setActive(btnPrincipal, btnDashboard);
+      secFiltros?.classList.remove('is-hidden');
+      secResultados?.classList.remove('is-hidden');
+      secDashboard?.classList.add('is-hidden');
+    }
+
+    function showDashboard(){
+      setActive(btnDashboard, btnPrincipal);
+      secFiltros?.classList.add('is-hidden');
+      secResultados?.classList.add('is-hidden');
+      secDashboard?.classList.remove('is-hidden');
+      dashAtualizar();
+    }
+  })();
 </script>
 </body>
 </html>
