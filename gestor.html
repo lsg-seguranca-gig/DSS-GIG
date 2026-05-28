@@ -110,7 +110,7 @@
       <!-- Logo e Título (Sem compressão) -->
       <div class="flex items-center gap-3 w-full md:w-auto justify-start">
         <div class="bg-slate-50 p-1.5 rounded-xl border border-slate-100 shrink-0">
-          <img src="lsg sky chefs logo.png" alt="logo LSG Sky Chefs" class="h-10 w-auto object-contain" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'40\' height=\'40\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%232563eb\' stroke-width=\'2\'><rect x=\'3\' y=\'3\' width=\'18\' height=\'18\' rx=\'2\'/><path d=\'M9 17V7l7 5z\'/></svg>'"/>
+          <img src="logo lsg.png" alt="logo LSG Sky Chefs" class="h-10 w-auto object-contain" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'40\' height=\'40\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%232563eb\' stroke-width=\'2\'><rect x=\'3\' y=\'3\' width=\'18\' height=\'18\' rx=\'2\'/><path d=\'M9 17V7l7 5z\'/></svg>'"/>
         </div>
         <div class="truncate">
           <h1 class="text-base sm:text-lg md:text-xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
@@ -511,21 +511,38 @@
     let feriasServidor = []; // Guarda as informações da planilha "Ferias" do Google Sheets
 
     /* ====================================================
+     * LSG SKY CHEFS — LOGO EMBUTIDO (SVG) COMO FALLBACK GARANTIDO
+     * Usado no PDF se lsg sky chefs logo.png não estiver acessível
+     * ==================================================== */
+    const LOGO_FALLBACK_B64 = (() => {
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="240" height="104">
+        <rect width="240" height="104" rx="8" fill="#0057A8"/>
+        <rect x="8" y="8" width="88" height="88" rx="6" fill="white"/>
+        <text x="52" y="65" font-family="Arial,sans-serif" font-size="44" font-weight="900" fill="#0057A8" text-anchor="middle">LSG</text>
+        <text x="158" y="38" font-family="Arial,sans-serif" font-size="17" font-weight="700" fill="white" text-anchor="middle">SKY CHEFS</text>
+        <text x="158" y="60" font-family="Arial,sans-serif" font-size="12" fill="#9EC8F5" text-anchor="middle">DSS GIG — Segurança</text>
+        <text x="158" y="80" font-family="Arial,sans-serif" font-size="11" fill="#9EC8F5" text-anchor="middle">Base Aeroporto Galeão</text>
+      </svg>`;
+      return 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svg)));
+    })();
+
+    /* ====================================================
      * INSTRUTORES DO TREINAMENTO
-     * Cada objeto representa um formador oficial com imagem de assinatura em base64
+     * As células de assinatura são desenhadas como campos em branco
+     * pelo jsPDF (linha clássica de assinatura)
      * ==================================================== */
     const PDF_INSTRUTORES = [
       {
         nome: 'Vitor Hugo Teixeira da Silva',
         cargo: 'Supervisor de Segurança / LSA AVSEC / Ramp Safety Owner',
         matricula: '15623',
-        assinatura: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAU8AAEDXCAYAAACaj9NoAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAAFiUAABYlAUlSJPAAAAGHaVRYdFhNTDpjb20uYWRvYmUueG1wAAAAAAA8P3hwYWNrZXQgYmVnaW49J++7vycgaWQ9J1c1TTBNcENlaGlIenJlU3pOVGN6a2M5ZCc/Pg0KPHg6eG1wbWV0YSB4bWxuczp4PSJhZG9iZTpuczptZXRhLyI+PHJkZjpSREYgeG1sbnM6cmRmPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5LzAyLzIyLXJkZi1zeW50YXgtbnMjIj48cmRmOkD6fX9Pf///B/vP/++///v/3//H++b8f///C8Pn8//9//++/+++f9/++//++L8H9/H5/X++/G///N8PD9Pr//r++j+++z9ev8fXw+++f9+PP1+PP/u8fx8Pl9vl9On7+//C8Pn6fv/f/++v///b+//++/++/v///d+T6er08/r83f4fXn///P+/8f99P/f+//+fT///d79Tv9/36dfn9Ph9P8/r8fn///P/P7/v/b8fv+ffU///f/e/m9H9P3x+//PP//9X9Pn3er///h9eH///C/H9H9/p+//D+//H6e7q+P9+r8Hv///C///9v6+vr8fr6P73/++///v/3//D8un++/b/8fv8Pz+3x6/p+fr/fU6Xf7ejS6vnT5f///++/C+un+++f/+uX36/v///P/++/++//8v+++r///X9O////f8f++/f6ej/v///G/efx9/L5fX08Pp8Pr+/p8v++/z++/P9/PT/f8X7+/X///g///++/S5/Pr+nx6fv8vr/H98v9+nx9fN++f++/H+/7/++/++/+/T+fx6fPn///F5+fn8vl9Pl7er///h+/D+++L8/v6v99Hz+fp6PP5OnS/u///P///9vD8fn///P/9/f++/v6/f++/+++d+++b36v79PP0+3X/dP/x+//8f/++/b/vv6///f+//h+//f/u///v+//X///++/C++fn5er8enp9vr8+f/8Pn4fr0v9X7erX8fPn8Pp7ffU+fx///v/PP/f9/PT9X9O/x+vn6vX7fv9+v7e/U7dH/9X///D9fn///N6fb7ej+++D5+/X///v/9/3/df+++D8er6fr/vX++/h++3/9/vD7+++v/7/vv9Pv+++H98vl9vl7er///f+++z6er++/G///P99X+//C/N9en7fP7+//v8Xv/Pv///C8fP8f75ff++v7+9/H/+/H9+/6ev9///PP//8en///D8evp6PP//v9X6fbw///C///9X///D9PT/u7PP9+v++H+++rX///C++vx6P/6f31fj8un0///h/fn6/H9/r8en9///f6dfv+f5+///++/v+/+//fD8vnz/H8P7/F6f3n9/p8uXw+/3///++/v6PPp//++/D/vP9///N///X8vn4v39O///z+fC/fv/f9/PT9P///v/P/P7/v/b8/b5dH/f8'
+        assinatura: null
       },
       {
         nome: 'Francinele Ribeiro Machado',
         cargo: 'Assistente Administrativo / DLSA AVSEC / Ramp Safety Deputy',
         matricula: '16977',
-        assinatura: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAU8AAEDCAYAAAC1V4blAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAAFiUAABYlAUlSJPAAAAGHaVRYdFhNTDpjb20uYWRvYmUueG1wAAAAAAA8P3hwYWNrZXQgYmVnaW49J++7vycgaWQ9J1c1TTBNcENlaGlIenJlU3pOVGN6a2M5ZCc/Pg0KPHg6eG1wbWV0YSB4bWxuczp4PSJhZG9iZTpuczptZXRhLyI+PHJkZjpSREYgeG1sbnM6cmRmPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5LzAyLzIyLXJkZi1zeW50YXgtbnMjIj48cmRmOkD6fX9Pf///B/vP/++///v/3//H++b8f///C8Pn8//9//++/+++f9/++//++L8H9/H5/X++/G///N8PD9Pr//r++j+++z9ev8fXw+++f9+PP1+PP/u8fx8Pl9vl9On7+//C8Pn6fv/f/++v///b+//++/++/v///d+T6er08/r83f4fXn///P+/8f99P/f+//+fT///d79Tv9/36dfn9Ph9P8/r8fn///P/P7/v/b8fv+ffU///f/e/m9H9P3x+//PP//9X9Pn3er///h9eH///C/H9H9/p+//D+//H6e7q+P9+r8Hv///C///9v6+vr8fr6P73/++///v/3//D8un++/b/8fv8Pz+3x6/p+fr/fU6Xf7ejS6vnT5f///++/C+un+++f/+uX36/v///P/++/++//8v+++r///X9O////f8f++/f6ej/v///G/efx9/L5fX08Pp8Pr+/p8v++/z++/P9/PT/f8X7+/X///g///++/S5/Pr+nx6fv8vr/H98v9+nx9fN++f++/H+/7/++/++/+/T+fx6fPn///F5+fn8vl9Pl7er///h+/D+++L8/v6v99Hz+fp6PP5OnS/u///P///9vD8fn///P/9/f++/v6/f++/+++d+++b36v79PP0+3X/dP/x+//8f/++/b/vv6///f+//h+//f/u///v+//X///++/C++fn5er8enp9vr8+f/8Pn4fr0v9X7erX8fPn8Pp7ffU+fx///v/PP/f9/PT9X9O/x+vn6vX7fv9+v7e/U7dH/9X///D9fn///N6fb7ej+++D5+/X///v/9/3/df+++D8er6fr/vX++/h++3/9/vD7+++v/7/vv9Pv+++H98vl9vl7er///f+++z6er++/G///P99X+//C/N9en7fP7+//v8Xv/Pv///C8fP8f75ff++v7+9/H/+/H9+/6ev9///PP//8en///D8evp6PP//v9X6fbw///C///9X///D9PT/u7PP9+v++H+++rX///C++vx6P/6f31fj8un0///h/fn6/H9/r8en9///f6dfv+f5+///++/v+/+//fD8vnz/H8P7/F6f3n9/p8uXw+/3///++/v6PPp//++/D/vP9///N///X8vn4v39O///z+fC/fv/f9/PT9P///v/P/P7/v/b8/b5dH/f8'
+        assinatura: null
     },
   ];
 
@@ -534,9 +551,9 @@
   function loadLogoAsDataURL(){
     if (_logoLoadPromise) return _logoLoadPromise;
     _logoLoadPromise = new Promise((resolve) => {
-      // Método 1: fetch + FileReader (mais confiável que Canvas, evita erros CORS de canvas)
+      // Método 1: fetch + FileReader (mais fiável, evita erros CORS de canvas)
       fetch(LOGO_SRC, { cache: 'force-cache' })
-        .then(r => r.ok ? r.blob() : Promise.reject())
+        .then(r => r.ok ? r.blob() : Promise.reject(new Error('fetch failed')))
         .then(blob => new Promise((res, rej) => {
           const fr = new FileReader();
           fr.onload = () => res(fr.result);
@@ -544,11 +561,11 @@
           fr.readAsDataURL(blob);
         }))
         .then(dataUrl => {
-          LOGO_DATAURL = dataUrl || '';
+          LOGO_DATAURL = dataUrl || LOGO_FALLBACK_B64;
           resolve(LOGO_DATAURL);
         })
         .catch(() => {
-          // Método 2: Image + Canvas como fallback
+          // Método 2: Image + Canvas
           const img = new Image();
           img.crossOrigin = "anonymous";
           img.onload = () => {
@@ -560,10 +577,16 @@
               LOGO_DATAURL = c.toDataURL("image/png");
               resolve(LOGO_DATAURL);
             } catch(e) {
-              resolve(LOGO_DATAURL = "");
+              // Fallback final: logo SVG embutido
+              LOGO_DATAURL = LOGO_FALLBACK_B64;
+              resolve(LOGO_DATAURL);
             }
           };
-          img.onerror = () => resolve(LOGO_DATAURL = "");
+          img.onerror = () => {
+            // Fallback final: logo SVG embutido
+            LOGO_DATAURL = LOGO_FALLBACK_B64;
+            resolve(LOGO_DATAURL);
+          };
           img.src = LOGO_SRC + '?_=' + Date.now();
         });
     });
@@ -882,9 +905,22 @@
       }
 
       function drawHeader(pageNumber){
-        // Logo: tenta adicionar; se falhar silencia o erro
+        // Logo: suporta PNG e SVG (como fallback embutido)
         if (LOGO_DATAURL && LOGO_DATAURL.startsWith('data:image')) {
-          try { doc.addImage(LOGO_DATAURL, 'PNG', pageWidth - M_RIGHT - LOGO_W, M_TOP, LOGO_W, LOGO_H); } catch(e){ console.warn('Logo PDF:', e); }
+          try {
+            const fmt = LOGO_DATAURL.startsWith('data:image/svg') ? 'SVG' : 'PNG';
+            doc.addImage(LOGO_DATAURL, fmt, pageWidth - M_RIGHT - LOGO_W, M_TOP, LOGO_W, LOGO_H);
+          } catch(e) {
+            // Se SVG falhar no jsPDF, tentar renderizar no canvas e usar PNG
+            try {
+              const img = new Image();
+              img.src = LOGO_DATAURL;
+              const c = document.createElement('canvas');
+              c.width = 240; c.height = 104;
+              c.getContext('2d').drawImage(img, 0, 0, 240, 104);
+              doc.addImage(c.toDataURL('image/png'), 'PNG', pageWidth - M_RIGHT - LOGO_W, M_TOP, LOGO_W, LOGO_H);
+            } catch(e2) { console.warn('Logo PDF fallback também falhou:', e2); }
+          }
         }
         doc.setFont('helvetica', 'bold'); doc.setFontSize(18); doc.text('DIÁLOGO SEMANAL DE SEGURANÇA', M_LEFT, M_TOP + 20);
         if (pageNumber === 1){
@@ -1013,42 +1049,47 @@
           const instr = Formadores[i];
           const xCell = M_LEFT + i * colW;
 
+          // Borda da célula
           doc.setDrawColor(200, 200, 200);
           doc.rect(xCell, yInstr, colW, cellH);
 
-          // Assinatura do instrutor
-          if (instr.assinatura && /^data:image\/(png|jpeg|jpg);base64,/i.test(instr.assinatura)) {
+          // Área de assinatura: se houver imagem válida, renderiza; senão deixa campo em branco
+          const sigImg = instr.assinatura;
+          if (sigImg && typeof sigImg === 'string' && /^data:image\/(png|jpeg|jpg|svg);base64,/i.test(sigImg)) {
             try {
-              const cleanedSignature = instr.assinatura.replace(/\s/g, '');
-              // Verificar se o base64 é válido tentando decodificar
-              const base64Data = cleanedSignature.split(',')[1] || '';
-              if (base64Data.length > 100) { // base64 mínimo válido
-                const props = doc.getImageProperties(cleanedSignature); 
-                const wPtNat = (props.width * 72) / 96; 
-                const hPtNat = (props.height * 72) / 96; 
-                const maxW = colW - 30; 
-                const maxH = sigH - 6;
-                const scale = Math.min(maxW / wPtNat, maxH / hPtNat, 1); 
-                const w = wPtNat * scale; 
-                const h = hPtNat * scale; 
-                const xImg = xCell + (colW - w) / 2;
-                const yImg = yInstr + 6 + (sigH - h) / 2;
-                doc.addImage(cleanedSignature, props.fileType || 'PNG', xImg, yImg, w, h);
+              const cleanSig = sigImg.replace(/\s/g, '');
+              const b64part = cleanSig.split(',')[1] || '';
+              if (b64part.length > 200) {
+                const props = doc.getImageProperties(cleanSig);
+                const wPtNat = (props.width * 72) / 96;
+                const hPtNat = (props.height * 72) / 96;
+                const maxW = colW - 30, maxH = sigH - 8;
+                const scale = Math.min(maxW / wPtNat, maxH / hPtNat, 1);
+                const w = wPtNat * scale, h = hPtNat * scale;
+                doc.addImage(cleanSig, props.fileType || 'PNG',
+                  xCell + (colW - w) / 2,
+                  yInstr + 6 + (sigH - h) / 2,
+                  w, h);
               }
-            } catch(e){
-              console.warn("Assinatura instrutor inválida:", instr.nome, e.message);
+            } catch(e) {
+              console.warn('Assinatura instrutor não renderizada:', instr.nome);
             }
           }
-
+          // Linha clássica de assinatura (sempre presente)
+          doc.setDrawColor(80, 80, 80);
+          doc.setLineWidth(0.5);
+          doc.line(xCell + 16, yInstr + sigH + 4, xCell + colW - 16, yInstr + sigH + 4);
+          doc.setLineWidth(0.2);
           doc.setDrawColor(200, 200, 200);
-          doc.line(xCell + 12, yInstr + sigH + 6, xCell + colW - 12, yInstr + sigH + 6);
 
+          // Textos identificativos abaixo da linha
           doc.setFont('helvetica', 'bold'); doc.setFontSize(9);
-          const nomeLines = doc.splitTextToSize(instr.nome || '-', colW - 10);
+          const nomeLines = doc.splitTextToSize(instr.nome || '-', colW - 14);
           doc.text(nomeLines, xCell + colW / 2, yInstr + sigH + 16, { align: 'center' });
           doc.setFont('helvetica', 'normal'); doc.setFontSize(8);
-          doc.text(instr.cargo || '', xCell + colW / 2, yInstr + sigH + 16 + L_H, { align: 'center' });
-          doc.text(`Matrícula: ${instr.matricula || '-'}`, xCell + colW / 2, yInstr + sigH + 16 + 2 * L_H, { align: 'center' });
+          const cargoLines = doc.splitTextToSize(instr.cargo || '', colW - 14);
+          doc.text(cargoLines, xCell + colW / 2, yInstr + sigH + 16 + L_H, { align: 'center' });
+          doc.text(`Matrícula: ${instr.matricula || '-'}`, xCell + colW / 2, yInstr + sigH + 16 + (1 + cargoLines.length) * L_H, { align: 'center' });
         }
       }
 
@@ -1492,6 +1533,45 @@
   document.getElementById('btnDashXLSNP').addEventListener('click', dashGerarXLS_NP);
   document.getElementById('btnDashXLSP').addEventListener('click', dashGerarXLS_P);
 
+  // Diagnóstico da API — testa todos os endpoints e mostra a resposta bruta
+  (function initDiag(){
+    const btnDiag = document.getElementById('btnDiag');
+    const btnDiagClear = document.getElementById('btnDiagClear');
+    const diagBox = document.getElementById('diagBox');
+    if (!btnDiag || !diagBox) return;
+
+    btnDiag.addEventListener('click', async function(){
+      diagBox.classList.remove('hidden');
+      btnDiagClear.classList.remove('hidden');
+      btnDiag.classList.add('hidden');
+      diagBox.textContent = 'A testar endpoints da API...\n';
+
+      const actions = ['treinamentos','registros','funcionarios','ferias','Ferias','ausencias','Ausencias','ferias_ativas'];
+      for (const action of actions) {
+        try {
+          const res = await apiFetch('action=' + action);
+          const txt = await res.text();
+          let parsed;
+          try { parsed = JSON.parse(txt); } catch { parsed = null; }
+          const ok = parsed ? (parsed.ok ? '✅ OK' : '❌ ok=false') : '⚠️  não-JSON';
+          const rows = parsed ? (_parseRows(parsed).length + ' linhas') : '';
+          diagBox.textContent += `[${action}] ${ok} ${rows}\n`;
+          if (parsed && !parsed.ok && parsed.error) diagBox.textContent += `  erro: ${parsed.error}\n`;
+        } catch(e) {
+          diagBox.textContent += `[${action}] ❌ FALHA: ${e.message}\n`;
+        }
+      }
+      diagBox.textContent += '\nDiagnóstico concluído.';
+    });
+
+    btnDiagClear.addEventListener('click', function(){
+      diagBox.classList.add('hidden');
+      btnDiagClear.classList.add('hidden');
+      btnDiag.classList.remove('hidden');
+      diagBox.textContent = '';
+    });
+  })();
+
   document.getElementById('dashTitulo').addEventListener('change', function(){
     const titVal = this.value.trim();
     const hit = (DASH_treinamentos||[]).find(t => String(t.Titulo).trim() === titVal);
@@ -1526,7 +1606,7 @@
   })();
 
   async function dashEnsureData(){
-    // Carregar tudo em paralelo (treinamentos, funcionarios, registros, ferias)
+    // Carregar tudo em paralelo (treinamentos, funcionarios, registros)
     const [jTrein, jFunc, jRegs] = await Promise.all([
       !DASH_treinamentos ? _cachedFetch('treinamentos').catch(() => null) : Promise.resolve(null),
       !DASH_funcionarios ? _cachedFetch('funcionarios').catch(() => null) : Promise.resolve(null),
@@ -1536,45 +1616,52 @@
     if (!DASH_funcionarios) DASH_funcionarios = _parseRows(jFunc);
     if (!DASH_registrosAll) DASH_registrosAll = _parseRows(jRegs);
 
-    // Carregar férias em paralelo (tenta 'ferias' e 'Ferias' simultaneamente)
-    try {
-      const [resFerias, resFeriasCap] = await Promise.all([
-        apiFetch('action=ferias').then(r => r.json()).catch(() => null),
-        apiFetch('action=Ferias').then(r => r.json()).catch(() => null),
-      ]);
-
-      let dataFerias = null;
-      if (resFerias && resFerias.ok && _parseRows(resFerias).length) {
-        dataFerias = resFerias;
-      } else if (resFeriasCap && resFeriasCap.ok && _parseRows(resFeriasCap).length) {
-        dataFerias = resFeriasCap;
-      }
-
-      if (dataFerias) {
-        const rawRows = _parseRows(dataFerias);
-        feriasServidor = rawRows.map(mapFeriasRow).filter(f => f.Matricula && f.Matricula !== '00000');
-      } else {
-        // Fallback: filtrar funcionários com situação de férias/afastamento
-        feriasServidor = (DASH_funcionarios || []).filter(f => 
-          ['ferias', 'afastado', 'licenca', 'inss'].includes(String(f.Situacao || f.situacao || '').toLowerCase().trim())
-        ).map(f => ({
-          Matricula: f.Matricula,
-          Funcionario: f.Nome,
-          Situacao: f.Situacao || 'Férias',
-          InicioFerias: f.InicioFerias || '',
-          FimFerias: f.FimFerias || ''
-        }));
-      }
-      
-      // Sincronizar conjunto local AFAST_set para o filtro do dashboard
-      AFAST_set.clear();
-      feriasServidor.forEach(f => {
-        const m = afastNormMat(f.Matricula);
-        if (m && m !== '00000') AFAST_set.add(m);
-      });
-    } catch(e) {
-      console.warn("Erro ao buscar dados da folha Ferias:", e);
+    // Carregar férias — tenta todos os nomes possíveis da aba no GAS
+    const feriasCandidates = ['ferias','Ferias','férias','Férias','ausencias','Ausencias','ausências','Ausências','vacation','leaves'];
+    let feriasOk = false;
+    for (const action of feriasCandidates) {
+      try {
+        const res = await apiFetch('action=' + action);
+        const data = await res.json().catch(() => null);
+        if (data && data.ok) {
+          const rawRows = _parseRows(data);
+          if (rawRows.length > 0) {
+            feriasServidor = rawRows.map(mapFeriasRow).filter(f => f.Matricula && f.Matricula !== '00000');
+            feriasOk = true;
+            console.info('[Férias] Carregado via action=' + action + ', ' + feriasServidor.length + ' registo(s)');
+            break;
+          }
+        }
+      } catch(e) { /* tenta próximo */ }
     }
+
+    if (!feriasOk) {
+      // Fallback final: derivar dos funcionários com campo Situacao
+      const norm = s => String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
+      const situacoesFerias = ['ferias','afastado','licenca','inss','afastamento','licenca medica','licenca maternidade'];
+      const derived = (DASH_funcionarios || []).filter(f =>
+        situacoesFerias.some(s => norm(f.Situacao || f.situacao || '').includes(s))
+      ).map(f => ({
+        Matricula: f.Matricula,
+        Funcionario: f.Nome,
+        Situacao: f.Situacao || f.situacao || 'Férias',
+        InicioFerias: f.InicioFerias || f.inicioFerias || '',
+        FimFerias: f.FimFerias || f.fimFerias || ''
+      }));
+      if (derived.length) {
+        feriasServidor = derived;
+        console.info('[Férias] Carregado via fallback (campo Situacao), ' + derived.length + ' registo(s)');
+      } else {
+        console.warn('[Férias] Nenhum dado encontrado. Verifique o nome da aba no Google Sheets (use Diagnóstico Bruto da API).');
+      }
+    }
+
+    // Sincronizar conjunto local AFAST_set para o filtro do dashboard
+    AFAST_set.clear();
+    feriasServidor.forEach(f => {
+      const m = afastNormMat(f.Matricula);
+      if (m && m !== '00000') AFAST_set.add(m);
+    });
   }
 
   async function dashPopularSelects(){
