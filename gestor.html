@@ -529,26 +529,48 @@
     },
   ];
 
+  // Pré-carregamento do logo assim que a página abre (para o PDF não precisar esperar)
+  let _logoLoadPromise = null;
   function loadLogoAsDataURL(){
-    return new Promise((resolve)=>{
-      const img = new Image();
-      img.crossOrigin = "anonymous";
-      img.onload = ()=>{
-        try { 
-          const c = document.createElement("canvas"); 
-          c.width = img.width; 
-          c.height = img.height; 
-          c.getContext("2d").drawImage(img, 0, 0); 
-          LOGO_DATAURL = c.toDataURL("image/png"); 
-          resolve(LOGO_DATAURL); 
-        } catch(e){ 
-          resolve(LOGO_DATAURL = ""); 
-        }
-      };
-      img.onerror = () => resolve(LOGO_DATAURL = "");
-      img.src = LOGO_SRC;
+    if (_logoLoadPromise) return _logoLoadPromise;
+    _logoLoadPromise = new Promise((resolve) => {
+      // Método 1: fetch + FileReader (mais confiável que Canvas, evita erros CORS de canvas)
+      fetch(LOGO_SRC, { cache: 'force-cache' })
+        .then(r => r.ok ? r.blob() : Promise.reject())
+        .then(blob => new Promise((res, rej) => {
+          const fr = new FileReader();
+          fr.onload = () => res(fr.result);
+          fr.onerror = () => rej();
+          fr.readAsDataURL(blob);
+        }))
+        .then(dataUrl => {
+          LOGO_DATAURL = dataUrl || '';
+          resolve(LOGO_DATAURL);
+        })
+        .catch(() => {
+          // Método 2: Image + Canvas como fallback
+          const img = new Image();
+          img.crossOrigin = "anonymous";
+          img.onload = () => {
+            try {
+              const c = document.createElement("canvas");
+              c.width = img.naturalWidth || img.width;
+              c.height = img.naturalHeight || img.height;
+              c.getContext("2d").drawImage(img, 0, 0);
+              LOGO_DATAURL = c.toDataURL("image/png");
+              resolve(LOGO_DATAURL);
+            } catch(e) {
+              resolve(LOGO_DATAURL = "");
+            }
+          };
+          img.onerror = () => resolve(LOGO_DATAURL = "");
+          img.src = LOGO_SRC + '?_=' + Date.now();
+        });
     });
+    return _logoLoadPromise;
   }
+  // Iniciar pré-carregamento imediatamente
+  loadLogoAsDataURL();
 
   document.getElementById('btnBuscar').addEventListener('click', buscar);
   document.getElementById('btnPDF').addEventListener('click', gerarPDF);
@@ -672,7 +694,11 @@
   // Lógica principal de pesquisa de registos
   async function buscar(){
     const status = document.getElementById('status');
-    status.innerHTML = '';
+    const btnBuscar = document.getElementById('btnBuscar');
+    const textoOriginalBuscar = btnBuscar ? btnBuscar.innerHTML : '';
+    status.innerHTML = '<div class="text-sky-600 bg-sky-50 px-4 py-2.5 rounded-lg border border-sky-100">A pesquisar...</div>';
+    if (btnBuscar) { btnBuscar.disabled = true; btnBuscar.innerHTML = '<svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path></svg> A pesquisar...'; }
+    
     const fMat = document.getElementById('fMat').value.trim();
     const fNome = document.getElementById('fNome').value.trim();
     const fTitulo = document.getElementById('fSemanaTitulo').value.trim();
@@ -717,7 +743,9 @@
       renderTabela(registrosFiltrados);
       status.innerHTML = '<div class="text-emerald-600 font-semibold bg-emerald-50 px-4 py-2.5 rounded-lg border border-emerald-100">Pesquisa concluída: ' + registrosFiltrados.length + ' registo(s) encontrado(s).</div>';
     } catch(err){ 
-      status.innerHTML = '<div class="text-rose-600 font-semibold bg-rose-50 px-4 py-2.5 rounded-lg border border-rose-100">Falha ao processar a consulta.</div>'; 
+      status.innerHTML = '<div class="text-rose-600 font-semibold bg-rose-50 px-4 py-2.5 rounded-lg border border-rose-100">Falha ao processar a consulta: ' + (err.message || '') + '</div>'; 
+    } finally {
+      if (btnBuscar) { btnBuscar.disabled = false; btnBuscar.innerHTML = textoOriginalBuscar; }
     }
   }
 
@@ -813,213 +841,226 @@
 
   // Geração Inteligente do Relatório de Presenças em formato PDF (A4)
   async function gerarPDF(){
-    await loadLogoAsDataURL();
-    const baseSource = (Array.isArray(registrosFiltrados) && registrosFiltrados.length) ? registrosFiltrados : registros;
-    if (!baseSource || !baseSource.length){ alert('Sem dados disponíveis para gerar PDF.'); return; }
-    const base = [...baseSource].sort((a,b) => String(a.Nome ?? '').localeCompare(String(b.Nome ?? ''), 'pt-PT', { sensitivity: 'base' }));
-    const titulos = [...new Set(base.map(r => r.TituloVideo).filter(Boolean))];
-    const tituloSemana = titulos.length ? titulos.join('; ') : '-';
-
-    let assuntosCabecalho = '';
+    const btnPDF = document.getElementById('btnPDF');
+    const status = document.getElementById('status');
+    const textoOriginal = btnPDF ? btnPDF.innerHTML : '';
     try {
-      const tList = await fetchTreinamentos();
-      const semanasISO = [...new Set(base.map(r => r.SemanaISO).filter(Boolean))];
-      if (tList && tList.length){
-        const setISO = new Set(semanasISO);
-        let hit = tList.find(t => setISO.has(String(t['SemanaISO'])));
-        if (!hit && titulos.length) hit = tList.find(t => String(t['Titulo']).trim() === titulos[0]);
-        assuntosCabecalho = hit && hit['Assuntos'] ? String(hit['Assuntos']) : '';
-      }
-    } catch(e){}
+      if (btnPDF) { btnPDF.disabled = true; btnPDF.innerHTML = '<svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path></svg> A gerar...'; }
+      status.innerHTML = '<div class="text-amber-600 bg-amber-50 px-4 py-2 rounded-lg border border-amber-100">A carregar logo e assinaturas...</div>';
+      await loadLogoAsDataURL();
+      const baseSource = (Array.isArray(registrosFiltrados) && registrosFiltrados.length) ? registrosFiltrados : registros;
+      if (!baseSource || !baseSource.length){ alert('Sem dados disponíveis para gerar PDF.'); return; }
+      const base = [...baseSource].sort((a,b) => String(a.Nome ?? '').localeCompare(String(b.Nome ?? ''), 'pt-PT', { sensitivity: 'base' }));
+      const titulos = [...new Set(base.map(r => r.TituloVideo).filter(Boolean))];
+      const tituloSemana = titulos.length ? titulos.join('; ') : '-';
 
-    const { jsPDF } = window.jspdf;
-    const M_TOP = 28.35, M_BOTTOM = 28.35, M_LEFT = 14.17, M_RIGHT = 14.17;
-    const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4', compress: true });
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const pageHeight = doc.internal.pageSize.getHeight();
-    const usableWidth = pageWidth - M_LEFT - M_RIGHT;
-    const LOGO_W = 120, LOGO_H = 52, L_H = 14;
-
-    let assuntosLines = [];
-    if (assuntosCabecalho) {
-      const raw = assuntosCabecalho.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-      const partes = raw.split('\n').map(s => s.trim()).filter(Boolean);
-      const linhasExpand = [];
-      partes.forEach(p => linhasExpand.push(p));
-      assuntosLines = linhasExpand.flatMap(linha => doc.splitTextToSize(linha, usableWidth - 8));
-    }
-
-    function drawHeader(pageNumber){
-      try { if (LOGO_DATAURL) doc.addImage(LOGO_DATAURL, 'PNG', pageWidth - M_RIGHT - LOGO_W, M_TOP, LOGO_W, LOGO_H); } catch(e){}
-      doc.setFont('helvetica', 'bold'); doc.setFontSize(18); doc.text('DIÁLOGO SEMANAL DE SEGURANÇA', M_LEFT, M_TOP + 20);
-      if (pageNumber === 1){
-        doc.setFont('helvetica', 'bold'); doc.setFontSize(14); doc.text('Semana: ' + (tituloSemana ?? '-'), M_LEFT, M_TOP + 20 + 2 * L_H);
-        if (assuntosLines.length){
-          doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
-          doc.text('Temas Abordados:', M_LEFT, M_TOP + 20 + 4 * L_H);
-          doc.setFont('helvetica', 'normal'); doc.setFontSize(11);
-          assuntosLines.forEach((linha, i) => {
-            doc.text(linha, M_LEFT + 8, M_TOP + 20 + 4 * L_H + (i + 1) * L_H);
-          });
+      let assuntosCabecalho = '';
+      try {
+        const tList = await fetchTreinamentos();
+        const semanasISO = [...new Set(base.map(r => r.SemanaISO).filter(Boolean))];
+        if (tList && tList.length){
+          const setISO = new Set(semanasISO);
+          let hit = tList.find(t => setISO.has(String(t['SemanaISO'])));
+          if (!hit && titulos.length) hit = tList.find(t => String(t['Titulo']).trim() === titulos[0]);
+          assuntosCabecalho = hit && hit['Assuntos'] ? String(hit['Assuntos']) : '';
         }
+      } catch(e){}
+
+      const { jsPDF } = window.jspdf;
+      const M_TOP = 28.35, M_BOTTOM = 28.35, M_LEFT = 14.17, M_RIGHT = 14.17;
+      const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4', compress: true });
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const usableWidth = pageWidth - M_LEFT - M_RIGHT;
+      const LOGO_W = 120, LOGO_H = 52, L_H = 14;
+
+      let assuntosLines = [];
+      if (assuntosCabecalho) {
+        const raw = assuntosCabecalho.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+        const partes = raw.split('\n').map(s => s.trim()).filter(Boolean);
+        assuntosLines = partes.flatMap(linha => doc.splitTextToSize(linha, usableWidth - 8));
       }
-    }
 
-    function drawFooter(pageNumber, totalPagesText){
-      const footerY = pageHeight - M_BOTTOM; 
-      const generatedAt = new Date().toLocaleString('pt-PT');
-      doc.setFont('helvetica', 'italic'); doc.setFontSize(9); doc.text('Gerado em: ' + generatedAt, M_LEFT, footerY - 4 * L_H);
-      doc.setFont('helvetica', 'normal'); doc.setFontSize(9);
-      doc.text('Caterair Serviços de Bordo e Hotelaria LTDA - Base GIG', M_LEFT, footerY - 3 * L_H);
-      doc.text('CNPJ 33.375.601/0001-38', M_LEFT, footerY - 2 * L_H);
-      doc.text('Rua P, S/N, Área de Apoio do Aeroporto Internacional do Rio de Janeiro - Ilha do Governador - RJ', M_LEFT, footerY - 1 * L_H);
-      const pagText = `Página ${pageNumber} de ${totalPagesText}`.trim();
-      doc.text(pagText, pageWidth / 2, footerY, { align: 'center' });
-    }
-
-    const columns = [
-      { header: 'Matrícula', dataKey: 'Matricula' },
-      { header: 'Colaborador', dataKey: 'Nome' },
-      { header: 'Setor', dataKey: 'Setor' },
-      { header: 'Data de Participação', dataKey: 'DataFmt' },
-      { header: 'Assinatura', dataKey: '_sig' },
-    ];
-    
-    let rows = base.map(r => ({ Matricula: r.Matricula??'', Nome: r.Nome??'', Setor: r.Setor??'', DataFmt: formatTimestamp(r.Timestamp)??'', _sig: r.AssinaturaPNG ?? '' }));
-    rows = await resolveRowSignatures(rows);
-
-    const totalPagesExp = '{total_pages_count_string}';
-    let yStartFirstPage = M_TOP + 20 + 2 * L_H + (assuntosLines.length ? 2 * L_H + assuntosLines.length * L_H : 0) + 2 * L_H;
-    const yStartFirstPageMin = M_TOP + 20 + 6 * L_H; 
-    if (yStartFirstPage < yStartFirstPageMin) yStartFirstPage = yStartFirstPageMin;
-    const yStartOtherPages = M_TOP + LOGO_H + 5 * L_H;
-
-    doc.autoTable({
-      startY: yStartFirstPage,
-      margin: { left: M_LEFT, right: M_RIGHT, top: yStartOtherPages, bottom: M_BOTTOM + 80 },
-      pageBreak: 'auto', 
-      tableWidth: usableWidth,
-      columns, 
-      body: rows,
-      styles: { font: 'helvetica', fontSize: 10, cellPadding: 4, valign: 'middle', overflow: 'linebreak', minCellHeight: 36 },
-      headStyles: { fillColor: [33, 150, 243], textColor: 255, halign: 'center' },
-      columnStyles: { Matricula: { halign: 'left' }, Nome: { halign: 'left' }, Setor: { halign: 'left', cellWidth: 120 }, DataFmt: { halign: 'left' }, _sig: { halign: 'center', cellWidth: 150 } },
-      didParseCell: (data) => { 
-        if (data.section === 'body' && data.column.dataKey === '_sig'){ 
-          data.cell.text = ['']; 
-          if (data.cell && data.cell.styles){ data.cell.styles.lineWidth = 0; } 
-        } 
-      },
-      didDrawPage: (data) => { 
-        drawHeader(data.pageNumber); 
-        drawFooter(data.pageNumber, totalPagesExp); 
-        if (data.pageNumber > 1 && data.cursor && data.cursor.y < yStartOtherPages){ data.cursor.y = yStartOtherPages; } 
-      },
-      didDrawCell: (data) => {
-        if (data.section === 'body' && data.column && data.column.dataKey === '_sig'){
-          const val = data.row?.raw?._sig || '';
-          if (typeof val === 'string' && /^data:image\/(png|jpeg|jpg);base64,/i.test(val)){
-            try { 
-              // Corrigido: Limpar quebras de linha e espaços no Base64 antes de enviar para jsPDF
-              const cleanVal = val.replace(/\s/g, '');
-              const props = doc.getImageProperties(cleanVal); 
-              const wPtNat=(props.width*72)/96; 
-              const hPtNat=(props.height*72)/96; 
-              const pad=4; 
-              const maxW=data.cell.width-pad*2; 
-              const maxH=data.cell.height-pad*2; 
-              const scale=Math.min(maxW/wPtNat, maxH/hPtNat, 1); 
-              const w=wPtNat*scale; 
-              const h=hPtNat*scale; 
-              const x=data.cell.x + (data.cell.width - w)/2; 
-              const y=data.cell.y + (data.cell.height - h)/2; 
-              doc.addImage(cleanVal, props.fileType || 'PNG', x, y, w, h); 
-            } catch(e){}
+      function drawHeader(pageNumber){
+        // Logo: tenta adicionar; se falhar silencia o erro
+        if (LOGO_DATAURL && LOGO_DATAURL.startsWith('data:image')) {
+          try { doc.addImage(LOGO_DATAURL, 'PNG', pageWidth - M_RIGHT - LOGO_W, M_TOP, LOGO_W, LOGO_H); } catch(e){ console.warn('Logo PDF:', e); }
+        }
+        doc.setFont('helvetica', 'bold'); doc.setFontSize(18); doc.text('DIÁLOGO SEMANAL DE SEGURANÇA', M_LEFT, M_TOP + 20);
+        if (pageNumber === 1){
+          doc.setFont('helvetica', 'bold'); doc.setFontSize(14); doc.text('Semana: ' + (tituloSemana ?? '-'), M_LEFT, M_TOP + 20 + 2 * L_H);
+          if (assuntosLines.length){
+            doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
+            doc.text('Temas Abordados:', M_LEFT, M_TOP + 20 + 4 * L_H);
+            doc.setFont('helvetica', 'normal'); doc.setFontSize(11);
+            assuntosLines.forEach((linha, i) => {
+              doc.text(linha, M_LEFT + 8, M_TOP + 20 + 4 * L_H + (i + 1) * L_H);
+            });
           }
         }
-      },
-    });
-
-    // Garante que estamos na última página absoluta para desenhar os instrutores
-    const totalPages = doc.internal.getNumberOfPages();
-    doc.setPage(totalPages);
-
-    // Rúbricas Oficiais de Instrutores / Validadores ao final da tabela (Posicionamento Corrigido)
-    const Formadores = PDF_INSTRUTORES || [];
-    if (Formadores.length > 0) {
-      const yAfterTable = doc.lastAutoTable.finalY ?? (pageHeight - M_BOTTOM - 120);
-      const footerAreaH = M_BOTTOM + 4 * L_H + 20; 
-      const instrBlockH = 95; // Aumentado para comportar a assinatura e textos sem sobreposições
-      const totalInstrH = Formadores.length * instrBlockH + 30;
-
-      let yInstr = yAfterTable + 20;
-      if (yInstr + totalInstrH > pageHeight - footerAreaH) {
-        doc.addPage();
-        const newPageNum = doc.internal.getNumberOfPages();
-        doc.setPage(newPageNum);
-        drawHeader(newPageNum);
-        drawFooter(newPageNum, totalPagesExp);
-        yInstr = yStartOtherPages + 10;
       }
 
-      doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
-      doc.setFillColor(33, 150, 243);
-      doc.rect(M_LEFT, yInstr, usableWidth, 18, 'F');
-      doc.setTextColor(255, 255, 255);
-      doc.text('INSTRUTORES DO TREINAMENTO', M_LEFT + 6, yInstr + 13);
-      doc.setTextColor(0, 0, 0);
-      yInstr += 26;
+      function drawFooter(pageNumber, totalPagesText){
+        const footerY = pageHeight - M_BOTTOM; 
+        const generatedAt = new Date().toLocaleString('pt-PT');
+        doc.setFont('helvetica', 'italic'); doc.setFontSize(9); doc.text('Gerado em: ' + generatedAt, M_LEFT, footerY - 4 * L_H);
+        doc.setFont('helvetica', 'normal'); doc.setFontSize(9);
+        doc.text('Caterair Serviços de Bordo e Hotelaria LTDA - Base GIG', M_LEFT, footerY - 3 * L_H);
+        doc.text('CNPJ 33.375.601/0001-38', M_LEFT, footerY - 2 * L_H);
+        doc.text('Rua P, S/N, Área de Apoio do Aeroporto Internacional do Rio de Janeiro - Ilha do Governador - RJ', M_LEFT, footerY - 1 * L_H);
+        const pagText = `Página ${pageNumber} de ${totalPagesText}`.trim();
+        doc.text(pagText, pageWidth / 2, footerY, { align: 'center' });
+      }
 
-      const colW = usableWidth / Formadores.length;
-      const sigH = 45; // Altura reservada à imagem da assinatura
-      const cellH = sigH + 3 * L_H + 12;
+      const columns = [
+        { header: 'Matrícula', dataKey: 'Matricula' },
+        { header: 'Colaborador', dataKey: 'Nome' },
+        { header: 'Setor', dataKey: 'Setor' },
+        { header: 'Data de Participação', dataKey: 'DataFmt' },
+        { header: 'Assinatura', dataKey: '_sig' },
+      ];
+      
+      status.innerHTML = '<div class="text-amber-600 bg-amber-50 px-4 py-2 rounded-lg border border-amber-100">A processar assinaturas dos colaboradores...</div>';
+      let rows = base.map(r => ({ Matricula: r.Matricula??'', Nome: r.Nome??'', Setor: r.Setor??'', DataFmt: formatTimestamp(r.Timestamp)??'', _sig: r.AssinaturaPNG ?? '' }));
+      rows = await resolveRowSignatures(rows);
 
-      for (let i = 0; i < Formadores.length; i++) {
-        const instr = Formadores[i];
-        const xCell = M_LEFT + i * colW;
+      const totalPagesExp = '{total_pages_count_string}';
+      let yStartFirstPage = M_TOP + 20 + 2 * L_H + (assuntosLines.length ? 2 * L_H + assuntosLines.length * L_H : 0) + 2 * L_H;
+      const yStartFirstPageMin = M_TOP + 20 + 6 * L_H; 
+      if (yStartFirstPage < yStartFirstPageMin) yStartFirstPage = yStartFirstPageMin;
+      const yStartOtherPages = M_TOP + LOGO_H + 5 * L_H;
 
-        // Borda externa
-        doc.setDrawColor(200, 200, 200);
-        doc.rect(xCell, yInstr, colW, cellH);
-
-        // Assinatura (Exibida ACIMA da linha de assinatura, centralizada)
-        if (instr.assinatura && /^data:image\/(png|jpeg|jpg);base64,/i.test(instr.assinatura)) {
-          try {
-            // Corrigido: Limpar quebras de linha e espaços no Base64 antes de enviar para jsPDF
-            const cleanedSignature = instr.assinatura.replace(/\s/g, '');
-            const props = doc.getImageProperties(cleanedSignature); 
-            const wPtNat = (props.width * 72) / 96; 
-            const hPtNat = (props.height * 72) / 96; 
-            const maxW = colW - 30; 
-            const maxH = sigH - 6;
-            const scale = Math.min(maxW / wPtNat, maxH / hPtNat, 1); 
-            const w = wPtNat * scale; 
-            const h = hPtNat * scale; 
-            const xImg = xCell + (colW - w) / 2;
-            const yImg = yInstr + 6 + (sigH - h) / 2; // Centralizado verticalmente na área de assinatura superior
-            
-            doc.addImage(cleanedSignature, props.fileType || 'PNG', xImg, yImg, w, h); 
-          } catch(e){
-            console.error("Erro ao renderizar assinatura de formador", e);
+      doc.autoTable({
+        startY: yStartFirstPage,
+        margin: { left: M_LEFT, right: M_RIGHT, top: yStartOtherPages, bottom: M_BOTTOM + 80 },
+        pageBreak: 'auto', 
+        tableWidth: usableWidth,
+        columns, 
+        body: rows,
+        styles: { font: 'helvetica', fontSize: 10, cellPadding: 4, valign: 'middle', overflow: 'linebreak', minCellHeight: 36 },
+        headStyles: { fillColor: [33, 150, 243], textColor: 255, halign: 'center' },
+        columnStyles: { Matricula: { halign: 'left' }, Nome: { halign: 'left' }, Setor: { halign: 'left', cellWidth: 120 }, DataFmt: { halign: 'left' }, _sig: { halign: 'center', cellWidth: 150 } },
+        didParseCell: (data) => { 
+          if (data.section === 'body' && data.column.dataKey === '_sig'){ 
+            data.cell.text = ['']; 
+            if (data.cell && data.cell.styles){ data.cell.styles.lineWidth = 0; } 
+          } 
+        },
+        didDrawPage: (data) => { 
+          drawHeader(data.pageNumber); 
+          drawFooter(data.pageNumber, totalPagesExp); 
+          if (data.pageNumber > 1 && data.cursor && data.cursor.y < yStartOtherPages){ data.cursor.y = yStartOtherPages; } 
+        },
+        didDrawCell: (data) => {
+          if (data.section === 'body' && data.column && data.column.dataKey === '_sig'){
+            const val = data.row?.raw?._sig || '';
+            if (typeof val === 'string' && /^data:image\/(png|jpeg|jpg);base64,/i.test(val)){
+              try { 
+                const cleanVal = val.replace(/\s/g, '');
+                const props = doc.getImageProperties(cleanVal); 
+                const wPtNat=(props.width*72)/96; 
+                const hPtNat=(props.height*72)/96; 
+                const pad=4; 
+                const maxW=data.cell.width-pad*2; 
+                const maxH=data.cell.height-pad*2; 
+                const scale=Math.min(maxW/wPtNat, maxH/hPtNat, 1); 
+                const w=wPtNat*scale; 
+                const h=hPtNat*scale; 
+                const x=data.cell.x + (data.cell.width - w)/2; 
+                const y=data.cell.y + (data.cell.height - h)/2; 
+                doc.addImage(cleanVal, props.fileType || 'PNG', x, y, w, h); 
+              } catch(e){}
+            }
           }
+        },
+      });
+
+      // Garante que estamos na última página absoluta para desenhar os instrutores
+      const totalPages = doc.internal.getNumberOfPages();
+      doc.setPage(totalPages);
+
+      // Rúbricas Oficiais de Instrutores / Validadores ao final da tabela
+      const Formadores = PDF_INSTRUTORES || [];
+      if (Formadores.length > 0) {
+        const yAfterTable = doc.lastAutoTable.finalY ?? (pageHeight - M_BOTTOM - 120);
+        const footerAreaH = M_BOTTOM + 4 * L_H + 20; 
+        const instrBlockH = 95;
+        const totalInstrH = Formadores.length * instrBlockH + 30;
+
+        let yInstr = yAfterTable + 20;
+        if (yInstr + totalInstrH > pageHeight - footerAreaH) {
+          doc.addPage();
+          const newPageNum = doc.internal.getNumberOfPages();
+          doc.setPage(newPageNum);
+          drawHeader(newPageNum);
+          drawFooter(newPageNum, totalPagesExp);
+          yInstr = yStartOtherPages + 10;
         }
 
-        // Linha divisória clássica (Régua de Assinatura)
-        doc.setDrawColor(200, 200, 200);
-        doc.line(xCell + 12, yInstr + sigH + 6, xCell + colW - 12, yInstr + sigH + 6);
+        doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
+        doc.setFillColor(33, 150, 243);
+        doc.rect(M_LEFT, yInstr, usableWidth, 18, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.text('INSTRUTORES DO TREINAMENTO', M_LEFT + 6, yInstr + 13);
+        doc.setTextColor(0, 0, 0);
+        yInstr += 26;
 
-        // Textos Oficiais (Exibidos exatamente ABAIXO da linha de assinatura)
-        doc.setFont('helvetica', 'bold'); doc.setFontSize(9);
-        const nomeLines = doc.splitTextToSize(instr.nome || '-', colW - 10);
-        doc.text(nomeLines, xCell + colW / 2, yInstr + sigH + 16, { align: 'center' });
-        doc.setFont('helvetica', 'normal'); doc.setFontSize(8);
-        doc.text(instr.cargo || '', xCell + colW / 2, yInstr + sigH + 16 + L_H, { align: 'center' });
-        doc.text(`Matrícula: ${instr.matricula || '-'}`, xCell + colW / 2, yInstr + sigH + 16 + 2 * L_H, { align: 'center' });
+        const colW = usableWidth / Formadores.length;
+        const sigH = 45;
+        const cellH = sigH + 3 * L_H + 12;
+
+        for (let i = 0; i < Formadores.length; i++) {
+          const instr = Formadores[i];
+          const xCell = M_LEFT + i * colW;
+
+          doc.setDrawColor(200, 200, 200);
+          doc.rect(xCell, yInstr, colW, cellH);
+
+          // Assinatura do instrutor
+          if (instr.assinatura && /^data:image\/(png|jpeg|jpg);base64,/i.test(instr.assinatura)) {
+            try {
+              const cleanedSignature = instr.assinatura.replace(/\s/g, '');
+              // Verificar se o base64 é válido tentando decodificar
+              const base64Data = cleanedSignature.split(',')[1] || '';
+              if (base64Data.length > 100) { // base64 mínimo válido
+                const props = doc.getImageProperties(cleanedSignature); 
+                const wPtNat = (props.width * 72) / 96; 
+                const hPtNat = (props.height * 72) / 96; 
+                const maxW = colW - 30; 
+                const maxH = sigH - 6;
+                const scale = Math.min(maxW / wPtNat, maxH / hPtNat, 1); 
+                const w = wPtNat * scale; 
+                const h = hPtNat * scale; 
+                const xImg = xCell + (colW - w) / 2;
+                const yImg = yInstr + 6 + (sigH - h) / 2;
+                doc.addImage(cleanedSignature, props.fileType || 'PNG', xImg, yImg, w, h);
+              }
+            } catch(e){
+              console.warn("Assinatura instrutor inválida:", instr.nome, e.message);
+            }
+          }
+
+          doc.setDrawColor(200, 200, 200);
+          doc.line(xCell + 12, yInstr + sigH + 6, xCell + colW - 12, yInstr + sigH + 6);
+
+          doc.setFont('helvetica', 'bold'); doc.setFontSize(9);
+          const nomeLines = doc.splitTextToSize(instr.nome || '-', colW - 10);
+          doc.text(nomeLines, xCell + colW / 2, yInstr + sigH + 16, { align: 'center' });
+          doc.setFont('helvetica', 'normal'); doc.setFontSize(8);
+          doc.text(instr.cargo || '', xCell + colW / 2, yInstr + sigH + 16 + L_H, { align: 'center' });
+          doc.text(`Matrícula: ${instr.matricula || '-'}`, xCell + colW / 2, yInstr + sigH + 16 + 2 * L_H, { align: 'center' });
+        }
       }
-    }
 
-    if (typeof doc.putTotalPages === 'function'){ doc.putTotalPages(totalPagesExp); }
-    doc.save('Relatorio_Dialogo_Semanal_de_Seguranca.pdf');
+      if (typeof doc.putTotalPages === 'function'){ doc.putTotalPages(totalPagesExp); }
+      doc.save('Relatorio_Dialogo_Semanal_de_Seguranca.pdf');
+      status.innerHTML = '<div class="text-emerald-600 bg-emerald-50 px-4 py-2 rounded-lg border border-emerald-100">PDF gerado com sucesso!</div>';
+    } catch(err) {
+      console.error('Erro ao gerar PDF:', err);
+      status.innerHTML = '<div class="text-rose-600 bg-rose-50 px-4 py-2 rounded-lg border border-rose-100">Erro ao gerar PDF: ' + (err.message || 'Erro desconhecido') + '</div>';
+    } finally {
+      if (btnPDF) { btnPDF.disabled = false; btnPDF.innerHTML = textoOriginal; }
+    }
   }
 
   // Prompt administrativo para cadastrar novos funcionários (pt-PT)
@@ -1458,13 +1499,34 @@
   });
 
   (async function dashInit(){
-    await dashEnsureData();
-    await dashPopularSelects();
-    dashSugerirSemanaAtivaMaisRecente();
-    await dashAtualizar();
+    // Carregar dados em paralelo para popular os selects mais rápido
+    const btnAtualizar = document.getElementById('btnDashAtualizar');
+    if (btnAtualizar) {
+      btnAtualizar.disabled = true;
+      btnAtualizar.innerHTML = '<svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path></svg> A carregar...';
+    }
+    try {
+      await dashEnsureData();
+      afastRenderTags(); // Renderizar férias logo após carregar
+      await dashPopularSelects();
+      dashSugerirSemanaAtivaMaisRecente();
+      // NÃO chamar dashAtualizar() automaticamente — aguardar o utilizador clicar em "Atualizar"
+      const dashStatus = document.getElementById('dashStatus');
+      if (dashStatus) {
+        dashStatus.innerHTML = '<div class="text-sky-600 bg-sky-50 px-4 py-2 rounded-lg border border-sky-100">Selecione um Tema/Vídeo e clique em <strong>Atualizar</strong> para carregar os dados.</div>';
+      }
+    } catch(e) {
+      console.error('Erro na inicialização do dashboard:', e);
+    } finally {
+      if (btnAtualizar) {
+        btnAtualizar.disabled = false;
+        btnAtualizar.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 15M20 3v5h-5"/></svg> Atualizar';
+      }
+    }
   })();
 
   async function dashEnsureData(){
+    // Carregar tudo em paralelo (treinamentos, funcionarios, registros, ferias)
     const [jTrein, jFunc, jRegs] = await Promise.all([
       !DASH_treinamentos ? _cachedFetch('treinamentos').catch(() => null) : Promise.resolve(null),
       !DASH_funcionarios ? _cachedFetch('funcionarios').catch(() => null) : Promise.resolve(null),
@@ -1474,22 +1536,25 @@
     if (!DASH_funcionarios) DASH_funcionarios = _parseRows(jFunc);
     if (!DASH_registrosAll) DASH_registrosAll = _parseRows(jRegs);
 
-    // Mapeamento e unificação da aba oficial "Ferias" do Sheets de forma extremamente robusta e flexível
+    // Carregar férias em paralelo (tenta 'ferias' e 'Ferias' simultaneamente)
     try {
-      let resFerias = await apiFetch('action=ferias');
-      let dataFerias = await resFerias.json();
-      
-      // Fallback caso a folha se chame "Ferias" (casing)
-      if (!dataFerias || !dataFerias.ok || !_parseRows(dataFerias).length) {
-        const resFeriasCap = await apiFetch('action=Ferias');
-        dataFerias = await resFeriasCap.json();
+      const [resFerias, resFeriasCap] = await Promise.all([
+        apiFetch('action=ferias').then(r => r.json()).catch(() => null),
+        apiFetch('action=Ferias').then(r => r.json()).catch(() => null),
+      ]);
+
+      let dataFerias = null;
+      if (resFerias && resFerias.ok && _parseRows(resFerias).length) {
+        dataFerias = resFerias;
+      } else if (resFeriasCap && resFeriasCap.ok && _parseRows(resFeriasCap).length) {
+        dataFerias = resFeriasCap;
       }
 
-      if (dataFerias && dataFerias.ok) {
+      if (dataFerias) {
         const rawRows = _parseRows(dataFerias);
         feriasServidor = rawRows.map(mapFeriasRow).filter(f => f.Matricula && f.Matricula !== '00000');
       } else {
-        // Fallback dinâmico: filtra diretamente das observações dos funcionários
+        // Fallback: filtrar funcionários com situação de férias/afastamento
         feriasServidor = (DASH_funcionarios || []).filter(f => 
           ['ferias', 'afastado', 'licenca', 'inss'].includes(String(f.Situacao || f.situacao || '').toLowerCase().trim())
         ).map(f => ({
@@ -1508,17 +1573,7 @@
         if (m && m !== '00000') AFAST_set.add(m);
       });
     } catch(e) {
-      // Outro fallback defensivo silencioso
-      try {
-        const resFeriasCap = await apiFetch('action=Ferias');
-        const dataFeriasCap = await resFeriasCap.json();
-        if (dataFeriasCap && dataFeriasCap.ok) {
-          const rawRows = _parseRows(dataFeriasCap);
-          feriasServidor = rawRows.map(mapFeriasRow).filter(f => f.Matricula && f.Matricula !== '00000');
-        }
-      } catch(err){
-        console.warn("Erro ao buscar dados da folha Ferias", err);
-      }
+      console.warn("Erro ao buscar dados da folha Ferias:", e);
     }
   }
 
@@ -1588,48 +1643,72 @@
 
   // Atualização de dados do dashboard com recarregamento limpo das fontes de dados
   async function dashAtualizar(){
-    delete _apiCache['treinamentos'];
-    delete _apiCache['registros'];
-    delete _apiCache['funcionarios'];
-    DASH_treinamentos = null;
-    DASH_funcionarios = null;
-    DASH_registrosAll = null;
-
-    await dashEnsureData();
-    afastRenderTags();
-
-    const titAntes = document.getElementById('dashTitulo').value;
-    await dashPopularSelects();
+    const dashStatus = document.getElementById('dashStatus');
+    const btnAtualizar = document.getElementById('btnDashAtualizar');
+    const textoOriginalBtn = btnAtualizar ? btnAtualizar.innerHTML : '';
     
-    const sel = document.getElementById('dashTitulo');
-    if (titAntes && [...sel.options].some(o => o.value === titAntes)) {
-      sel.value = titAntes;
-    } else {
-      dashSugerirSemanaAtivaMaisRecente();
+    // Capturar o título selecionado ANTES de limpar o cache
+    const titSelecionadoAntes = document.getElementById('dashTitulo').value.trim();
+    
+    if (btnAtualizar) {
+      btnAtualizar.disabled = true;
+      btnAtualizar.innerHTML = '<svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path></svg> A carregar...';
     }
+    if (dashStatus) dashStatus.innerHTML = '<div class="text-sky-600 bg-sky-50 px-4 py-2 rounded-lg border border-sky-100">A carregar dados atualizados...</div>';
 
-    const dashStatus = document.getElementById('dashStatus'); 
-    dashStatus.innerHTML = '';
+    try {
+      // Limpar cache para forçar recarregamento
+      delete _apiCache['treinamentos'];
+      delete _apiCache['registros'];
+      delete _apiCache['funcionarios'];
+      DASH_treinamentos = null;
+      DASH_funcionarios = null;
+      DASH_registrosAll = null;
 
-    const selISO = ''; 
-    const selTit = document.getElementById('dashTitulo').value.trim();
+      // Carregar todos os dados em paralelo
+      await dashEnsureData();
+      afastRenderTags(); // Atualizar tabela de férias após carregar
 
-    function normalizarMatricula(v){
-      return String(v ?? '').replace(/\D/g, '').padStart(5, '0');
+      await dashPopularSelects();
+      
+      // Tentar restaurar a seleção anterior; se não existir, sugerir a mais recente
+      const sel = document.getElementById('dashTitulo');
+      if (titSelecionadoAntes && [...sel.options].some(o => o.value === titSelecionadoAntes)) {
+        sel.value = titSelecionadoAntes;
+      } else {
+        dashSugerirSemanaAtivaMaisRecente();
+      }
+
+      // Verificar se há um título selecionado para processar
+      const titFinal = sel.value.trim();
+      if (!titFinal) {
+        if (dashStatus) dashStatus.innerHTML = '<div class="text-amber-600 bg-amber-50 px-4 py-2 rounded-lg border border-amber-100">Por favor, selecione um Tema para prosseguir.</div>';
+        dashRender([], []);
+        dashKPIs({ total: 0, part: 0, nPart: 0, semana: '-', titulo: '-', registrosAll: DASH_registrosAll||[], funcAtivos: (DASH_funcionarios||[]).filter(f => ativoValido(f.Ativo??f.ativo)) });
+        return;
+      }
+
+      // Processar os dados com o título selecionado
+      await dashProcessar(titFinal, dashStatus);
+    } catch(e) {
+      console.error('Erro ao atualizar dashboard:', e);
+      if (dashStatus) dashStatus.innerHTML = '<div class="text-rose-600 bg-rose-50 px-4 py-2 rounded-lg border border-rose-100">Erro ao carregar dados. Tente novamente.</div>';
+    } finally {
+      if (btnAtualizar) {
+        btnAtualizar.disabled = false;
+        btnAtualizar.innerHTML = textoOriginalBtn || '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 15M20 3v5h-5"/></svg> Atualizar';
+      }
     }
+  }
 
-    function normalizarSemanaISO(s){
-      const m = String(s||'').match(/^(\d{4})-W?(\d{1,2})$/i);
-      if(!m) return '';
-      return `${m[1]}-W${String(m[2]).padStart(2, '0')}`;
-    }
+  // Funções auxiliares do dashboard (definidas no escopo global para reutilização)
+  function normalizarMatricula(v){ return String(v ?? '').replace(/\D/g, '').padStart(5, '0'); }
+  function normalizarSemanaISO(s){ const m = String(s||'').match(/^(\d{4})-W?(\d{1,2})$/i); if(!m) return ''; return `${m[1]}-W${String(m[2]).padStart(2, '0')}`; }
+  function ativoValido(v){ return ['true','1','sim','yes'].includes(String(v ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim()); }
 
-    // Função de validação de atividade de colaboradores
-    function ativoValido(v){
-      return ['true','1','sim','yes'].includes(String(v ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim());
-    }
-
-    let semanaAlvo = selISO;
+  // Processar e renderizar os dados do dashboard para um título selecionado
+  async function dashProcessar(selTit, dashStatus) {
+    let semanaAlvo = '';
     if (!semanaAlvo && selTit){
       const hit = (DASH_treinamentos||[]).find(t => String(t.Titulo).trim() === selTit);
       if (hit && hit.SemanaISO) semanaAlvo = String(hit.SemanaISO);
@@ -1780,7 +1859,7 @@
       secFiltros?.classList.add('is-hidden');
       secResultados?.classList.add('is-hidden');
       secDashboard?.classList.remove('is-hidden');
-      dashAtualizar();
+      // Não recarregar automaticamente — dados já são carregados no dashInit
     }
   })();
 </script>
