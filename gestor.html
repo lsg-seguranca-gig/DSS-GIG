@@ -43,9 +43,111 @@
   </script>
 
   <style>
+    /* ── Variáveis de tema (light/dark) ─────────────────────────── */
+    :root {
+      --bg-page:    #f8fafc;
+      --bg-card:    #ffffff;
+      --bg-header:  #ffffff;
+      --bg-input:   #f8fafc;
+      --border:     #e2e8f0;
+      --text-main:  #1e293b;
+      --text-muted: #64748b;
+      --tab-bg:     #f1f5f9;
+      --tab-active: #ffffff;
+      --tab-text-off: #475569;
+      --scroll-track: #f1f5f9;
+      --scroll-thumb: #cbd5e1;
+    }
+    html.dark {
+      --bg-page:    #0f172a;
+      --bg-card:    #1e293b;
+      --bg-header:  #1e293b;
+      --bg-input:   #0f172a;
+      --border:     #334155;
+      --text-main:  #f1f5f9;
+      --text-muted: #94a3b8;
+      --tab-bg:     #0f172a;
+      --tab-active: #1e40af;
+      --tab-text-off: #94a3b8;
+      --scroll-track: #1e293b;
+      --scroll-thumb: #334155;
+    }
+
     body {
       font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
-      background-color: #f8fafc;
+      background-color: var(--bg-page);
+      color: var(--text-main);
+      transition: background-color 0.3s ease, color 0.3s ease;
+    }
+
+    /* ── Dark mode: cards e superfícies ─────────────────────────── */
+    html.dark .bg-white                 { background-color: var(--bg-card) !important; }
+    html.dark .bg-slate-50              { background-color: #1e293b !important; }
+    html.dark .bg-slate-100             { background-color: #0f172a !important; }
+    html.dark .bg-slate-900             { background-color: #020617 !important; }
+    html.dark .border-slate-100         { border-color: var(--border) !important; }
+    html.dark .border-slate-200         { border-color: var(--border) !important; }
+    html.dark header                    { background-color: var(--bg-header) !important; border-color: #334155 !important; }
+    html.dark .text-slate-900           { color: #f1f5f9 !important; }
+    html.dark .text-slate-800           { color: #e2e8f0 !important; }
+    html.dark .text-slate-700           { color: #cbd5e1 !important; }
+    html.dark .text-slate-600           { color: #94a3b8 !important; }
+    html.dark .text-slate-500           { color: #64748b !important; }
+    html.dark .text-slate-400           { color: #475569 !important; }
+    html.dark .divide-slate-100 > *     { border-color: #334155 !important; }
+    html.dark .hover\:bg-slate-50:hover { background-color: #334155 !important; }
+    html.dark input, html.dark select, html.dark textarea {
+      background-color: var(--bg-input) !important;
+      border-color: var(--border) !important;
+      color: var(--text-main) !important;
+    }
+    html.dark input::placeholder        { color: #475569 !important; }
+    html.dark .shadow-sm                { box-shadow: 0 1px 3px rgba(0,0,0,0.4) !important; }
+    html.dark pre#diagBox               { background-color: #020617 !important; }
+
+    /* ── Animação dos botões de aba ──────────────────────────────── */
+    .tab-btn {
+      position: relative;
+      overflow: hidden;
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      transform: translateY(0);
+    }
+    .tab-btn::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at center, rgba(255,255,255,0.35) 0%, transparent 70%);
+      opacity: 0;
+      transform: scale(0.3);
+      transition: opacity 0.4s ease, transform 0.4s ease;
+      pointer-events: none;
+    }
+    .tab-btn:active::after {
+      opacity: 1;
+      transform: scale(2.5);
+    }
+    .tab-btn:hover {
+      transform: translateY(-1px);
+    }
+    .tab-btn.tab-active {
+      box-shadow: 0 4px 14px rgba(37,99,235,0.25);
+      transform: translateY(-1px);
+    }
+    html.dark .tab-btn.tab-active {
+      background-color: #1e40af !important;
+      color: #ffffff !important;
+      box-shadow: 0 4px 16px rgba(30,64,175,0.5);
+    }
+    html.dark .tab-btn:not(.tab-active) {
+      color: var(--tab-text-off) !important;
+    }
+
+    /* ── Toggle Dark Mode button ─────────────────────────────────── */
+    #btnDarkMode {
+      transition: all 0.2s ease;
+    }
+    #btnDarkMode:hover {
+      transform: rotate(20deg) scale(1.1);
     }
 
     /* Transições e animações fluidas */
@@ -59,10 +161,10 @@
       height: 6px;
     }
     .custom-scrollbar::-webkit-scrollbar-track {
-      background: #f1f5f9;
+      background: var(--scroll-track);
     }
     .custom-scrollbar::-webkit-scrollbar-thumb {
-      background: #cbd5e1;
+      background: var(--scroll-thumb);
       border-radius: 4px;
     }
     .custom-scrollbar::-webkit-scrollbar-thumb:hover {
@@ -98,6 +200,10 @@
       mix-blend-mode: multiply;
       display: inline-block;
     }
+    html.dark .sig-img {
+      mix-blend-mode: screen;
+      filter: invert(1) hue-rotate(180deg);
+    }
   </style>
   <link rel="shortcut icon" href="icone lsg.ico" />
 </head>
@@ -107,7 +213,7 @@
   <header class="bg-white border-b border-slate-100 shadow-sm sticky top-0 z-50 transition-all-300 no-print">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 md:py-0 md:h-20 flex flex-col md:flex-row items-center justify-between gap-4">
       
-      <!-- Logo e Título (Sem compressão) -->
+      <!-- Logo e Título -->
       <div class="flex items-center gap-3 w-full md:w-auto justify-start">
         <div class="bg-slate-50 p-1.5 rounded-xl border border-slate-100 shrink-0">
           <img src="logo lsg.png" alt="logo LSG Sky Chefs" class="h-10 w-auto object-contain" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'40\' height=\'40\' viewBox=\'0 0 24 24\' fill=\'none\' stroke=\'%232563eb\' stroke-width=\'2\'><rect x=\'3\' y=\'3\' width=\'18\' height=\'18\' rx=\'2\'/><path d=\'M9 17V7l7 5z\'/></svg>'"/>
@@ -119,16 +225,51 @@
           <p class="text-[11px] text-slate-500 hidden sm:block">Pesquise e gere relatórios de participação otimizados</p>
         </div>
       </div>
-      
-      <!-- Navegação de Ecrãs -->
-      <nav class="flex bg-slate-100 p-1 rounded-xl w-full md:w-auto justify-center" aria-label="Alternar ecrãs">
-        <button id="tabPrincipal" class="flex-grow md:flex-initial px-6 py-2.5 text-sm font-semibold rounded-lg transition-all duration-200 text-center" type="button">
-          Principal
+
+      <!-- Navegação + Botão Dark Mode -->
+      <div class="flex items-center gap-3 w-full md:w-auto justify-center">
+
+        <!-- Botão Dark Mode -->
+        <button id="btnDarkMode" type="button"
+          title="Alternar modo escuro"
+          class="p-2 rounded-xl border border-slate-200 bg-slate-50 text-slate-500 hover:text-brand-600 hover:border-brand-300 hover:bg-brand-50 transition-all duration-200 shrink-0"
+          aria-label="Modo escuro">
+          <!-- Ícone lua (dark) / sol (light) — trocados via JS -->
+          <svg id="iconDark" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M21 12.79A9 9 0 1111.21 3a7 7 0 009.79 9.79z"/>
+          </svg>
+          <svg id="iconLight" class="w-5 h-5 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="5" stroke-width="2"/>
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+          </svg>
         </button>
-        <button id="tabDashboard" class="flex-grow md:flex-initial px-6 py-2.5 text-sm font-semibold rounded-lg transition-all duration-200 text-center" type="button">
-          Dashboard
-        </button>
-      </nav>
+
+        <!-- Abas Principal / Dashboard -->
+        <nav class="flex bg-slate-100 p-1 rounded-xl gap-1" aria-label="Alternar ecrãs">
+          <button id="tabPrincipal" type="button"
+            class="tab-btn flex-grow md:flex-initial px-6 py-2.5 text-sm font-bold rounded-lg text-center">
+            <span class="flex items-center gap-1.5 justify-center">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+              </svg>
+              Principal
+            </span>
+          </button>
+          <button id="tabDashboard" type="button"
+            class="tab-btn flex-grow md:flex-initial px-6 py-2.5 text-sm font-bold rounded-lg text-center">
+            <span class="flex items-center gap-1.5 justify-center">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+              </svg>
+              Dashboard
+            </span>
+          </button>
+        </nav>
+      </div>
     </div>
   </header>
 
@@ -1515,8 +1656,12 @@
 
       const formatDate = s => {
         if (!s) return '';
+        s = String(s).trim();
+        // yyyy-mm-dd → dd/mm/yyyy
         const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
         if (iso) return `${iso[3]}/${iso[2]}/${iso[1]}`;
+        // já está em dd/mm/yyyy
+        if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(s)) return s;
         return s;
       };
       const dIni  = formatDate(f.InicioFerias);
@@ -2055,35 +2200,51 @@
     return { year: +m[1], week: +m[2] }; 
   }
 
-  // Controlo de Abas / Navegação Principal com classes dinâmicas do Tailwind (Otimizado para touch)
+  // ── Dark Mode ─────────────────────────────────────────────────
+  (function initDarkMode(){
+    const btn       = document.getElementById('btnDarkMode');
+    const iconDark  = document.getElementById('iconDark');
+    const iconLight = document.getElementById('iconLight');
+    const html      = document.documentElement;
+
+    const apply = (dark) => {
+      if (dark) {
+        html.classList.add('dark');
+        iconDark.classList.add('hidden');
+        iconLight.classList.remove('hidden');
+        btn.title = 'Mudar para modo claro';
+      } else {
+        html.classList.remove('dark');
+        iconDark.classList.remove('hidden');
+        iconLight.classList.add('hidden');
+        btn.title = 'Mudar para modo escuro';
+      }
+      try { localStorage.setItem('dssgig_dark', dark ? '1' : '0'); } catch(e){}
+    };
+
+    // Preferência salva ou preferência do sistema
+    let saved;
+    try { saved = localStorage.getItem('dssgig_dark'); } catch(e){}
+    const prefersDark = window.matchMedia?.('(prefers-color-scheme: dark)').matches;
+    apply(saved !== null ? saved === '1' : prefersDark);
+
+    btn.addEventListener('click', () => apply(!html.classList.contains('dark')));
+  })();
+
+  // ── Abas / Navegação ─────────────────────────────────────────
   (function initTabs(){
-    const btnPrincipal = document.getElementById('tabPrincipal');
-    const btnDashboard = document.getElementById('tabDashboard');
-    const secFiltros = document.getElementById('cardFiltros');
+    const btnPrincipal  = document.getElementById('tabPrincipal');
+    const btnDashboard  = document.getElementById('tabDashboard');
+    const secFiltros    = document.getElementById('cardFiltros');
     const secResultados = document.getElementById('cardResultados');
-    const secDashboard = document.getElementById('dashCard');
-
-    showPrincipal();
-
-    // Eventos rápidos de clique
-    btnPrincipal.addEventListener('click', showPrincipal);
-    btnDashboard.addEventListener('click', showDashboard);
-
-    // Eventos rápidos de toque para telemóveis/tablets
-    btnPrincipal.addEventListener('touchstart', function(e) {
-      e.preventDefault();
-      showPrincipal();
-    }, { passive: false });
-
-    btnDashboard.addEventListener('touchstart', function(e) {
-      e.preventDefault();
-      showDashboard();
-    }, { passive: false });
+    const secDashboard  = document.getElementById('dashCard');
 
     function setActive(btnOn, btnOff){
-      btnOn.classList.add('bg-white', 'text-slate-900', 'shadow-sm');
-      btnOn.classList.remove('text-slate-600', 'hover:text-slate-900');
-      btnOff.classList.remove('bg-white', 'text-slate-900', 'shadow-sm');
+      // Aba activa: destaque azul + sombra
+      btnOn.classList.add('tab-active', 'bg-brand-500', 'text-white');
+      btnOn.classList.remove('text-slate-600', 'hover:text-slate-900', 'bg-white');
+      // Aba inactiva: discreta
+      btnOff.classList.remove('tab-active', 'bg-brand-500', 'text-white', 'bg-white');
       btnOff.classList.add('text-slate-600', 'hover:text-slate-900');
     }
 
@@ -2099,8 +2260,14 @@
       secFiltros?.classList.add('is-hidden');
       secResultados?.classList.add('is-hidden');
       secDashboard?.classList.remove('is-hidden');
-      // Não recarregar automaticamente — dados já são carregados no dashInit
     }
+
+    showPrincipal();
+
+    btnPrincipal.addEventListener('click', showPrincipal);
+    btnDashboard.addEventListener('click', showDashboard);
+    btnPrincipal.addEventListener('touchstart', e => { e.preventDefault(); showPrincipal(); }, { passive: false });
+    btnDashboard.addEventListener('touchstart', e => { e.preventDefault(); showDashboard(); }, { passive: false });
   })();
 </script>
 </body>
