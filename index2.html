@@ -138,6 +138,7 @@
 
     /* ── Utilitários ───────────────────────────────────────────── */
     .is-hidden { display: none !important; }
+    .hidden { display: none !important; }
     .transition-all-300 { transition: all .3s cubic-bezier(.4,0,.2,1); }
 
     /* ── Scrollbar ─────────────────────────────────────────────── */
@@ -251,11 +252,11 @@
           Buscar
         </button>
       </div>
-      <div id="funcInfo" class="is-hidden mt-4"></div>
+      <div id="funcInfo" class="hidden mt-4"></div>
     </section>
 
     <!-- ── Secção: Escolha o vídeo ─────────────────────────────── -->
-    <section class="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 sm:p-8 fade-in-2 is-hidden" id="secVideos">
+    <section class="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 sm:p-8 fade-in-2 hidden" id="secVideos">
       <div class="flex items-center gap-3 mb-5">
         <div class="p-2 bg-violet-50 text-violet-600 rounded-lg shrink-0">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -272,7 +273,7 @@
     </section>
 
     <!-- ── Secção: Player ──────────────────────────────────────── -->
-    <section class="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 sm:p-8 fade-in-3 is-hidden" id="secPlayer">
+    <section class="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 sm:p-8 fade-in-3 hidden" id="secPlayer">
 
       <!-- Cabeçalho do vídeo -->
       <div class="mb-5">
@@ -311,7 +312,7 @@
       </div>
 
       <!-- Bloco de assinatura -->
-      <div id="signatureBlock" class="is-hidden">
+      <div id="signatureBlock" class="hidden">
         <div class="border border-slate-100 rounded-2xl p-5 mb-4 bg-slate-50">
           <div class="flex items-center gap-2 mb-3">
             <svg class="w-4 h-4 text-brand-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -335,7 +336,7 @@
         <button id="btnRegistrar" type="button"
           class="inline-flex items-center gap-2 px-6 py-3 bg-emerald-500 hover:bg-emerald-600
                  text-white text-sm font-bold rounded-xl transition-all duration-200
-                 shadow-sm hover:shadow-md active:scale-95 is-hidden">
+                 shadow-sm hover:shadow-md active:scale-95 hidden">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
               d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
@@ -394,7 +395,7 @@
     const el = document.getElementById(containerId);
     if(!el) return;
     el.innerHTML = `<div class="px-4 py-3 rounded-xl border text-sm font-medium ${colors[type]||colors.ok} mt-2">${html}</div>`;
-    el.classList.remove('is-hidden');
+    el.classList.remove('hidden');
   }
 
   /* ── Aplicação principal ──────────────────────────────────────── */
