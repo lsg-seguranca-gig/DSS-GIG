@@ -1595,8 +1595,14 @@
         // Converter datas BR (dd/mm/yyyy) ou ISO (yyyy-mm-dd) para Date
         const parseDate = s => {
           if (!s) return null;
+          s = String(s).trim();
+          // ISO completo com timezone: 2026-05-04T07:00:00.000Z
+          const isoFull = s.match(/^(\d{4})-(\d{2})-(\d{2})T/);
+          if (isoFull) return new Date(`${isoFull[1]}-${isoFull[2]}-${isoFull[3]}`);
+          // dd/mm/yyyy
           const br = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
           if (br) return new Date(`${br[3]}-${br[2].padStart(2,'0')}-${br[1].padStart(2,'0')}`);
+          // yyyy-mm-dd
           const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
           if (iso) return new Date(s);
           return null;
@@ -1657,10 +1663,13 @@
       const formatDate = s => {
         if (!s) return '';
         s = String(s).trim();
-        // yyyy-mm-dd → dd/mm/yyyy
-        const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-        if (iso) return `${iso[3]}/${iso[2]}/${iso[1]}`;
-        // já está em dd/mm/yyyy
+        // ISO completo com timezone: 2026-05-04T07:00:00.000Z → usa apenas a parte da data
+        const isoFull = s.match(/^(\d{4})-(\d{2})-(\d{2})T/);
+        if (isoFull) return `${isoFull[3]}/${isoFull[2]}/${isoFull[1]}`;
+        // yyyy-mm-dd simples → dd/mm/yyyy
+        const isoSimple = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        if (isoSimple) return `${isoSimple[3]}/${isoSimple[2]}/${isoSimple[1]}`;
+        // já está em dd/mm/yyyy — mantém
         if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(s)) return s;
         return s;
       };
