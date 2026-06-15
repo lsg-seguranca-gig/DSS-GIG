@@ -835,12 +835,15 @@
       .map(([t]) => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join('');
   }
 
-  // Popular o select "Título do Vídeo" — carregamento sob demanda (apenas
-  // quando o usuário interagir com o campo, nunca automaticamente ao abrir a página)
+  // Popular o select "Título do Vídeo". Esta é a ÚNICA chamada feita
+  // automaticamente ao abrir a página — busca apenas o catálogo de
+  // "treinamentos" (lista pequena e rápida), necessária para o dropdown
+  // funcionar. Os dados pesados (registos, funcionários, férias, tabela de
+  // resultados) continuam sendo carregados apenas quando o usuário clicar em
+  // "Pesquisar"/"Atualizar".
   let _titulosCarregados = false;
   async function popularTitulos(){
     if (_titulosCarregados) return;
-    _titulosCarregados = true;
 
     const normF = s => String(s??'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
     const exactos = ['Titulo','titulo','TITULO','Title','title','TituloVideo','titulovideo'];
@@ -855,17 +858,25 @@
 
     const selP = document.getElementById('fSemanaTitulo');
     const selAtual = selP.value;
-    if (mapaISO.size) selP.innerHTML = _buildTituloOpts(mapaISO, '<option value="">Todas</option>');
+    if (mapaISO.size) {
+      selP.innerHTML = _buildTituloOpts(mapaISO, '<option value="">Todas</option>');
+      _titulosCarregados = true;
+    }
     if (selAtual && [...selP.options].some(o => o.value === selAtual)) selP.value = selAtual;
   }
 
-  // Disparar o carregamento das opções apenas no primeiro contacto do usuário com o campo
+  // Carrega o dropdown imediatamente (rápido, "fire and forget")
+  popularTitulos();
+
+  // Caso a primeira tentativa falhe (ex.: instabilidade de rede no momento do
+  // load), tenta novamente na primeira interação do usuário com o campo.
   (function initFiltroTitulo(){
     const selP = document.getElementById('fSemanaTitulo');
     if (!selP) return;
     selP.addEventListener('focus', popularTitulos, { once: true });
     selP.addEventListener('mousedown', popularTitulos, { once: true });
   })();
+
 
 
 
@@ -1202,14 +1213,4 @@
                 const scale=Math.min(maxW/wPtNat, maxH/hPtNat, 1); 
                 const w=wPtNat*scale; 
                 const h=hPtNat*scale; 
-                const x=data.cell.x + (data.cell.width - w)/2; 
-                const y=data.cell.y + (data.cell.height - h)/2; 
-                doc.addImage(cleanVal, props.fileType || 'PNG', x, y, w, h); 
-              } catch(e){}
-            }
-          }
-        },
-      });
-
-      // Garante que estamos na última página absoluta para desenhar os instrutores
-      const totalPages = doc.internal
+   
