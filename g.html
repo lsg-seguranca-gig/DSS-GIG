@@ -678,7 +678,7 @@
     <div class="max-w-7xl mx-auto px-4">
       <p class="font-medium text-slate-300">© Caterair Serviços de Bordo e Hotelaria LTDA - Base GIG</p>
       <p class="mt-2 text-slate-500">Sistema de Gestão Interna de Treinamento e Auditoria de Segurança</p>
-      <p class="mt-2 text-slate-600">build 2026-06-14-v4</p>
+      <p class="mt-2 text-slate-600">build 2026-06-14-v5</p>
     </div>
   </footer>
 
@@ -1011,46 +1011,86 @@
       .map(([t]) => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join('');
   }
 
-  // Popular o select "Título do Vídeo". Esta é a ÚNICA chamada feita
-  // automaticamente ao abrir a página — busca apenas o catálogo de
-  // "treinamentos" (lista pequena e rápida), necessária para o dropdown
-  // funcionar. Os dados pesados (registos, funcionários, férias, tabela de
-  // resultados) continuam sendo carregados apenas quando o usuário clicar em
-  // "Pesquisar"/"Atualizar".
-  let _titulosCarregados = false;
-  async function popularTitulos(){
-    if (_titulosCarregados) return;
+  // Carrega o catálogo de Semanas/Títulos (treinamentos + registos) e popula
+  // os dropdowns "Título do Vídeo" (Principal), "Tema / Vídeo" (Dashboard) e
+  // o select oculto de Semana ISO do Dashboard. Esta é a ÚNICA carga
+  // automática feita ao abrir a página — os dados pesados (resultados da
+  // pesquisa, KPIs do Dashboard, férias) continuam sendo carregados apenas
+  // quando o usuário clicar em "Pesquisar"/"Atualizar". Usamos tanto
+  // "treinamentos" (catálogo oficial) quanto "registos" (que pode conter
+  // semanas mais antigas que já não estão mais no catálogo), para que os
+  // dropdowns mostrem TODAS as semanas disponíveis na base de dados.
+  let _catalogoCarregado = false;
+  async function carregarCatalogoSemanas(){
+    if (_catalogoCarregado) return;
 
     const normF = s => String(s??'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
     const exactos = ['Titulo','titulo','TITULO','Title','title','TituloVideo','titulovideo'];
     const mapaISO = new Map();
+    const isoSet = new Set();
 
     try {
-      const rows = _parseRows(await _cachedFetch('treinamentos'));
-      const chaves = Object.keys(rows[0]||{});
+      const [jTrein, jRegs] = await Promise.all([
+        _cachedFetch('treinamentos'),
+        _cachedFetch('registros'),
+      ]);
+
+      const rows1 = _parseRows(jTrein);
+      const chaves = Object.keys(rows1[0]||{});
       const campo = exactos.find(c => chaves.includes(c)) ?? chaves.find(k => normF(k).includes('titul')) ?? null;
-      if (campo) rows.forEach(r => { const t = String(r[campo]??'').trim(); if(t) mapaISO.set(t, String(r.SemanaISO??'').trim()); });
+      if (campo) rows1.forEach(r => {
+        const t = String(r[campo]??'').trim();
+        const iso = String(r.SemanaISO??'').trim();
+        if(t) mapaISO.set(t, iso);
+        if(iso) isoSet.add(iso);
+      });
+
+      const rows2 = _parseRows(jRegs);
+      rows2.forEach(r => {
+        const t = String(r.TituloVideo??r.Titulo??r.titulo??'').trim();
+        const iso = String(r.SemanaISO??'').trim();
+        if(t && !mapaISO.has(t)) mapaISO.set(t, iso);
+        else if(t && !mapaISO.get(t) && iso) mapaISO.set(t, iso);
+        if(iso) isoSet.add(iso);
+      });
     } catch(e){}
 
-    const selP = document.getElementById('fSemanaTitulo');
-    const selAtual = selP.value;
     if (mapaISO.size) {
-      selP.innerHTML = _buildTituloOpts(mapaISO, '<option value="">Todas</option>');
-      _titulosCarregados = true;
+      const opts = _buildTituloOpts(mapaISO, '');
+
+      const selP = document.getElementById('fSemanaTitulo');
+      const selAtualP = selP.value;
+      selP.innerHTML = '<option value="">Todas</option>' + opts;
+      if (selAtualP && [...selP.options].some(o => o.value === selAtualP)) selP.value = selAtualP;
+
+      const selD = document.getElementById('dashTitulo');
+      const selAtualD = selD.value;
+      selD.innerHTML = '<option value="">Selecione um título...</option>' + opts;
+      if (selAtualD && [...selD.options].some(o => o.value === selAtualD)) selD.value = selAtualD;
+
+      _catalogoCarregado = true;
     }
-    if (selAtual && [...selP.options].some(o => o.value === selAtual)) selP.value = selAtual;
+
+    if (isoSet.size) {
+      const isoList = [...isoSet].sort(dashCompareSemanaISODesc);
+      const selIso = document.getElementById('dashSemanaIso');
+      if (selIso) selIso.innerHTML = '<option value="">Selecione...</option>' + isoList.map(sem => `<option value="${escapeHtml(sem)}">${escapeHtml(sem)}</option>`).join('');
+    }
   }
 
-  // Carrega o dropdown imediatamente (rápido, "fire and forget")
-  popularTitulos();
+  // Carrega o catálogo imediatamente (fire-and-forget)
+  carregarCatalogoSemanas();
 
   // Caso a primeira tentativa falhe (ex.: instabilidade de rede no momento do
-  // load), tenta novamente na primeira interação do usuário com o campo.
+  // load), tenta novamente na primeira interação do usuário com os campos.
   (function initFiltroTitulo(){
     const selP = document.getElementById('fSemanaTitulo');
-    if (!selP) return;
-    selP.addEventListener('focus', popularTitulos, { once: true });
-    selP.addEventListener('mousedown', popularTitulos, { once: true });
+    const selD = document.getElementById('dashTitulo');
+    [selP, selD].forEach(sel => {
+      if (!sel) return;
+      sel.addEventListener('focus', carregarCatalogoSemanas, { once: true });
+      sel.addEventListener('mousedown', carregarCatalogoSemanas, { once: true });
+    });
   })();
 
 
