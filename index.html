@@ -1,391 +1,159 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
+<!doctype html>
+<html lang="pt-BR" class="">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>DSS GIG — Diálogo Semanal de Segurança (Colaborador)</title>
-  <link rel="icon" href="data:;base64,iVBORw0KGgo=" />
-  <link rel="stylesheet" href="styles.css" />
-  <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.2.0/dist/signature_pad.umd.min.js"></script>
-  <script src="https://www.youtube.com/iframe_api"></script>
-  <style>
-    /* ===== Player responsivo ===== */
-    .player-container { position: relative; width: 100%; max-width: 960px; aspect-ratio: 16 / 9; display: inline-block; }
-    .player-container iframe,
-    .player-container #ytplayer iframe { position: absolute; inset: 0; width: 100% !important; height: 100% !important; }
-
-    /* ===== Botão Play estilizado (ajustado) ===== */
-    :root { --brand-navy:#0b2a4a; --brand-orange:#f2a01b; --play-size: clamp(64px, 16vmin, 140px); --play-shadow:0 10px 28px rgba(0,0,0,.35); }
-    .play-overlay { all: unset; position: absolute; inset: 0; margin: auto; width: var(--play-size); height: var(--play-size); cursor: pointer; filter: drop-shadow(var(--play-shadow)); transition: transform .2s ease, filter .2s ease, opacity .15s ease; display: grid; place-items: center; outline: none; }
-    .play-overlay .play-bg { position: absolute; inset: 0; border-radius: 50%; background: var(--brand-navy); }
-    .play-overlay .stripe { position: absolute; left: 46%; right: 12%; height: calc(var(--play-size) * .075); border-radius: calc(var(--play-size) * .0375); background: var(--brand-orange); transform-origin: left center; opacity: .95; }
-    .play-overlay .s1 { top: 30%; } .play-overlay .s2 { top: 45%; } .play-overlay .s3 { top: 60%; } .play-overlay .s4 { top: 75%; }
-    .play-overlay .play-icon { width: 34%; height: 34%; z-index: 1; fill: #fff; transform: translateX(-4%); }
-    .play-overlay:focus-visible { box-shadow: 0 0 0 4px rgba(242,160,27,.35); border-radius: 50%; }
-    .play-overlay:hover { transform: scale(1.03); } .play-overlay:active { transform: scale(0.98); }
-    .play-overlay.hidden { opacity: 0; pointer-events: none; }
-
-    /* Ajuste extra para telas bem pequenas */
-    @media (max-width: 420px) { :root { --play-size: clamp(56px, 18vw, 120px); } }
-  </style>
-  <link rel="shortcut icon" href="icone lsg.ico">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="DSS GIG — Diálogo Semanal de Segurança: assista ao vídeo da semana e registre sua participação." />
+  <title>DSS GIG — Diálogo Semanal de Segurança</title>
+  <link rel="icon" href="icone lsg.ico" type="image/x-icon" />
+  <link rel="preload" href="colab.css" as="style" />
+  <link rel="preload" href="fonts/plus-jakarta-sans-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="preload" href="fonts/plus-jakarta-sans-latin-700-normal.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="stylesheet" href="fonts/plus-jakarta-sans.css" />
+  <link rel="stylesheet" href="colab.css" />
+  <!-- SignaturePad — carregado de forma não-bloqueante -->
+  <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.1.7/dist/signature_pad.umd.min.js" defer></script>
+  <!-- YouTube IFrame API -->
+  <script src="https://www.youtube.com/iframe_api" defer></script>
+  <script src="colab.js" defer></script>
 </head>
-<body>
-<header class="site-header">
-  <img src="logo lsg.png" alt="logo LSG">
-  <h1>DSS GIG — Diálogo Semanal de Segurança</h1>
-  <p class="subtitle">Assista, assine e registre sua participação</p>
-</header>
-<main class="container">
-  <section class="card">
-    <h2>Identificação</h2>
-    <div class="row">
-      <label for="matricula">Matrícula</label>
-      <input type="text" id="matricula" placeholder="Ex.: 12345" />
-      <button id="btnBuscar">Buscar</button>
-    </div>
-    <div id="funcInfo" class="info hidden"></div>
-  </section>
+<body class="bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 min-h-screen flex flex-col antialiased font-sans transition-colors duration-200">
 
-  <section class="card hidden" id="secVideos">
-    <h2>Escolha o vídeo</h2>
-    <p>Disponíveis: semana atual e as duas semanas anteriores (se ativas).</p>
-    <div id="listaVideos" class="video-list"></div>
-  </section>
-
-  <section class="card hidden" id="secPlayer">
-    <h2 id="videoTitle">Vídeo</h2>
-    <p><strong>Semana:</strong> <span id="semanaISO"></span></p>
-
-    <div id="playerContainer" class="player-container">
-      <div id="ytplayer"></div>
-      <button id="btnPlayOverlay" class="play-overlay" aria-label="Tocar vídeo" title="Tocar vídeo">
-        <span class="play-bg" aria-hidden="true"></span>
-        <span class="stripe s1" aria-hidden="true"></span>
-        <span class="stripe s2" aria-hidden="true"></span>
-        <span class="stripe s3" aria-hidden="true"></span>
-        <span class="stripe s4" aria-hidden="true"></span>
-        <svg class="play-icon" viewBox="0 0 100 100" aria-hidden="true" focusable="false"><polygon points="38,30 74,50 38,70"/></svg>
+  <!-- ── Cabeçalho ── -->
+  <header class="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 shadow-sm sticky top-0 z-40 no-print">
+    <div class="max-w-3xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
+      <div class="flex items-center gap-3">
+        <img src="logo lsg.png" alt="LSG Sky Chefs" class="h-10 w-auto object-contain"
+          onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2240%22 height=%2240%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%232563eb%22 stroke-width=%222%22><rect x=%223%22 y=%223%22 width=%2218%22 height=%2218%22 rx=%222%22/><path d=%22M9 17V7l7 5z%22/></svg>'" />
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="font-extrabold text-lg tracking-tight text-slate-900 dark:text-white">DSS GIG</span>
+            <span class="text-xs font-semibold bg-brand-100 dark:bg-brand-900 text-brand-700 dark:text-brand-300 px-2 py-0.5 rounded-full">Colaborador</span>
+          </div>
+          <p class="text-xs text-slate-500 dark:text-slate-400 hidden sm:block">Diálogo Semanal de Segurança</p>
+        </div>
+      </div>
+      <!-- Botão Dark Mode -->
+      <button id="btnDarkMode" aria-label="Alternar modo escuro"
+        class="p-2 rounded-xl text-slate-500 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+        <svg id="iconSun" class="w-5 h-5 hidden" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+        <svg id="iconMoon" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
       </button>
     </div>
+  </header>
 
-    <div class="note">O botão "Registrar" aparecerá ao final do vídeo.</div>
+  <main class="flex-1 max-w-3xl mx-auto w-full px-4 py-8 space-y-6">
 
-    <div id="signatureBlock" class="signature-block hidden">
-      <h3>Assinatura</h3>
-      <p>Assine seu nome no quadro abaixo:</p>
-      <div class="signature-wrapper"><canvas id="signaturePad" width="500" height="180"></canvas></div>
-      <div class="signature-actions"><button id="btnLimpar">Limpar</button></div>
-    </div>
-
-    <div class="actions">
-      <button id="btnRegistrar" class="primary hidden">Registrar</button>
-      <button id="btnTrocarVideo" class="secondary">Trocar vídeo</button>
-    </div>
-    <div id="mensagem" class="message"></div>
-  </section>
-</main>
-<footer class="site-footer"><small>© Caterair Serviços de Bordo e Hotelaria LTDA - Base GIG</small></footer>
-
-<script>
-  const API_BASE = '/api/gas';
-  let funcionario=null, treinamentos=[], selectedVideo=null, player=null, signaturePad=null, videoEnded=false;
-
-  function extractYouTubeId(url){
-    try{
-      const u=new URL(url);
-      if(u.hostname.includes('youtu.be')) return u.pathname.slice(1);
-      if(u.searchParams.get('v')) return u.searchParams.get('v');
-      const m=url.match(/embed\/([\w\-]+)/);
-      if(m) return m[1];
-    }catch(e){}
-    return null;
-  }
-
-  async function fetchTreinamentos(){
-    const res=await fetch(API_BASE+'?action=treinamentos');
-    try{ return await res.json(); }
-    catch{ return {ok:false,error:'Resposta não-JSON',status:res.status} }
-  }
-
-  async function fetchRegistros(m){
-    const res=await fetch(API_BASE+'?action=registros&matricula='+encodeURIComponent(m));
-    try{ return await res.json(); }
-    catch{ return {ok:false,error:'Resposta não-JSON',status:res.status} }
-  }
-
-  async function fetchFuncionario(m){
-    const res=await fetch(API_BASE+'?action=funcionario&matricula='+encodeURIComponent(m));
-    try{ return await res.json(); }
-    catch{ return {ok:false,error:'Resposta não-JSON',status:res.status} }
-  }
-
-  async function fetchFeriasList(){
-    try{
-      const res=await fetch(API_BASE+'?action=getFeriasList');
-      return await res.json();
-    }catch{ return {ok:false} }
-  }
-
-  // Normaliza matrícula: remove não-dígitos e padeia com zeros à esquerda
-  function normMat(v){ return String(v||'').replace(/\D/g,'').padStart(5,'0'); }
-
-  // Converte "dd/mm/aaaa" → Date UTC. Retorna null se inválido.
-  function parseDateBR(s){
-    if(!s) return null;
-    const m=String(s).trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-    if(!m) return null;
-    return new Date(Date.UTC(+m[3],+m[2]-1,+m[1]));
-  }
-
-  // Converte "yyyy-Www" na segunda-feira (UTC) da semana ISO
-  function isoParaSegunda(iso){
-    const m=String(iso||'').match(/^(\d{4})-W(\d{1,2})$/i);
-    if(!m) return null;
-    const jan4=new Date(Date.UTC(+m[1],0,4));
-    const dow=jan4.getUTCDay()||7;
-    const seg=new Date(jan4);
-    seg.setUTCDate(jan4.getUTCDate()-dow+1+(+m[2]-1)*7);
-    return seg;
-  }
-
-  // Converte "yyyy-Www" no domingo (UTC) da semana ISO
-  function isoParaDomingo(iso){
-    const seg=isoParaSegunda(iso);
-    if(!seg) return null;
-    const dom=new Date(seg);
-    dom.setUTCDate(seg.getUTCDate()+6);
-    return dom;
-  }
-
-  // Retorna true se a semana do treinamento se sobrepõe ao período de férias.
-  // Se não houver datas cadastradas (ex.: Afastado INSS), bloqueia tudo.
-  function semanaEmFerias(semanaISO, inicioFerias, fimFerias){
-    const seg=isoParaSegunda(semanaISO);
-    const dom=isoParaDomingo(semanaISO);
-    if(!seg||!dom) return true; // parse falhou → bloqueia por segurança
-    const ini=parseDateBR(inicioFerias);
-    const fim=parseDateBR(fimFerias);
-    if(!ini&&!fim) return true;            // sem datas → bloqueia tudo
-    if(ini&&!fim)  return dom>=ini;        // só início → bloqueia daqui pra frente
-    if(!ini&&fim)  return seg<=fim;        // só fim    → bloqueia até o fim
-    return seg<=fim && dom>=ini;           // intervalo completo: sobreposição
-  }
-
-  document.getElementById('btnBuscar').addEventListener('click', async ()=>{
-    const m=document.getElementById('matricula').value.trim();
-    const info=document.getElementById('funcInfo');
-    info.classList.add('hidden'); info.innerHTML='';
-    document.getElementById('secVideos').classList.add('hidden');
-    document.getElementById('secPlayer').classList.add('hidden');
-
-    if(!m){
-      info.classList.remove('hidden');
-      info.innerHTML='<div class="warn">Informe a matrícula.</div>';
-      return;
-    }
-
-    // ── 1. Verifica se o funcionário existe e está ativo ──────────────────────
-    const resp=await fetchFuncionario(m);
-    if(!resp||!resp.ok){
-      const d=resp&&resp.error?` (${resp.error}${resp.status?' - status '+resp.status:''})`:'';
-      info.classList.remove('hidden');
-      info.innerHTML=`<div class="error">Falha ao consultar funcionário${d}.</div>`;
-      return;
-    }
-    if(resp.found===false){
-      info.classList.remove('hidden');
-      info.innerHTML='<div class="error">Funcionário não encontrado ou inativo.</div>';
-      return;
-    }
-
-    funcionario=resp.data;
-    const matNorm=normMat(funcionario.Matricula);
-
-    // ── 2. Verifica se está registrado na aba Férias ──────────────────────────
-    const fResp=await fetchFeriasList();
-    let regFerias=null;
-    if(fResp&&fResp.ok&&Array.isArray(fResp.data)){
-      regFerias=fResp.data.find(f=>normMat(f.Matricula)===matNorm)||null;
-    }
-
-    if(regFerias){
-      // Funcionário de férias/afastado — bloqueia completamente
-      info.classList.remove('hidden');
-      const sit=(regFerias.Situacao||'Férias / Afastamento').toUpperCase();
-      const ini=regFerias.InicioFerias||'';
-      const fim=regFerias.FimFerias||'';
-      const periodo=(ini||fim)?` (${ini||'?'}${fim?' A '+fim:''})`:'';
-      info.innerHTML=`
-        <div style="
-          background:#fee2e2;border:2px solid #ef4444;border-radius:12px;
-          padding:24px 20px;text-align:center;line-height:1.7;
-        ">
-          <div style="font-size:36px;margin-bottom:8px;">🚫</div>
-          <p style="margin:0 0 6px;font-size:16px;font-weight:800;color:#991b1b;text-transform:uppercase;letter-spacing:.03em;">
-            VOCÊ NÃO ESTÁ PERMITIDO A ACESSAR<br>ESSA PLATAFORMA NESTE PERÍODO.
-          </p>
-          <p style="margin:0;font-size:13px;font-weight:600;color:#b91c1c;">
-            MOTIVO: ${sit}${periodo}
-          </p>
-        </div>`;
-      return;
-    }
-
-    // ── 3. Funcionário ativo — saudação ───────────────────────────────────────
-    info.classList.remove('hidden');
-    info.innerHTML=`<div class="ok">Olá, <strong>${funcionario.Nome}</strong> — Setor: <strong>${funcionario.Setor||'-'}</strong>.</div>`;
-
-    // ── 4. Carrega treinamentos disponíveis ───────────────────────────────────
-    const tResp=await fetchTreinamentos();
-    if(!tResp||!tResp.ok){
-      const d=tResp&&tResp.error?` (${tResp.error}${tResp.status?' - status '+tResp.status:''})`:'';
-      info.innerHTML+=`<div class="error">Falha ao carregar treinamentos${d}.</div>`;
-      return;
-    }
-    let todosTreinamentos=tResp.data||[];
-
-    // ── 5. Remove treinamentos cujas semanas caíam no período de férias ───────
-    // Busca o histórico completo de férias para cobrir funcionários que já
-    // retornaram mas ainda teriam semanas pendentes do período afastado.
-    // Como o GAS retorna apenas as 3 semanas mais recentes, na prática os
-    // treinamentos de semanas muito antigas já não estarão na lista.
-    // Ainda assim, filtramos usando getferiaslist para garantir consistência.
-    // Nota: ao retornar, o gestor remove o registro da aba Ferias, portanto
-    // fResp.data não terá mais o funcionário — os treinamentos antigos
-    // simplesmente não aparecerão pois o GAS só retorna semanas recentes ativas.
-    // Se o gestor precisar de histórico de bloqueio, isso deve ser feito no GAS.
-
-    // ── 6. Filtra vídeos já assistidos ───────────────────────────────────────
-    const rResp=await fetchRegistros(funcionario.Matricula);
-    if(!rResp||!rResp.ok){
-      const d=rResp&&rResp.error?` (${rResp.error}${rResp.status?' - status '+rResp.status:''})`:'';
-      info.innerHTML+=`<div class="warn">Não foi possível conferir vídeos já assistidos${d}. Mostrando todos por segurança.</div>`;
-      treinamentos=todosTreinamentos;
-    }else{
-      const registros=rResp.data||[];
-      const watchedKey=new Set(registros.map(r=>`${r.SemanaISO}@@${r.TituloVideo}`));
-      treinamentos=todosTreinamentos.filter(t=>!watchedKey.has(`${t.SemanaISO}@@${t.Titulo}`));
-    }
-
-    renderListaVideos(treinamentos);
-    document.getElementById('secVideos').classList.remove('hidden');
-    document.getElementById('secPlayer').classList.add('hidden');
-  });
-
-  function renderListaVideos(list){
-    const c=document.getElementById('listaVideos');
-    c.innerHTML='';
-    if(!list || list.length===0){
-      c.innerHTML='<div class="ok">Parabéns! Você já assistiu todos os vídeos disponíveis.</div>';
-      return;
-    }
-    list.forEach((t,idx)=>{
-      const card=document.createElement('div');
-      card.className='video-card';
-      card.innerHTML=`
-        <div class="video-meta">
-          <h3>${t.Titulo}</h3>
-          <p><strong>Semana:</strong> ${t.SemanaISO}</p>
+    <!-- ── 1. Identificação ── -->
+    <section id="secIdentificacao" class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+      <div class="flex items-center gap-2 mb-5">
+        <div class="w-8 h-8 bg-brand-100 dark:bg-brand-900 rounded-lg flex items-center justify-center">
+          <svg class="w-4 h-4 text-brand-600 dark:text-brand-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
         </div>
-        <button class="secondary" data-idx="${idx}">Assistir</button>
-      `;
-      card.querySelector('button').addEventListener('click',()=>selectVideo(idx));
-      c.appendChild(card);
-    });
-  }
+        <h2 class="font-bold text-base text-slate-700 dark:text-slate-200">Identificação</h2>
+      </div>
+      <div class="flex gap-3">
+        <div class="flex-1">
+          <label for="matricula" class="block text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1.5">Matrícula</label>
+          <input id="matricula" type="text" inputmode="numeric" placeholder="Ex: 12345" autocomplete="off"
+            aria-label="Digite sua matrícula"
+            class="w-full px-3.5 py-2.5 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all text-slate-900 dark:text-white placeholder:text-slate-400" />
+        </div>
+        <div class="flex items-end">
+          <button id="btnBuscar"
+            class="bg-brand-500 hover:bg-brand-600 active:bg-brand-700 text-white font-semibold py-2.5 px-5 rounded-xl text-sm transition-all shadow-sm hover:shadow-md flex items-center gap-2 whitespace-nowrap">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            Buscar
+          </button>
+        </div>
+      </div>
+      <!-- Resultado da busca -->
+      <div id="funcInfo" class="mt-4 hidden"></div>
+    </section>
 
-  function selectVideo(idx){
-    selectedVideo=treinamentos[idx];
-    videoEnded=false;
-    document.getElementById('videoTitle').textContent=selectedVideo.Titulo;
-    document.getElementById('semanaISO').textContent=selectedVideo.SemanaISO;
-    document.getElementById('btnRegistrar').classList.add('hidden');
-    document.getElementById('signatureBlock').classList.add('hidden');
-    document.getElementById('mensagem').innerHTML='';
+    <!-- ── 2. Lista de Vídeos ── -->
+    <section id="secVideos" class="hidden bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+      <div class="flex items-center gap-2 mb-5">
+        <div class="w-8 h-8 bg-brand-100 dark:bg-brand-900 rounded-lg flex items-center justify-center">
+          <svg class="w-4 h-4 text-brand-600 dark:text-brand-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="m10 8 5 3-5 3V8z"/><path d="M8 21h8M12 17v4"/></svg>
+        </div>
+        <h2 class="font-bold text-base text-slate-700 dark:text-slate-200">Vídeos Disponíveis</h2>
+      </div>
+      <div id="listaVideos" class="space-y-3"></div>
+    </section>
 
-    const vid=extractYouTubeId(selectedVideo.URL);
-    if(!vid){
-      document.getElementById('mensagem').innerHTML='<div class="error">URL do vídeo inválida.</div>';
-      return;
-    }
+    <!-- ── 3. Player + Assinatura ── -->
+    <section id="secPlayer" class="hidden space-y-5">
 
-    const init=()=>{
-      if(player){ player.loadVideoById(vid); return }
-      if(!window.YT || !YT.Player){ setTimeout(init,200); return }
-      player=new YT.Player('ytplayer',{
-        height:'100%', width:'100%',
-        videoId:vid,
-        playerVars:{ controls:0, disablekb:1, fs:0, rel:0, modestbranding:1, playsinline:1 },
-        events:{ 'onStateChange': onPlayerStateChange }
-      });
-    };
-    init();
+      <!-- Cabeçalho do vídeo -->
+      <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-5">
+        <p class="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">Semana <span id="semanaISO" class="text-brand-600 dark:text-brand-400"></span></p>
+        <h3 id="videoTitle" class="font-bold text-slate-800 dark:text-white text-base leading-snug"></h3>
+        <p class="text-xs text-slate-400 dark:text-slate-500 mt-1">O botão <strong class="text-slate-600 dark:text-slate-300">Registrar</strong> aparecerá ao final do vídeo.</p>
+      </div>
 
-    const playBtn=document.getElementById('btnPlayOverlay');
-    if(playBtn){ playBtn.onclick=()=>{ if(player&&player.playVideo) player.playVideo(); }; }
+      <!-- Player -->
+      <div class="relative bg-black rounded-2xl overflow-hidden shadow-lg" style="aspect-ratio:16/9">
+        <div id="ytplayer" class="absolute inset-0 w-full h-full"></div>
+        <!-- Overlay de play -->
+        <button id="btnPlayOverlay" aria-label="Tocar vídeo"
+          class="absolute inset-0 w-full h-full flex items-center justify-center bg-black/30 hover:bg-black/20 transition-colors group">
+          <div class="w-16 h-16 rounded-full bg-white/90 group-hover:bg-white flex items-center justify-center shadow-xl transition-all">
+            <svg class="w-7 h-7 text-brand-600 ml-1" fill="currentColor" viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21"/></svg>
+          </div>
+        </button>
+      </div>
 
-    document.getElementById('secPlayer').classList.remove('hidden');
+      <!-- Bloco de Assinatura -->
+      <div id="signatureBlock" class="hidden bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-6">
+        <div class="flex items-center gap-2 mb-4">
+          <div class="w-8 h-8 bg-emerald-100 dark:bg-emerald-900 rounded-lg flex items-center justify-center">
+            <svg class="w-4 h-4 text-emerald-600 dark:text-emerald-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+          </div>
+          <div>
+            <h3 class="font-bold text-base text-slate-700 dark:text-slate-200">Assinatura</h3>
+            <p class="text-xs text-slate-500 dark:text-slate-400">Assine seu nome no quadro abaixo</p>
+          </div>
+        </div>
+        <div class="border-2 border-dashed border-slate-200 dark:border-slate-600 rounded-xl overflow-hidden bg-white dark:bg-slate-900 touch-none">
+          <canvas id="signaturePad" class="w-full block" height="160"></canvas>
+        </div>
+        <div class="mt-3 flex justify-end">
+          <button id="btnLimpar"
+            class="text-sm text-slate-500 dark:text-slate-400 hover:text-red-500 dark:hover:text-red-400 font-medium flex items-center gap-1.5 transition-colors">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 6h18M19 6l-1 14H6L5 6M8 6V4h8v2"/></svg>
+            Limpar assinatura
+          </button>
+        </div>
+      </div>
 
-    const canvas=document.getElementById('signaturePad');
-    signaturePad=new SignaturePad(canvas,{minWidth:1,maxWidth:2});
-    document.getElementById('btnLimpar').addEventListener('click',()=>signaturePad.clear());
-  }
+      <!-- Ações -->
+      <div class="flex flex-col sm:flex-row gap-3">
+        <button id="btnRegistrar"
+          class="hidden flex-1 bg-emerald-500 hover:bg-emerald-600 active:bg-emerald-700 text-white font-bold py-3 px-6 rounded-xl text-sm transition-all shadow-sm hover:shadow-md flex items-center justify-center gap-2">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>
+          Registrar Participação
+        </button>
+        <button id="btnTrocarVideo"
+          class="sm:w-auto bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 font-semibold py-3 px-6 rounded-xl text-sm transition-all flex items-center justify-center gap-2">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+          Trocar Vídeo
+        </button>
+      </div>
 
-  function onPlayerStateChange(e){
-    const btn=document.getElementById('btnPlayOverlay');
-    if(!btn) return;
-    if(e.data===YT.PlayerState.PLAYING){ btn.classList.add('hidden'); }
-    else if(e.data===YT.PlayerState.PAUSED || e.data===YT.PlayerState.CUED){ btn.classList.remove('hidden'); }
-    if(e.data===YT.PlayerState.ENDED){
-      videoEnded=true;
-      btn.classList.remove('hidden');
-      document.getElementById('signatureBlock').classList.remove('hidden');
-      document.getElementById('btnRegistrar').classList.remove('hidden');
-    }
-  }
+      <!-- Mensagem de resultado -->
+      <div id="mensagem"></div>
 
-  document.getElementById('btnTrocarVideo').addEventListener('click',()=>{
-    document.getElementById('secPlayer').classList.add('hidden');
-    document.getElementById('btnRegistrar').classList.add('hidden');
-    document.getElementById('signatureBlock').classList.add('hidden');
-    selectedVideo=null;
-  });
+    </section>
 
-  document.getElementById('btnRegistrar').addEventListener('click', async ()=>{
-    const msg=document.getElementById('mensagem'); msg.innerHTML='';
-    if(!funcionario || !selectedVideo){ msg.innerHTML='<div class="error">Dados incompletos.</div>'; return }
-    if(!videoEnded){ msg.innerHTML='<div class="warn">O vídeo ainda não foi concluído.</div>'; return }
-    if(!signaturePad || signaturePad.isEmpty()){ msg.innerHTML='<div class="warn">Por favor, assine antes de registrar.</div>'; return }
+  </main>
 
-    const assinaturaPNG=signaturePad.toDataURL('image/png');
-    const payload={
-      matricula:String(funcionario.Matricula),
-      semanaISO:String(selectedVideo.SemanaISO),
-      tituloVideo:String(selectedVideo.Titulo),
-      urlVideo:String(selectedVideo.URL),
-      assinaturaPNG,
-      deviceInfo:navigator.userAgent
-    };
+  <footer class="bg-slate-900 dark:bg-slate-950 text-slate-400 border-t border-slate-800 py-6 text-center text-xs mt-8 no-print">
+    <div class="max-w-3xl mx-auto px-4">
+      <p class="font-medium text-slate-300">© Caterair Serviços de Bordo e Hotelaria LTDA - Base GIG</p>
+      <p class="mt-1 text-slate-500">Diálogo Semanal de Segurança</p>
+    </div>
+  </footer>
 
-    try{
-      const res = await fetch(API_BASE+'?action=registrar',{ method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
-      let data; try{ data=await res.json() } catch{ data={ok:false,error:'Resposta não-JSON',status:res.status} }
-      if(data.ok){
-        msg.innerHTML='<div class="ok">Registro realizado com sucesso!</div>';
-        document.getElementById('btnRegistrar').disabled=true;
-
-        // Remover da lista local pela CHAVE SemanaISO+Titulo
-        treinamentos = treinamentos.filter(t => !(t.SemanaISO===selectedVideo.SemanaISO && t.Titulo===selectedVideo.Titulo));
-        renderListaVideos(treinamentos);
-        document.getElementById('secPlayer').classList.add('hidden');
-      } else {
-        msg.innerHTML='<div class="error">Falha ao registrar: '+(data.error||'Erro')+'</div>';
-      }
-    }catch(err){
-      msg.innerHTML='<div class="error">Erro de conexão ao salvar o registro.</div>';
-    }
-  });
-</script>
 </body>
 </html>
