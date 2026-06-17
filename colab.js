@@ -158,21 +158,39 @@ function onPlayerStateChange(e) {
     videoEnded = true;
     playBtn.classList.remove('hidden');
 
-    // Inicializar pad de assinatura (width dinâmico)
-    const canvas = document.getElementById('signaturePad');
-    canvas.width = canvas.offsetWidth;
-    if (!signaturePad) {
-      signaturePad = new SignaturePad(canvas, { minWidth: 1, maxWidth: 2.5,
-        penColor: document.documentElement.classList.contains('dark') ? '#e2e8f0' : '#1e293b' });
-    } else {
-      signaturePad.clear();
-    }
-
-    document.getElementById('signatureBlock').classList.remove('hidden');
+    // Mostrar o bloco ANTES de medir o canvas, para que offsetWidth seja correto
+    const signBlock = document.getElementById('signatureBlock');
+    signBlock.classList.remove('hidden');
     document.getElementById('btnRegistrar').classList.remove('hidden');
 
+    // Inicializar o pad de assinatura com tamanho correto
+    const canvas = document.getElementById('signaturePad');
+    // Forçar largura explícita pelo offsetWidth (só funciona após display:block)
+    const containerWidth = canvas.parentElement ? canvas.parentElement.clientWidth - 4 : 600;
+    canvas.width  = containerWidth > 0 ? containerWidth : 600;
+    canvas.height = 280;
+
+    // Aguardar SignaturePad estar disponível (pode ainda não ter carregado)
+    const initPad = () => {
+      if (typeof SignaturePad === 'undefined') {
+        setTimeout(initPad, 100);
+        return;
+      }
+      if (!signaturePad) {
+        signaturePad = new SignaturePad(canvas, {
+          minWidth: 1,
+          maxWidth: 3,
+          penColor: document.documentElement.classList.contains('dark') ? '#e2e8f0' : '#0f172a',
+          backgroundColor: 'rgba(0,0,0,0)',
+        });
+      } else {
+        signaturePad.clear();
+      }
+    };
+    initPad();
+
     // Rolar suavemente até a assinatura
-    document.getElementById('signatureBlock').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    signBlock.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 }
 
@@ -368,7 +386,44 @@ document.getElementById('matricula').addEventListener('keydown', e => {
   if (e.key === 'Enter') document.getElementById('btnBuscar').click();
 });
 
-// ─── Botão Trocar Vídeo ───────────────────────────────────────────────────────
+// ─── Redimensionamento do canvas de assinatura ────────────────────────────────
+// Quando o utilizador roda o telemóvel ou redimensiona a janela, o canvas
+// precisa de ser ajustado — caso contrário a assinatura fica distorcida.
+(function initSignatureResize() {
+  const canvas = document.getElementById('signaturePad');
+  if (!canvas) return;
+
+  let resizeTimer;
+  const resizeCanvas = () => {
+    if (!signaturePad) return;
+    // Guardar imagem atual antes de redimensionar
+    const data = signaturePad.isEmpty() ? null : signaturePad.toDataURL();
+    const parent = canvas.parentElement;
+    const newW = parent ? parent.clientWidth - 4 : 600;
+    if (newW > 0 && canvas.width !== newW) {
+      canvas.width  = newW;
+      canvas.height = 280;
+      signaturePad.clear();
+      // Restaurar imagem guardada
+      if (data) {
+        const img = new Image();
+        img.onload = () => {
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          signaturePad.fromDataURL(data);
+        };
+        img.src = data;
+      }
+    }
+  };
+
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(resizeCanvas, 150);
+  });
+})();
+
+
 
 document.getElementById('btnTrocarVideo').addEventListener('click', () => {
   if (player) { try { player.stopVideo(); } catch (e) {} }
