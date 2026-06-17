@@ -118,14 +118,33 @@ function alertCard(type, html) {
 
 (function initDarkMode() {
   const html = document.documentElement;
-  const sun = document.getElementById('iconSun');
+  const sun  = document.getElementById('iconSun');
   const moon = document.getElementById('iconMoon');
+
+  // Cores da caneta: claro = azul muito escuro, escuro = branco suave
+  const PEN_LIGHT = '#0f172a';
+  const PEN_DARK  = '#e2e8f0';
+
+  function getPenColor() {
+    return html.classList.contains('dark') ? PEN_DARK : PEN_LIGHT;
+  }
 
   function setDark(dark) {
     html.classList.toggle('dark', dark);
     sun.classList.toggle('hidden', !dark);
     moon.classList.toggle('hidden', dark);
     try { localStorage.setItem('dssgig_dark', dark ? '1' : '0'); } catch (e) {}
+
+    // Atualizar cor da caneta em tempo real, sem apagar a assinatura
+    if (signaturePad) {
+      signaturePad.penColor = getPenColor();
+    }
+
+    // Atualizar cor de fundo do canvas para contrastar com o tema
+    const canvas = document.getElementById('signaturePad');
+    if (canvas) {
+      canvas.style.background = dark ? '#0f172a' : '#ffffff';
+    }
   }
 
   let saved = '0';
@@ -135,6 +154,9 @@ function alertCard(type, html) {
   document.getElementById('btnDarkMode').addEventListener('click', () => {
     setDark(!html.classList.contains('dark'));
   });
+
+  // Expor getPenColor para uso na inicialização do SignaturePad
+  window._getPenColor = getPenColor;
 })();
 
 // ─── YouTube API ──────────────────────────────────────────────────────────────
@@ -176,14 +198,18 @@ function onPlayerStateChange(e) {
         setTimeout(initPad, 100);
         return;
       }
+      const isDark = document.documentElement.classList.contains('dark');
+      canvas.style.background = isDark ? '#0f172a' : '#ffffff';
+
       if (!signaturePad) {
         signaturePad = new SignaturePad(canvas, {
           minWidth: 1,
           maxWidth: 3,
-          penColor: document.documentElement.classList.contains('dark') ? '#e2e8f0' : '#0f172a',
+          penColor: (window._getPenColor ? window._getPenColor() : (isDark ? '#e2e8f0' : '#0f172a')),
           backgroundColor: 'rgba(0,0,0,0)',
         });
       } else {
+        signaturePad.penColor = window._getPenColor ? window._getPenColor() : (isDark ? '#e2e8f0' : '#0f172a');
         signaturePad.clear();
       }
     };
