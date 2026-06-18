@@ -438,16 +438,18 @@ document.getElementById('btnBuscar').addEventListener('click', async () => {
     }
 
     // 6. Exibir APENAS o vídeo da semana vigente.
-    //    Vídeos de semanas passadas não ficam disponíveis — se o colaborador
-    //    perdeu a semana, o vídeo não é mais acessível.
-    const semanaHoje = getSemanaAtualISO();
+    //    Compara por intervalo de datas (segunda a domingo da semana do vídeo)
+    //    em vez de comparar strings ISO — evita divergências de formatação
+    //    entre o que está cadastrado na planilha e o que é calculado aqui.
+    const agora = new Date();
+    const hojeMs = Date.UTC(agora.getUTCFullYear(), agora.getUTCMonth(), agora.getUTCDate());
+
     todosTreinamentos = todosTreinamentos.filter(t => {
-      // Normalizar semana do vídeo para comparação
-      const iso = String(t.SemanaISO || '').trim().toUpperCase();
-      const m = iso.match(/^(\d{4})-W?(\d{1,2})$/);
-      if (!m) return false;
-      const isoNorm = `${m[1]}-W${String(m[2]).padStart(2, '0')}`;
-      return isoNorm === semanaHoje;
+      const seg = isoParaSegunda(t.SemanaISO);
+      const dom = isoParaDomingo(t.SemanaISO);
+      if (!seg || !dom) return false;
+      // O dia de hoje deve estar dentro da semana [segunda, domingo]
+      return hojeMs >= seg.getTime() && hojeMs <= dom.getTime();
     });
 
     // 6. Remover vídeos já assistidos e registrados
