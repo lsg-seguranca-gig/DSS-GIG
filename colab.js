@@ -342,17 +342,35 @@ document.getElementById('btnBuscar').addEventListener('click', async () => {
     funcionario = resp.data;
     const matNorm = normMat(funcionario.Matricula);
 
-    // 2. Verificar férias
-    const fResp = await fetchFeriasList();
-    let regFerias = null;
+    // 2. Carregar férias, treinamentos e registros em paralelo
+    const [fResp, tResp, rResp] = await Promise.all([
+      fetchFeriasList(),
+      fetchTreinamentos(),
+      fetchRegistros(funcionario.Matricula),
+    ]);
+
+    // 3. Processar registros de férias/afastamento deste colaborador
+    let listaFerias = [];
     if (fResp && fResp.ok && Array.isArray(fResp.data)) {
-      regFerias = fResp.data.find(f => normMat(f.Matricula) === matNorm) || null;
+      listaFerias = fResp.data.filter(f => normMat(f.Matricula) === matNorm);
     }
 
-    if (regFerias) {
-      const sit = (regFerias.Situacao || 'Férias / Afastamento').toUpperCase();
-      const ini = regFerias.InicioFerias || '';
-      const fim = regFerias.FimFerias || '';
+    // Verificar se está de férias/afastamento HOJE — bloqueia acesso total
+    const hoje = new Date();
+    hoje.setUTCHours(0, 0, 0, 0);
+    const feriaHoje = listaFerias.find(f => {
+      const ini = parseDateBR(f.InicioFerias);
+      const fim = parseDateBR(f.FimFerias);
+      if (!ini && !fim) return true;           // sem período = sempre bloqueado
+      if (ini && !fim) return hoje >= ini;
+      if (!ini && fim) return hoje <= fim;
+      return hoje >= ini && hoje <= fim;
+    });
+
+    if (feriaHoje) {
+      const sit = (feriaHoje.Situacao || 'Férias / Afastamento').toUpperCase();
+      const ini = feriaHoje.InicioFerias || '';
+      const fim = feriaHoje.FimFerias    || '';
       const periodo = (ini || fim) ? ` (${ini || '?'}${fim ? ' a ' + fim : ''})` : '';
       showInfo(`
         <div class="flex flex-col items-center gap-3 text-center py-2">
@@ -367,15 +385,9 @@ document.getElementById('btnBuscar').addEventListener('click', async () => {
       return;
     }
 
-    // 3. Saudação
+    // 4. Saudação
     showInfo(alertCard('ok',
       `Olá, <strong>${funcionario.Nome}</strong> — Setor: <strong>${funcionario.Setor || '-'}</strong>`));
-
-    // 4. Carregar treinamentos e registros em paralelo
-    const [tResp, rResp] = await Promise.all([
-      fetchTreinamentos(),
-      fetchRegistros(funcionario.Matricula),
-    ]);
 
     if (!tResp || !tResp.ok) {
       const d = tResp && tResp.error ? ` (${tResp.error})` : '';
@@ -385,14 +397,28 @@ document.getElementById('btnBuscar').addEventListener('click', async () => {
 
     let todosTreinamentos = tResp.data || [];
 
-    // 5. Filtrar já assistidos
+    // 5. Remover vídeos cujo período (semana ISO) coincide com QUALQUER
+    //    registro de férias/afastamento — mesmo após o retorno do colaborador,
+    //    esses vídeos nunca estarão disponíveis para ele.
+    if (listaFerias.length > 0) {
+      todosTreinamentos = todosTreinamentos.filter(t => {
+        // Verificar se ALGUM registro de férias/afastamento cobre esta semana
+        const cobertaPorFerias = listaFerias.some(f =>
+          semanaEmFerias(t.SemanaISO, f.InicioFerias, f.FimFerias)
+        );
+        return !cobertaPorFerias;
+      });
+    }
+
+    // 6. Remover vídeos já assistidos e registrados
     if (!rResp || !rResp.ok) {
       showInfo(alertCard('ok',
         `Olá, <strong>${funcionario.Nome}</strong> — Setor: <strong>${funcionario.Setor || '-'}</strong>`) +
-        alertCard('warn', 'Não foi possível verificar vídeos já assistidos. Mostrando todos.'));
+        alertCard('warn', 'Não foi possível verificar vídeos já assistidos. Mostrando todos disponíveis.'));
       treinamentos = todosTreinamentos;
     } else {
       const registros = rResp.data || [];
+      // Chave única por semana ISO + título do vídeo
       const watchedKey = new Set(registros.map(r => `${r.SemanaISO}@@${r.TituloVideo}`));
       treinamentos = todosTreinamentos.filter(t => !watchedKey.has(`${t.SemanaISO}@@${t.Titulo}`));
     }
