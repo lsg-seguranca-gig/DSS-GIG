@@ -53,6 +53,33 @@ function isoParaDomingo(iso) {
   return dom;
 }
 
+// Retorna a semana ISO da data atual no formato "AAAA-WNN"
+function getSemanaAtualISO() {
+  const hoje = new Date();
+  // Janeiro 4 sempre cai na semana 1 (norma ISO 8601)
+  const jan4 = new Date(Date.UTC(hoje.getUTCFullYear(), 0, 4));
+  const dow = jan4.getUTCDay() || 7;
+  const seg1 = new Date(jan4);
+  seg1.setUTCDate(jan4.getUTCDate() - dow + 1);
+
+  const hojeUTC = new Date(Date.UTC(hoje.getUTCFullYear(), hoje.getUTCMonth(), hoje.getUTCDate()));
+  const diffDias = Math.round((hojeUTC - seg1) / 86400000);
+  let semana = Math.floor(diffDias / 7) + 1;
+  let ano = hoje.getUTCFullYear();
+
+  // Ajuste de ano (semana 53 pode pertencer ao próximo ano)
+  if (semana < 1) { ano--; semana = 52; }
+  if (semana > 52) {
+    const jan4Prox = new Date(Date.UTC(ano + 1, 0, 4));
+    const dow2 = jan4Prox.getUTCDay() || 7;
+    const seg1Prox = new Date(jan4Prox);
+    seg1Prox.setUTCDate(jan4Prox.getUTCDate() - dow2 + 1);
+    if (hojeUTC >= seg1Prox) { ano++; semana = 1; }
+  }
+
+  return `${ano}-W${String(semana).padStart(2, '0')}`;
+}
+
 function semanaEmFerias(semanaISO, inicioFerias, fimFerias) {
   const seg = isoParaSegunda(semanaISO);
   const dom = isoParaDomingo(semanaISO);
@@ -274,7 +301,7 @@ function renderListaVideos(list) {
 
   if (!list || list.length === 0) {
     c.innerHTML = alertCard('ok',
-      '<span class="text-lg mr-2">🎉</span> Parabéns! Você já assistiu todos os vídeos disponíveis.');
+      '<span class="text-lg mr-2">✅</span> Você já está em dia! Não há vídeos pendentes para esta semana.');
     return;
   }
 
@@ -369,6 +396,7 @@ document.getElementById('btnBuscar').addEventListener('click', async () => {
 
     if (feriaHoje) {
       const sit = (feriaHoje.Situacao || 'Férias / Afastamento').toUpperCase();
+      // Usar as strings originais (dd/mm/aaaa) diretamente — sem converter para Date
       const ini = feriaHoje.InicioFerias || '';
       const fim = feriaHoje.FimFerias    || '';
       const periodo = (ini || fim) ? ` (${ini || '?'}${fim ? ' a ' + fim : ''})` : '';
@@ -402,13 +430,25 @@ document.getElementById('btnBuscar').addEventListener('click', async () => {
     //    esses vídeos nunca estarão disponíveis para ele.
     if (listaFerias.length > 0) {
       todosTreinamentos = todosTreinamentos.filter(t => {
-        // Verificar se ALGUM registro de férias/afastamento cobre esta semana
         const cobertaPorFerias = listaFerias.some(f =>
           semanaEmFerias(t.SemanaISO, f.InicioFerias, f.FimFerias)
         );
         return !cobertaPorFerias;
       });
     }
+
+    // 6. Exibir APENAS o vídeo da semana vigente.
+    //    Vídeos de semanas passadas não ficam disponíveis — se o colaborador
+    //    perdeu a semana, o vídeo não é mais acessível.
+    const semanaHoje = getSemanaAtualISO();
+    todosTreinamentos = todosTreinamentos.filter(t => {
+      // Normalizar semana do vídeo para comparação
+      const iso = String(t.SemanaISO || '').trim().toUpperCase();
+      const m = iso.match(/^(\d{4})-W?(\d{1,2})$/);
+      if (!m) return false;
+      const isoNorm = `${m[1]}-W${String(m[2]).padStart(2, '0')}`;
+      return isoNorm === semanaHoje;
+    });
 
     // 6. Remover vídeos já assistidos e registrados
     if (!rResp || !rResp.ok) {
