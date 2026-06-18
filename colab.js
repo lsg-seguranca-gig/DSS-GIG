@@ -425,31 +425,55 @@ document.getElementById('btnBuscar').addEventListener('click', async () => {
 
     let todosTreinamentos = tResp.data || [];
 
-    // 5. Remover vídeos cujo período (semana ISO) coincide com QUALQUER
-    //    registro de férias/afastamento — mesmo após o retorno do colaborador,
-    //    esses vídeos nunca estarão disponíveis para ele.
+    // 5. Remover vídeos cujo período coincide com QUALQUER registro de
+    //    férias/afastamento. Usa as datas do Titulo como fonte primária
+    //    (a planilha usa numeração sequencial própria, não ISO 8601).
     if (listaFerias.length > 0) {
       todosTreinamentos = todosTreinamentos.filter(t => {
-        const cobertaPorFerias = listaFerias.some(f =>
-          semanaEmFerias(t.SemanaISO, f.InicioFerias, f.FimFerias)
-        );
+        const cobertaPorFerias = listaFerias.some(f => {
+          const ini = parseDateBR(f.InicioFerias);
+          const fim = parseDateBR(f.FimFerias);
+          if (!ini && !fim) return true;
+
+          // Extrair datas do Titulo (fonte primária)
+          const matches = String(t.Titulo || '').match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/g);
+          if (matches && matches.length >= 2) {
+            const toDate = s => { const p = s.split('/'); return new Date(Date.UTC(+p[2],+p[1]-1,+p[0])); };
+            const tSeg = toDate(matches[0]);
+            const tDom = toDate(matches[1]);
+            if (ini && !fim) return tDom >= ini;
+            if (!ini && fim) return tSeg <= fim;
+            return tSeg <= fim && tDom >= ini;
+          }
+
+          // Fallback: usar SemanaISO como ISO 8601
+          return semanaEmFerias(t.SemanaISO, f.InicioFerias, f.FimFerias);
+        });
         return !cobertaPorFerias;
       });
     }
 
     // 6. Exibir APENAS o vídeo da semana vigente.
-    //    Compara por intervalo de datas (segunda a domingo da semana do vídeo)
-    //    em vez de comparar strings ISO — evita divergências de formatação
-    //    entre o que está cadastrado na planilha e o que é calculado aqui.
+    //    IMPORTANTE: a planilha usa numeração sequencial própria (W05, W06...),
+    //    NÃO a norma ISO 8601. Por isso usamos exclusivamente as datas do campo
+    //    Titulo (ex: "15/06/2026 a 21/06/2026") para determinar a semana vigente.
     const agora = new Date();
     const hojeMs = Date.UTC(agora.getUTCFullYear(), agora.getUTCMonth(), agora.getUTCDate());
 
     todosTreinamentos = todosTreinamentos.filter(t => {
+      // Extrair as duas datas dd/mm/aaaa do Titulo
+      const matches = String(t.Titulo || '').match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/g);
+      if (matches && matches.length >= 2) {
+        const toMs = s => { const p = s.split('/'); return Date.UTC(+p[2], +p[1]-1, +p[0]); };
+        const ini = toMs(matches[0]);
+        const fim = toMs(matches[1]);
+        return hojeMs >= ini && hojeMs <= fim;
+      }
+      // Fallback: se o Titulo não tiver datas, usa o SemanaISO como ISO 8601
       const seg = isoParaSegunda(t.SemanaISO);
       const dom = isoParaDomingo(t.SemanaISO);
-      if (!seg || !dom) return false;
-      // O dia de hoje deve estar dentro da semana [segunda, domingo]
-      return hojeMs >= seg.getTime() && hojeMs <= dom.getTime();
+      if (seg && dom) return hojeMs >= seg.getTime() && hojeMs <= dom.getTime();
+      return false;
     });
 
     // 6. Remover vídeos já assistidos e registrados
