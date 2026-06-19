@@ -8,7 +8,7 @@ const API_BASE = "/api/gas";
     return fetch(url, Object.assign({ cache: 'no-store', headers: { 'Cache-Control': 'no-cache' } }, options || {}));
   }
 
-  const LOGO_SRC = "/logo lsg.png";
+  const LOGO_SRC = "logo lsg.png";
   let LOGO_DATAURL = "";
   let registros = [];
   let registrosFiltrados = [];
@@ -296,8 +296,17 @@ async function buscar(){
     registrosFiltrados = Array.from(mapa.values()).sort((a,b) => String(a.Nome ?? '').localeCompare(String(b.Nome ?? ''), 'pt-PT', { sensitivity: 'base' }));
     renderTabela(registrosFiltrados);
     status.innerHTML = '<div class="text-emerald-600 font-semibold bg-emerald-50 px-4 py-2.5 rounded-lg border border-emerald-100">Pesquisa concluída: ' + registrosFiltrados.length + ' registo(s) encontrado(s).</div>';
+
+    // Exibir os Temas Abordados da(s) semana(s) presente(s) nos resultados
+    try {
+      const temas = await buscarAssuntosPorSemana(registrosFiltrados);
+      renderTemasAbordados('temasAbordados', temas);
+    } catch(e) {
+      renderTemasAbordados('temasAbordados', []);
+    }
   } catch(err){ 
     status.innerHTML = '<div class="text-rose-600 font-semibold bg-rose-50 px-4 py-2.5 rounded-lg border border-rose-100">Falha ao processar a consulta: ' + (err.message || '') + '</div>'; 
+    renderTemasAbordados('temasAbordados', []);
   } finally {
     if (btnBuscar) { btnBuscar.disabled = false; btnBuscar.innerHTML = textoOriginalBuscar; }
   }
@@ -351,8 +360,8 @@ async function _ensureJsPDF(){
   if (window.jspdf) return;
   // Carrega as imagens base64 (logo + assinaturas) e o jsPDF em paralelo
   await Promise.all([
-    _loadScript('/logo_b64.js'),
-    _loadScript('/assin_b64.js'),
+    _loadScript('logo_b64.js'),
+    _loadScript('assin_b64.js'),
     _loadScript('https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js'),
   ]);
   // autotable depende do jsPDF — carrega em sequência
@@ -387,6 +396,58 @@ async function fetchTreinamentos(){
   } catch(e){
     return [];
   }
+}
+
+// Busca os "Assuntos" (Temas Abordados) cadastrados na aba Treinamentos para
+// um conjunto de registos já filtrados (ex.: resultado de uma pesquisa).
+// Reaproveita exatamente a mesma lógica de correspondência usada no PDF:
+// tenta casar pelo Título do vídeo e, em último caso, pela Semana ISO.
+// Retorna um array de blocos { titulo, semanaISO, assuntos }, um por semana
+// distinta presente em `lista`, ordenados da mais recente para a mais antiga.
+async function buscarAssuntosPorSemana(lista){
+  if (!Array.isArray(lista) || !lista.length) return [];
+  const titulos = [...new Set(lista.map(r => r.TituloVideo).filter(Boolean))];
+  if (!titulos.length) return [];
+
+  let tList = [];
+  try { tList = await fetchTreinamentos(); } catch(e) { tList = []; }
+
+  const blocks = titulos.map(tit => {
+    const regsDoGrupo = lista.filter(r => (r.TituloVideo ?? '') === tit);
+    const semanaISO = String(regsDoGrupo.find(r => r.SemanaISO)?.SemanaISO ?? '');
+    let hit = (tList||[]).find(t => String(t['Titulo']).trim() === tit);
+    if (!hit && semanaISO) hit = (tList||[]).find(t => normalizarSemanaISO(String(t['SemanaISO'])) === normalizarSemanaISO(semanaISO));
+    const assuntos = hit && hit['Assuntos'] ? String(hit['Assuntos']) : '';
+    return { titulo: tit, semanaISO, assuntos };
+  }).filter(b => b.assuntos); // só mostrar blocos que de facto têm assuntos cadastrados
+
+  blocks.sort((a, b) => dashCompareSemanaISODesc(a.semanaISO, b.semanaISO));
+  return blocks;
+}
+
+// Renderiza os blocos de Assuntos num contentor (usado em Principal e Dashboard).
+// Esconde o contentor quando não há nada a mostrar.
+function renderTemasAbordados(containerId, blocks){
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  if (!blocks || !blocks.length){
+    el.classList.add('hidden');
+    el.innerHTML = '';
+    return;
+  }
+  el.innerHTML = blocks.map(b => {
+    const linhas = String(b.assuntos).replace(/\r\n/g,'\n').replace(/\r/g,'\n').split('\n').map(s=>s.trim()).filter(Boolean);
+    return `
+      <div class="mb-4 last:mb-0">
+        <p class="text-xs font-bold text-brand-700 uppercase tracking-wider mb-1.5">
+          Temas Abordados — Semana ${escapeHtml(b.semanaISO || '')}${b.titulo ? ' · ' + escapeHtml(b.titulo) : ''}
+        </p>
+        <ul class="list-disc list-inside space-y-0.5 text-sm text-slate-700">
+          ${linhas.map(l => `<li>${escapeHtml(l.replace(/^-\s*/, ''))}</li>`).join('')}
+        </ul>
+      </div>`;
+  }).join('<hr class="my-3 border-brand-100">');
+  el.classList.remove('hidden');
 }
 
 // Auxiliares de Assinatura Digital e Parsing de URLs de Base64
@@ -1562,6 +1623,7 @@ async function dashProcessar(selTit, dashStatus) {
     dashStatus.innerHTML = '<div class="text-amber-600 bg-amber-50 px-4 py-2 rounded-lg border border-amber-100">Por favor, selecione um Tema para prosseguir.</div>';
     dashRender([], []);
     dashKPIs({ total: 0, part: 0, nPart: 0, semana: '-', titulo: '-', registrosAll: DASH_registrosAll||[], funcAtivos: (DASH_funcionarios||[]).filter(f => ativoValido(f.Ativo??f.ativo)) });
+    renderTemasAbordados('dashTemasAbordados', []);
     return;
   }
 
@@ -1627,6 +1689,11 @@ async function dashProcessar(selTit, dashStatus) {
   dashKPIs({ total, part, nPart, semana: semanaNorm, titulo: tituloAlvo, registrosAll: DASH_registrosAll || [], funcAtivos });
   dashRender(naoParticipantesFull, participantesFull);
   dashStatus.innerHTML = `<div class="text-emerald-600 bg-emerald-50 px-4 py-2 rounded-lg border border-emerald-100">Painel atualizado para a semana: ${semanaNorm}</div>`;
+
+  // Exibir os Temas Abordados da semana selecionada
+  const treinoAlvo = (DASH_treinamentos||[]).find(t => normalizarSemanaISO(t.SemanaISO) === semanaNorm);
+  const assuntos = treinoAlvo && treinoAlvo.Assuntos ? String(treinoAlvo.Assuntos) : '';
+  renderTemasAbordados('dashTemasAbordados', assuntos ? [{ titulo: tituloAlvo, semanaISO: semanaNorm, assuntos }] : []);
 }
 
 // Exportação Excel de Não Participantes do Dashboard
