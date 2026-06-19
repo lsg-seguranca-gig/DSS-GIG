@@ -8,7 +8,7 @@ const API_BASE = "/api/gas";
     return fetch(url, Object.assign({ cache: 'no-store', headers: { 'Cache-Control': 'no-cache' } }, options || {}));
   }
 
-  const LOGO_SRC = "logo lsg.png";
+  const LOGO_SRC = "../logo lsg.png";
   let LOGO_DATAURL = "";
   let registros = [];
   let registrosFiltrados = [];
@@ -360,8 +360,8 @@ async function _ensureJsPDF(){
   if (window.jspdf) return;
   // Carrega as imagens base64 (logo + assinaturas) e o jsPDF em paralelo
   await Promise.all([
-    _loadScript('logo_b64.js'),
-    _loadScript('assin_b64.js'),
+    _loadScript('../logo_b64.js'),
+    _loadScript('../assin_b64.js'),
     _loadScript('https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js'),
   ]);
   // autotable depende do jsPDF — carrega em sequência
