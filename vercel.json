@@ -1,5 +1,13 @@
 {
   "rewrites": [
     { "source": "/gestor", "destination": "/gestor/index.html" }
+  ],
+  "headers": [
+    {
+      "source": "/gestor/(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-cache, no-store, must-revalidate" }
+      ]
+    }
   ]
 }
