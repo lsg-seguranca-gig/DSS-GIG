@@ -495,6 +495,41 @@
           </div>
         </div>
       </div>
+
+      <!-- ── Histórico de Faltas ───────────────────────────────────────────────── -->
+      <!-- Mostra, para TODAS as semanas registadas, quem não assistiu e NÃO
+           estava de férias/afastado — ou seja, quem simplesmente esqueceu. -->
+      <div class="mt-8 bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
+          <div>
+            <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
+              <svg class="w-5 h-5 text-amber-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+              Histórico de Faltas Injustificadas
+            </h3>
+            <p class="text-xs text-slate-500 mt-1">Colaboradores que não assistiram o vídeo e <strong>não</strong> estavam de férias ou afastados no período. Calculado automaticamente ao clicar em "Atualizar".</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="text-xs text-slate-400">Total de faltas:</span>
+            <span id="historicoFaltasTotal" class="text-sm font-bold text-amber-600 bg-amber-50 border border-amber-100 px-3 py-1 rounded-full">—</span>
+          </div>
+        </div>
+        <div class="overflow-x-auto custom-scrollbar border border-slate-100 rounded-xl max-h-[500px]">
+          <table class="min-w-full divide-y divide-slate-100 text-sm" id="tblHistoricoFaltas">
+            <thead class="bg-slate-50 text-slate-600 sticky top-0 z-10">
+              <tr>
+                <th scope="col" class="px-4 py-3 text-left font-semibold text-xs uppercase tracking-wider">Semana</th>
+                <th scope="col" class="px-4 py-3 text-left font-semibold text-xs uppercase tracking-wider">Período</th>
+                <th scope="col" class="px-4 py-3 text-left font-semibold text-xs uppercase tracking-wider">Matrícula</th>
+                <th scope="col" class="px-4 py-3 text-left font-semibold text-xs uppercase tracking-wider">Colaborador</th>
+                <th scope="col" class="px-4 py-3 text-left font-semibold text-xs uppercase tracking-wider">Setor</th>
+              </tr>
+            </thead>
+            <tbody id="tbodyHistoricoFaltas" class="bg-white divide-y divide-slate-100 text-slate-700">
+              <tr><td colspan="5" class="px-4 py-8 text-center text-slate-400">Clique em "Atualizar" para calcular o histórico.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   </main>
 
