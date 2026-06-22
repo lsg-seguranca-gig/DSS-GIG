@@ -356,29 +356,45 @@ async function _ensureXLSX(){
   await _loadScript('https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js');
 }
 
-async function _ensureJsPDF(){
-  const b64Scripts = [
-    _loadScript('/gestor/logo_b64.js'),
-    _loadScript('/gestor/assin_b64.js'),
-  ];
+// Rastreia se os scripts b64 já foram carregados com sucesso
+let _b64Loaded = false;
 
+async function _ensureJsPDF(){
+  // Carrega jsPDF se ainda não disponível
   if (!window.jspdf) {
-    // Carrega jsPDF e os b64 em paralelo
-    await Promise.all([
-      ...b64Scripts,
-      _loadScript('https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js'),
-    ]);
-  } else {
-    // jsPDF já carregado — só garante os b64
-    await Promise.all(b64Scripts);
+    await _loadScript('https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js');
   }
 
-  // autoTable: plugin que se instala no jsPDF — deve ser carregado DEPOIS do jsPDF
-  // Verifica se já está instalado antes de recarregar
+  // autoTable deve ser carregado DEPOIS do jsPDF e só uma vez
   const testDoc = window.jspdf && new window.jspdf.jsPDF();
   if (!testDoc || typeof testDoc.autoTable !== 'function') {
     await _loadScript('https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js');
   }
+
+  // Carrega logo_b64.js e assin_b64.js da raiz do site
+  // Usa caminhos absolutos a partir da raiz — os arquivos estão na raiz do repositório
+  if (!_b64Loaded) {
+    await Promise.all([
+      _loadScriptForce('/logo_b64.js'),
+      _loadScriptForce('/assin_b64.js'),
+    ]);
+    _b64Loaded = !!(window._LOGO_FALLBACK_B64 && window._ASSINATURAS_IMG_B64);
+  }
+}
+
+// Versão de _loadScript que SEMPRE recarrega (remove tag anterior se existir)
+// — necessário quando um script falhou na carga anterior
+function _loadScriptForce(src){
+  return new Promise((resolve, reject) => {
+    // Remover tag antiga (pode ter falhado)
+    const existing = document.querySelector(`script[src="${src}"]`);
+    if (existing) existing.remove();
+    const s = document.createElement('script');
+    s.src = src;
+    s.onload = resolve;
+    s.onerror = () => reject(new Error('Falha ao carregar: ' + src));
+    document.head.appendChild(s);
+  });
 }
 
 // Exportação em Excel (SheetJS)
@@ -1707,6 +1723,139 @@ async function dashProcessar(selTit, dashStatus) {
   const treinoAlvo = (DASH_treinamentos||[]).find(t => normalizarSemanaISO(t.SemanaISO) === semanaNorm);
   const assuntos = treinoAlvo && treinoAlvo.Assuntos ? String(treinoAlvo.Assuntos) : '';
   renderTemasAbordados('dashTemasAbordados', assuntos ? [{ titulo: tituloAlvo, semanaISO: semanaNorm, assuntos }] : []);
+
+  // Calcular histórico de faltas injustificadas (todas as semanas)
+  calcularHistoricoFaltas();
+}
+
+// ── Histórico de Faltas Injustificadas ───────────────────────────────────────
+// Para cada semana registada nos Treinamentos, calcula quais funcionários ativos
+// NÃO participaram e NÃO estavam de férias/afastados — ou seja, faltaram sem
+// justificativa. Chamado a cada "Atualizar" do Dashboard.
+async function calcularHistoricoFaltas(){
+  const tbody = document.getElementById('tbodyHistoricoFaltas');
+  const totalEl = document.getElementById('historicoFaltasTotal');
+  if (!tbody) return;
+
+  tbody.innerHTML = '<tr><td colspan="5" class="px-4 py-8 text-center text-slate-400">A calcular...</td></tr>';
+
+  try {
+    // Garantir dados carregados
+    await dashEnsureData();
+
+    const treinamentos = (DASH_treinamentos || []).filter(t => ativoValido(t.Ativo ?? t.ativo ?? 'true'));
+    const registrosAll = DASH_registrosAll || [];
+    const funcAtivos   = (DASH_funcionarios || []).filter(f => ativoValido(f.Ativo ?? f.ativo));
+    const mapFunc      = new Map(funcAtivos.map(f => [normalizarMatricula(f.Matricula), f]));
+
+    if (!treinamentos.length) {
+      tbody.innerHTML = '<tr><td colspan="5" class="px-4 py-8 text-center text-slate-400">Nenhum treinamento encontrado.</td></tr>';
+      if (totalEl) totalEl.textContent = '0';
+      return;
+    }
+
+    // Helper: dado um Titulo como "15/06/2026 a 21/06/2026", extrair datas
+    const datasDoTitulo = titulo => {
+      const matches = String(titulo || '').match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/g);
+      if (!matches || matches.length < 2) return null;
+      const toMs = s => { const p = s.split('/'); return Date.UTC(+p[2], +p[1]-1, +p[0]); };
+      return { ini: toMs(matches[0]), fim: toMs(matches[1]) };
+    };
+
+    const linhas = [];
+
+    // Ordenar semanas da mais recente para a mais antiga
+    const semanasSorted = [...treinamentos].sort((a, b) =>
+      String(b.SemanaISO || '').localeCompare(String(a.SemanaISO || ''))
+    );
+
+    for (const trein of semanasSorted) {
+      const semanaNorm = normalizarSemanaISO(String(trein.SemanaISO || ''));
+      const titulo     = String(trein.Titulo || '');
+      const datas      = datasDoTitulo(titulo);
+
+      // Matrículas que participaram nesta semana
+      const partNesta = new Set(
+        registrosAll
+          .filter(r => normalizarSemanaISO(String(r.SemanaISO || '')) === semanaNorm)
+          .map(r => normalizarMatricula(r.Matricula))
+      );
+
+      for (const f of funcAtivos) {
+        const mat = normalizarMatricula(f.Matricula);
+
+        // Já participou → pular
+        if (partNesta.has(mat)) continue;
+
+        // Verificar se estava de férias/afastado nesta semana
+        // Usa o Titulo (datas reais) como fonte primária, igual ao colaborador
+        let estaAfastado = false;
+        const feriasFuncionario = feriasServidor.filter(fr => normalizarMatricula(fr.Matricula) === mat);
+
+        for (const fer of feriasFuncionario) {
+          const sitNorm = String(fer.Situacao || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+          // Afastamento INSS sem período → sempre exclui
+          if ((sitNorm.includes('inss') || sitNorm.includes('afastado')) && !fer.InicioFerias && !fer.FimFerias) {
+            estaAfastado = true; break;
+          }
+          // Usar datas reais do título se disponíveis
+          if (datas) {
+            const parseDate = s => {
+              if (!s) return null;
+              s = String(s).trim();
+              const isoFull = s.match(/^(\d{4})-(\d{2})-(\d{2})T/);
+              if (isoFull) return Date.UTC(+isoFull[1], +isoFull[2]-1, +isoFull[3]);
+              const br = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+              if (br) return Date.UTC(+br[3], +br[2]-1, +br[1]);
+              const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+              if (iso) return Date.UTC(+iso[1], +iso[2]-1, +iso[3]);
+              return null;
+            };
+            const dIni = parseDate(fer.InicioFerias);
+            const dFim = parseDate(fer.FimFerias);
+            if (!dIni && !dFim) { estaAfastado = true; break; }
+            const tSeg = datas.ini, tDom = datas.fim;
+            if ((!dIni || tDom >= dIni) && (!dFim || tSeg <= dFim)) { estaAfastado = true; break; }
+          } else {
+            // Fallback: usar semana ISO
+            if (funcEstaAfastadoNaSemana(mat, semanaNorm)) { estaAfastado = true; break; }
+          }
+        }
+
+        if (estaAfastado) continue;
+
+        // Faltou sem justificativa — registar
+        linhas.push({
+          semanaISO: semanaNorm,
+          titulo,
+          matricula: mat,
+          nome:  f.Nome  || '',
+          setor: f.Setor || ''
+        });
+      }
+    }
+
+    if (totalEl) totalEl.textContent = String(linhas.length);
+
+    if (!linhas.length) {
+      tbody.innerHTML = '<tr><td colspan="5" class="px-4 py-8 text-center text-emerald-600 font-medium">✅ Nenhuma falta injustificada registada.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = linhas.map(l => `
+      <tr class="hover:bg-amber-50/40 transition-colors">
+        <td class="px-4 py-3 font-mono text-xs text-slate-500">${escapeHtml(l.semanaISO)}</td>
+        <td class="px-4 py-3 text-xs text-slate-500">${escapeHtml(l.titulo)}</td>
+        <td class="px-4 py-3 font-mono font-semibold text-slate-700">${escapeHtml(l.matricula)}</td>
+        <td class="px-4 py-3 font-semibold text-slate-800">${escapeHtml(l.nome)}</td>
+        <td class="px-4 py-3 text-slate-600">${escapeHtml(l.setor)}</td>
+      </tr>`).join('');
+
+  } catch(err) {
+    console.error('[Histórico Faltas]', err);
+    tbody.innerHTML = `<tr><td colspan="5" class="px-4 py-8 text-center text-rose-500">Erro ao calcular: ${escapeHtml(String(err.message || err))}</td></tr>`;
+    if (totalEl) totalEl.textContent = '—';
+  }
 }
 
 // Exportação Excel de Não Participantes do Dashboard
