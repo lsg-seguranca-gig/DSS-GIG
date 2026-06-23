@@ -375,8 +375,8 @@ async function _ensureJsPDF(){
   // Usa caminhos absolutos a partir da raiz — os arquivos estão na raiz do repositório
   if (!_b64Loaded) {
     await Promise.all([
-      _loadScriptForce('/logo_b64.js'),
-      _loadScriptForce('/assin_b64.js'),
+      _loadScriptForce('/gestor/logo_b64.js'),
+      _loadScriptForce('/gestor/assin_b64.js'),
     ]);
     _b64Loaded = !!(window._LOGO_FALLBACK_B64 && window._ASSINATURAS_IMG_B64);
   }
