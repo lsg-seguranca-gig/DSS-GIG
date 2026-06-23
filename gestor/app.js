@@ -1112,56 +1112,66 @@ function mapFeriasRow(row) {
  * - Situação "Afastado INSS" → sempre afastado (sem período)
  * - Situação "Férias" → afastado se a semana ISO cai dentro do período
  * ---------------------------------------------------------------- */
-function funcEstaAfastadoNaSemana(matricula, semanaNorm){
+// ── funcEstaAfastadoNaSemana ─────────────────────────────────────────────────
+// Verifica se um colaborador estava de férias ou afastado durante pelo menos
+// UM DIA da semana indicada.
+//
+// IMPORTANTE: a planilha usa numeração sequencial própria (W24 ≠ semana ISO 24),
+// por isso esta função aceita DATAS REAIS (segMs / domMs em UTC ms) em vez de
+// tentar converter a SemanaISO internamente — isso evita o erro de semana que
+// causava o cálculo incorreto de adesão.
+//
+// Parâmetros:
+//   matricula  — string com a matrícula do colaborador
+//   semanaNorm — string ISO normalizada (usado apenas como fallback)
+//   segMs      — (opcional) timestamp UTC da segunda-feira da semana real
+//   domMs      — (opcional) timestamp UTC do domingo da semana real
+function funcEstaAfastadoNaSemana(matricula, semanaNorm, segMs, domMs){
   const mat = afastNormMat(matricula);
   const registros = feriasServidor.filter(f => afastNormMat(f.Matricula) === mat);
   if (!registros.length) return false;
 
+  // Helper: parse de data em múltiplos formatos → UTC ms ou null
+  const parseMs = s => {
+    if (!s) return null;
+    s = String(s).trim();
+    const isoFull = s.match(/^(\d{4})-(\d{2})-(\d{2})T/);
+    if (isoFull) return Date.UTC(+isoFull[1], +isoFull[2]-1, +isoFull[3]);
+    const br = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (br) return Date.UTC(+br[3], +br[2]-1, +br[1]);
+    const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (iso) return Date.UTC(+iso[1], +iso[2]-1, +iso[3]);
+    return null;
+  };
+
+  // Calcular segundas e domingos a partir do título de treinamento se não fornecidos
+  // Fallback para conversão ISO (menos preciso mas melhor do que nada)
+  let wSeg = segMs, wDom = domMs;
+  if (!wSeg || !wDom) {
+    const monday = semanaISOToMonday(semanaNorm);
+    if (monday) {
+      wSeg = monday.getTime();
+      wDom = monday.getTime() + 6 * 86400000;
+    }
+  }
+
   for (const f of registros){
-    const sitNorm = String(f.Situacao || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
-    // Afastado INSS: sem período → sempre exclui
-    if (sitNorm.includes('inss') || sitNorm.includes('afastado')){
+    const sitNorm = String(f.Situacao || '').toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
+
+    const dIniMs = parseMs(f.InicioFerias);
+    const dFimMs = parseMs(f.FimFerias);
+
+    if (!dIniMs && !dFimMs) {
+      // Sem período → afastamento contínuo (INSS, etc.) → exclui sempre
       return true;
     }
-    // Férias: verificar se a semana cai no período
-    if (sitNorm.includes('ferias') || sitNorm.includes('férias')){
-      if (!f.InicioFerias || !f.FimFerias) return true; // sem período → exclui sempre
-      // Converter datas BR (dd/mm/yyyy) ou ISO (yyyy-mm-dd) para Date
-      const parseDate = s => {
-        if (!s) return null;
-        s = String(s).trim();
-        // ISO completo com timezone: 2026-05-04T07:00:00.000Z
-        const isoFull = s.match(/^(\d{4})-(\d{2})-(\d{2})T/);
-        if (isoFull) return new Date(`${isoFull[1]}-${isoFull[2]}-${isoFull[3]}`);
-        // dd/mm/yyyy
-        const br = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-        if (br) return new Date(`${br[3]}-${br[2].padStart(2,'0')}-${br[1].padStart(2,'0')}`);
-        // yyyy-mm-dd
-        const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-        if (iso) return new Date(s);
-        return null;
-      };
-      const dIni = parseDate(f.InicioFerias);
-      const dFim = parseDate(f.FimFerias);
-      if (!dIni || !dFim) return true;
 
-      // Converter semana ISO para segunda e domingo
-      const isoToMonday = (isoWeek) => {
-        const m = isoWeek.match(/^(\d{4})-W(\d{2})$/);
-        if (!m) return null;
-        const year = parseInt(m[1]), week = parseInt(m[2]);
-        const jan4 = new Date(year, 0, 4);
-        const dayOfWeek = jan4.getDay() || 7;
-        const monday = new Date(jan4);
-        monday.setDate(jan4.getDate() - dayOfWeek + 1 + (week - 1) * 7);
-        return monday;
-      };
-      const monday = isoToMonday(semanaNorm || '');
-      if (!monday) return true;
-      const sunday = new Date(monday); sunday.setDate(monday.getDate() + 6);
-      // Sobreposição: férias começa antes de domingo E termina depois de segunda
-      if (dIni <= sunday && dFim >= monday) return true;
-    }
+    // Sobreposição: pelo menos 1 dia da semana cai no período de afastamento
+    // Condição: início-afastamento <= domingo-semana E fim-afastamento >= segunda-semana
+    const iniOk = !dIniMs || (wDom !== undefined && dIniMs <= wDom);
+    const fimOk = !dFimMs || (wSeg !== undefined && dFimMs >= wSeg);
+    if (iniOk && fimOk) return true;
   }
   return false;
 }
@@ -1679,10 +1689,26 @@ async function dashProcessar(selTit, dashStatus) {
   const funcAtivos = (DASH_funcionarios||[]).filter(f => ativoValido(f.Ativo ?? f.ativo));
   const setMatPart = new Set(participantes.map(p => normalizarMatricula(p.Matricula)));
 
-  // Excluir funcionários em férias/afastamento considerando o período da semana selecionada
+  // Extrair datas reais da semana a partir do campo Titulo do treinamento
+  // (ex: "15/06/2026 a 21/06/2026") — mais confiável que converter SemanaISO
+  // porque a planilha usa numeração sequencial própria (não ISO 8601).
+  const tituloTrein = (() => {
+    const t = (DASH_treinamentos||[]).find(t => normalizarSemanaISO(t.SemanaISO) === semanaNorm);
+    return t ? String(t.Titulo || '') : (selTit || '');
+  })();
+  const datasReais = (() => {
+    const m = tituloTrein.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/g);
+    if (!m || m.length < 2) return null;
+    const toMs = s => { const p = s.split('/'); return Date.UTC(+p[2], +p[1]-1, +p[0]); };
+    return { segMs: toMs(m[0]), domMs: toMs(m[1]) };
+  })();
+  const segMs = datasReais?.segMs;
+  const domMs = datasReais?.domMs;
+
+  // Excluir funcionários em férias/afastamento — usa datas reais se disponíveis
   const naoPart = funcAtivos.filter(f =>
     !setMatPart.has(normalizarMatricula(f.Matricula)) &&
-    !funcEstaAfastadoNaSemana(f.Matricula, semanaNorm)
+    !funcEstaAfastadoNaSemana(f.Matricula, semanaNorm, segMs, domMs)
   );
 
   const mapFunc = new Map(funcAtivos.map(f => [normalizarMatricula(f.Matricula), f]));
@@ -1706,14 +1732,11 @@ async function dashProcessar(selTit, dashStatus) {
   DASH_participantes = participantesFull; 
   DASH_naoParticipantes = naoParticipantesFull;
 
-  const total = funcAtivos.filter(f => !funcEstaAfastadoNaSemana(f.Matricula, semanaNorm)).length;
+  const total = funcAtivos.filter(f => !funcEstaAfastadoNaSemana(f.Matricula, semanaNorm, segMs, domMs)).length;
   const part = participantesFull.length;
   const nPart = naoParticipantesFull.length;
 
-  const tituloAlvo = (() => { 
-    const t = (DASH_treinamentos||[]).find(t => normalizarSemanaISO(t.SemanaISO) === semanaNorm);
-    return t && t.Titulo ? String(t.Titulo) : (selTit || '-');
-  })();
+  const tituloAlvo = tituloTrein || (selTit || '-');
 
   dashKPIs({ total, part, nPart, semana: semanaNorm, titulo: tituloAlvo, registrosAll: DASH_registrosAll || [], funcAtivos });
   dashRender(naoParticipantesFull, participantesFull);
@@ -1783,55 +1806,15 @@ async function calcularHistoricoFaltas(){
 
       for (const f of funcAtivos) {
         const mat = normalizarMatricula(f.Matricula);
-
-        // Já participou → pular
         if (partNesta.has(mat)) continue;
 
-        // Verificar se estava de férias/afastado nesta semana
-        // Usa o Titulo (datas reais) como fonte primária, igual ao colaborador
-        let estaAfastado = false;
-        const feriasFuncionario = feriasServidor.filter(fr => normalizarMatricula(fr.Matricula) === mat);
+        // Usar datas reais do Titulo — mais preciso que conversão ISO
+        const afastado = datas
+          ? funcEstaAfastadoNaSemana(mat, semanaNorm, datas.ini, datas.fim)
+          : funcEstaAfastadoNaSemana(mat, semanaNorm);
+        if (afastado) continue;
 
-        for (const fer of feriasFuncionario) {
-          const sitNorm = String(fer.Situacao || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
-          // Afastamento INSS sem período → sempre exclui
-          if ((sitNorm.includes('inss') || sitNorm.includes('afastado')) && !fer.InicioFerias && !fer.FimFerias) {
-            estaAfastado = true; break;
-          }
-          // Usar datas reais do título se disponíveis
-          if (datas) {
-            const parseDate = s => {
-              if (!s) return null;
-              s = String(s).trim();
-              const isoFull = s.match(/^(\d{4})-(\d{2})-(\d{2})T/);
-              if (isoFull) return Date.UTC(+isoFull[1], +isoFull[2]-1, +isoFull[3]);
-              const br = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-              if (br) return Date.UTC(+br[3], +br[2]-1, +br[1]);
-              const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-              if (iso) return Date.UTC(+iso[1], +iso[2]-1, +iso[3]);
-              return null;
-            };
-            const dIni = parseDate(fer.InicioFerias);
-            const dFim = parseDate(fer.FimFerias);
-            if (!dIni && !dFim) { estaAfastado = true; break; }
-            const tSeg = datas.ini, tDom = datas.fim;
-            if ((!dIni || tDom >= dIni) && (!dFim || tSeg <= dFim)) { estaAfastado = true; break; }
-          } else {
-            // Fallback: usar semana ISO
-            if (funcEstaAfastadoNaSemana(mat, semanaNorm)) { estaAfastado = true; break; }
-          }
-        }
-
-        if (estaAfastado) continue;
-
-        // Faltou sem justificativa — registar
-        linhas.push({
-          semanaISO: semanaNorm,
-          titulo,
-          matricula: mat,
-          nome:  f.Nome  || '',
-          setor: f.Setor || ''
-        });
+        linhas.push({ semanaISO: semanaNorm, titulo, matricula: mat, nome: f.Nome||'', setor: f.Setor||'' });
       }
     }
 
