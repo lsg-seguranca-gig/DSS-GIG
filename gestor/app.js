@@ -1229,17 +1229,63 @@ function afastRenderTags(){
   const tbody  = document.getElementById('tbodyAfastados');
   if (!tbody) return;
 
-  if (badge) badge.textContent = feriasServidor.length;
+  const hoje = new Date();
+  const hojeMs = Date.UTC(hoje.getUTCFullYear(), hoje.getUTCMonth(), hoje.getUTCDate());
 
-  if (feriasServidor.length === 0){
-    tbody.innerHTML = `<tr><td colspan="5" class="px-6 py-10 text-center text-slate-400 italic">
+  const parseMs = s => {
+    if (!s) return null; s = String(s).trim();
+    const isoFull = s.match(/^(\d{4})-(\d{2})-(\d{2})T/);
+    if (isoFull) return Date.UTC(+isoFull[1],+isoFull[2]-1,+isoFull[3]);
+    const br = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (br) return Date.UTC(+br[3],+br[2]-1,+br[1]);
+    const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (iso) return Date.UTC(+iso[1],+iso[2]-1,+iso[3]);
+    return null;
+  };
+
+  // Classificar registros em ativos (período inclui hoje) e históricos (já encerrados)
+  const comStatus = feriasServidor.map((f, idx) => {
+    const dIniMs = parseMs(f.InicioFerias);
+    const dFimMs = parseMs(f.FimFerias);
+    let ativo = false;
+    if (!dIniMs && !dFimMs) ativo = true;          // sem período → sempre ativo (INSS)
+    else if (dIniMs && !dFimMs) ativo = hojeMs >= dIniMs;
+    else if (!dIniMs && dFimMs) ativo = hojeMs <= dFimMs;
+    else ativo = hojeMs >= dIniMs && hojeMs <= dFimMs;
+    return { ...f, _idx: idx, _ativo: ativo };
+  });
+
+  const totalAtivos = comStatus.filter(f => f._ativo).length;
+  if (badge) badge.textContent = `${totalAtivos} ativos / ${comStatus.length} total`;
+
+  if (comStatus.length === 0){
+    tbody.innerHTML = `<tr><td colspan="6" class="px-6 py-10 text-center text-slate-400 italic">
       Nenhum registo na aba <strong>Ferias</strong> do Google Sheets.<br>
       <span class="text-xs">Use o formulário acima para inserir o primeiro registo.</span>
     </td></tr>`;
     return;
   }
 
-  tbody.innerHTML = feriasServidor.map((f, idx) => {
+  const formatDate = s => {
+    if (!s) return '';
+    s = String(s).trim();
+    const isoFull = s.match(/^(\d{4})-(\d{2})-(\d{2})T/);
+    if (isoFull) return `${isoFull[3]}/${isoFull[2]}/${isoFull[1]}`;
+    const isoSimple = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (isoSimple) return `${isoSimple[3]}/${isoSimple[2]}/${isoSimple[1]}`;
+    if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(s)) return s;
+    return s;
+  };
+
+  // Ordenar: ativos primeiro, depois históricos por data mais recente
+  const sorted = [...comStatus].sort((a, b) => {
+    if (a._ativo !== b._ativo) return a._ativo ? -1 : 1;
+    const aMs = parseMs(a.InicioFerias) || 0;
+    const bMs = parseMs(b.InicioFerias) || 0;
+    return bMs - aMs;
+  });
+
+  tbody.innerHTML = sorted.map((f) => {
     const mat      = afastNormMat(f.Matricula);
     const nome     = escapeHtml(f.Funcionario || '-');
     const sit      = escapeHtml(f.Situacao || 'Férias');
@@ -1249,37 +1295,36 @@ function afastRenderTags(){
       ? 'bg-rose-100 text-rose-800 border-rose-200'
       : 'bg-amber-100 text-amber-800 border-amber-200';
 
-    const formatDate = s => {
-      if (!s) return '';
-      s = String(s).trim();
-      // ISO completo com timezone: 2026-05-04T07:00:00.000Z → usa apenas a parte da data
-      const isoFull = s.match(/^(\d{4})-(\d{2})-(\d{2})T/);
-      if (isoFull) return `${isoFull[3]}/${isoFull[2]}/${isoFull[1]}`;
-      // yyyy-mm-dd simples → dd/mm/yyyy
-      const isoSimple = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-      if (isoSimple) return `${isoSimple[3]}/${isoSimple[2]}/${isoSimple[1]}`;
-      // já está em dd/mm/yyyy — mantém
-      if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(s)) return s;
-      return s;
-    };
-    const dIni  = formatDate(f.InicioFerias);
-    const dFim  = formatDate(f.FimFerias);
-    const periodo = isINSS ? '<em class="text-slate-400">Sem prazo definido</em>'
-                           : (dIni && dFim ? `${dIni} a ${dFim}` : (dIni || dFim || '<em class="text-slate-400">—</em>'));
+    const dIni   = formatDate(f.InicioFerias);
+    const dFim   = formatDate(f.FimFerias);
+    const periodo = isINSS && !f.InicioFerias && !f.FimFerias
+      ? '<em class="text-slate-400">Sem prazo definido</em>'
+      : (dIni && dFim ? `${dIni} a ${dFim}` : (dIni || dFim || '<em class="text-slate-400">—</em>'));
 
-    return `<tr class="hover:bg-slate-50 transition-colors">
+    const statusBadge = f._ativo
+      ? '<span class="px-2 py-0.5 text-xs font-bold rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">Ativo</span>'
+      : '<span class="px-2 py-0.5 text-xs font-bold rounded-full bg-slate-100 text-slate-500 border border-slate-200">Encerrado</span>';
+
+    // Botão excluir com aviso extra para registros encerrados
+    const deleteBtn = f._ativo
+      ? `<button type="button" data-idx="${f._idx}" class="btnAfastExcluir inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-rose-600 hover:text-white hover:bg-rose-500 border border-rose-200 hover:border-rose-500 rounded-lg transition-colors">
+           <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+           Excluir
+         </button>`
+      : `<button type="button" data-idx="${f._idx}" class="btnAfastExcluir inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-slate-400 hover:text-white hover:bg-slate-400 border border-slate-200 hover:border-slate-400 rounded-lg transition-colors" title="⚠️ Não exclua registros históricos — eles garantem que o colaborador apareça como Dispensado nas semanas passadas">
+           <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+           ⚠️ Histórico
+         </button>`;
+
+    return `<tr class="hover:bg-slate-50 transition-colors ${f._ativo ? '' : 'opacity-70'}">
       <td class="px-4 py-3 font-mono font-semibold text-slate-800">${mat}</td>
       <td class="px-4 py-3 font-medium text-slate-800">${nome}</td>
       <td class="px-4 py-3">
         <span class="px-2.5 py-1 text-xs font-semibold rounded-full border ${badgeClass}">${sit}</span>
       </td>
       <td class="px-4 py-3 text-sm text-slate-600">${periodo}</td>
-      <td class="px-4 py-3 text-center">
-        <button type="button" data-idx="${idx}" class="btnAfastExcluir inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-rose-600 hover:text-white hover:bg-rose-500 border border-rose-200 hover:border-rose-500 rounded-lg transition-colors">
-          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-          Excluir
-        </button>
-      </td>
+      <td class="px-4 py-3">${statusBadge}</td>
+      <td class="px-4 py-3 text-center">${deleteBtn}</td>
     </tr>`;
   }).join('');
 
@@ -1287,6 +1332,11 @@ function afastRenderTags(){
   tbody.querySelectorAll('.btnAfastExcluir').forEach(btn => {
     btn.addEventListener('click', function(){
       const idx = parseInt(this.dataset.idx);
+      const reg = feriasServidor[idx];
+      const isEncerrado = !sorted.find(s => s._idx === idx)?._ativo;
+      if (isEncerrado) {
+        if (!confirm(`⚠️ ATENÇÃO: Este registro já está encerrado.\n\nExcluir registros históricos fará o colaborador "${reg?.Funcionario || ''}" aparecer incorretamente como "Não Participou" nas semanas em que esteve afastado.\n\nTem certeza que deseja excluir mesmo assim?`)) return;
+      }
       afastExcluir(idx);
     });
   });
