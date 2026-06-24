@@ -283,21 +283,24 @@
         <pre id="diagBox" class="mt-3 p-4 bg-slate-900 text-slate-200 rounded-xl text-xs overflow-x-auto font-mono max-h-60 hidden custom-scrollbar"></pre>
       </section>
 
-      <!-- Painel de Ausências e Férias (Sincronizado Dinamicamente com a Planilha Oficial) -->
+      <!-- Painel de Ausências e Férias (Histórico Permanente) -->
       <details class="bg-white rounded-2xl border border-amber-200 shadow-sm overflow-hidden" id="afastPanel" open>
         <summary class="font-bold text-slate-800 cursor-pointer list-none flex items-center justify-between select-none px-6 py-5">
           <div class="flex items-center gap-2">
             <span class="p-1.5 bg-amber-50 text-amber-600 rounded-lg">⚠️</span>
-            <span>Férias & Ausências Ativas</span>
+            <span>Histórico de Férias & Afastamentos</span>
             <span id="afastBadge" class="bg-amber-100 text-amber-800 text-xs font-bold px-2 py-0.5 rounded-full border border-amber-200">0</span>
           </div>
           <span class="text-slate-400 transition-transform duration-200 text-xs" id="afastChevron">▲</span>
         </summary>
 
         <div class="px-6 pb-6 space-y-5">
+          <div class="bg-blue-50 border border-blue-200 rounded-xl p-4 text-sm text-blue-800">
+            <p class="font-semibold mb-1">📋 Histórico permanente — nunca apague registros passados</p>
+            <p class="text-xs text-blue-700">Todos os afastamentos (passados e atuais) devem ser mantidos aqui. O sistema usa as datas de cada registro para determinar automaticamente quem estava dispensado em cada semana selecionada no Dashboard — mesmo que o período já tenha terminado. Apagar um registro passado fará o colaborador aparecer incorretamente como "Não Participou" naquela semana.</p>
+          </div>
           <p class="text-sm text-slate-500">
-            Colaboradores cadastrados aqui são <strong>excluídos automaticamente</strong> da lista "Não Participaram" e da contagem de ativos.
-            Férias exigem período; afastamentos (INSS) não.
+            Para cada semana selecionada no Dashboard, o sistema verifica automaticamente quais colaboradores tinham pelo menos <strong>1 dia de afastamento</strong> naquela semana e os classifica como <strong>Dispensados</strong> (excluídos do cálculo de adesão).
           </p>
 
           <!-- Formulário de inserção -->
@@ -352,6 +355,7 @@
                   <th class="px-4 py-3 text-left font-semibold text-xs uppercase tracking-wider">Funcionário</th>
                   <th class="px-4 py-3 text-left font-semibold text-xs uppercase tracking-wider">Situação</th>
                   <th class="px-4 py-3 text-left font-semibold text-xs uppercase tracking-wider">Período</th>
+                  <th class="px-4 py-3 text-left font-semibold text-xs uppercase tracking-wider">Status</th>
                   <th class="px-4 py-3 text-center font-semibold text-xs uppercase tracking-wider">Ação</th>
                 </tr>
               </thead>
