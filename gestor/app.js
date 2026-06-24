@@ -943,25 +943,58 @@ function afastSalvar(){
 }
 
 // Gestão de renderização das listas de presenças e faltas no ecrã Dashboard
-function dashRender(naoParticipantes, participantes){
+function dashRender(naoParticipantes, participantes, dispensados){
   const tbodyNP = document.getElementById('tbodyNP');
-  const tbodyP = document.getElementById('tbodyP');
-  if (!naoParticipantes || !naoParticipantes.length){ 
-    tbodyNP.innerHTML = '<tr><td colspan="3" class="px-4 py-8 text-center text-emerald-600 font-semibold bg-emerald-50">Todos os colaboradores participaram! 🎉</td></tr>'; 
-  } else { 
-    tbodyNP.innerHTML = naoParticipantes.map(n => `<tr><td class="px-4 py-3 font-semibold text-slate-900">${escapeHtml(n.Matricula ?? '')}</td><td class="px-4 py-3">${escapeHtml(n.Nome ?? '')}</td><td class="px-4 py-3">${escapeHtml(n.Setor ?? '')}</td></tr>`).join(''); 
+  const tbodyP  = document.getElementById('tbodyP');
+  const tbodyD  = document.getElementById('tbodyDispensados');
+
+  if (tbodyNP) {
+    if (!naoParticipantes || !naoParticipantes.length)
+      tbodyNP.innerHTML = '<tr><td colspan="3" class="px-4 py-8 text-center text-emerald-600 font-semibold bg-emerald-50">✅ Todos os colaboradores elegíveis participaram!</td></tr>';
+    else
+      tbodyNP.innerHTML = naoParticipantes.map(n => `
+        <tr class="hover:bg-rose-50/40 transition-colors">
+          <td class="px-4 py-3 font-semibold text-slate-900">${escapeHtml(n.Matricula??'')}</td>
+          <td class="px-4 py-3">${escapeHtml(n.Nome??'')}</td>
+          <td class="px-4 py-3">${escapeHtml(n.Setor??'')}</td>
+        </tr>`).join('');
   }
-  if (!participantes || !participantes.length){ 
-    tbodyP.innerHTML = '<tr><td colspan="4" class="px-4 py-8 text-center text-slate-400">Nenhum registo de participação processado.</td></tr>'; 
-  } else { 
-    tbodyP.innerHTML = participantes.map(p => `<tr><td class="px-4 py-3 font-semibold text-slate-900">${escapeHtml(p.Matricula ?? '')}</td><td class="px-4 py-3">${escapeHtml(p.Nome ?? '')}</td><td class="px-4 py-3">${escapeHtml(p.Setor ?? '')}</td><td class="px-4 py-3">${escapeHtml(formatTimestamp(p.Timestamp))}</td></tr>`).join(''); 
+
+  if (tbodyP) {
+    if (!participantes || !participantes.length)
+      tbodyP.innerHTML = '<tr><td colspan="4" class="px-4 py-8 text-center text-slate-400">Nenhum registo de participação processado.</td></tr>';
+    else
+      tbodyP.innerHTML = participantes.map(p => `
+        <tr class="hover:bg-emerald-50/40 transition-colors">
+          <td class="px-4 py-3 font-semibold text-slate-900">${escapeHtml(p.Matricula??'')}</td>
+          <td class="px-4 py-3">${escapeHtml(p.Nome??'')}</td>
+          <td class="px-4 py-3">${escapeHtml(p.Setor??'')}</td>
+          <td class="px-4 py-3">${escapeHtml(formatTimestamp(p.Timestamp))}</td>
+        </tr>`).join('');
+  }
+
+  if (tbodyD) {
+    if (!dispensados || !dispensados.length)
+      tbodyD.innerHTML = '<tr><td colspan="5" class="px-4 py-8 text-center text-slate-400">Nenhum colaborador dispensado nesta semana.</td></tr>';
+    else
+      tbodyD.innerHTML = dispensados.map(d => `
+        <tr class="hover:bg-sky-50/40 transition-colors">
+          <td class="px-4 py-3 font-semibold text-slate-900">${escapeHtml(d.Matricula??'')}</td>
+          <td class="px-4 py-3">${escapeHtml(d.Nome??'')}</td>
+          <td class="px-4 py-3">${escapeHtml(d.Setor??'')}</td>
+          <td class="px-4 py-3 font-medium text-sky-700">${escapeHtml(d.Motivo??'')}</td>
+          <td class="px-4 py-3 text-slate-500 text-xs">${escapeHtml(d.Periodo??'')}</td>
+        </tr>`).join('');
   }
 }
 
 // Renderização e cálculo de dados estatísticos (KPIs) semanais
-function dashKPIs({ total, part, nPart, semana, titulo, registrosAll, funcAtivos }){
-  const pct   = total > 0 ? Math.round((part  / total) * 100) : 0;
-  const pctNP = total > 0 ? Math.round((nPart / total) * 100) : 0;
+function dashKPIs({ total, part, nPart, nDisp, semana, titulo, registrosAll, funcAtivos }){
+  const nDispSafe = nDisp ?? 0;
+  const totalAll  = total + nDispSafe; // total geral = elegíveis + dispensados
+  const pct    = total > 0 ? Math.round((part   / total) * 100) : 0;
+  const pctNP  = total > 0 ? Math.round((nPart  / total) * 100) : 0;
+  const pctD   = totalAll > 0 ? Math.round((nDispSafe / totalAll) * 100) : 0;
 
   document.getElementById('kpiTotalAtivos').textContent     = String(total ?? '-');
   document.getElementById('kpiParticiparam').textContent    = String(part  ?? '-');
@@ -971,10 +1004,15 @@ function dashKPIs({ total, part, nPart, semana, titulo, registrosAll, funcAtivos
   document.getElementById('kpiSemanaSel').textContent       = String(semana ?? '-');
   document.getElementById('kpiTituloSel').textContent       = String(titulo ?? '-');
 
+  const kpiDisp = document.getElementById('kpiDispensados');
+  if (kpiDisp) kpiDisp.textContent = String(nDispSafe);
+
   document.getElementById('barPart').style.width    = total ? `${pct}%`   : '0%';
   document.getElementById('barNaoPart').style.width = total ? `${pctNP}%` : '0%';
+  const barDisp = document.getElementById('barDisp');
+  if (barDisp) barDisp.style.width = totalAll ? `${pctD}%` : '0%';
 
-  // Renderização dinâmica do gráfico de rosca nativo usando HTML5 Canvas
+  // Gráfico de rosca: verde=participaram, vermelho=em falta, azul=dispensados
   const canvas = document.getElementById('kpiDonut');
   if (canvas) {
     const ctx = canvas.getContext('2d');
@@ -982,23 +1020,30 @@ function dashKPIs({ total, part, nPart, semana, titulo, registrosAll, funcAtivos
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     const arc = (s, e, color) => {
-      ctx.beginPath(); 
+      ctx.beginPath();
       ctx.arc(cx, cy, r, (s / 100) * 2 * Math.PI - Math.PI / 2, (e / 100) * 2 * Math.PI - Math.PI / 2);
-      ctx.strokeStyle = color; 
-      ctx.lineWidth = thick; 
-      ctx.lineCap = 'round'; 
+      ctx.strokeStyle = color;
+      ctx.lineWidth = thick;
+      ctx.lineCap = 'round';
       ctx.stroke();
     };
 
-    ctx.beginPath(); 
+    // Fundo cinza
+    ctx.beginPath();
     ctx.arc(cx, cy, r, 0, 2 * Math.PI);
-    ctx.strokeStyle = '#f3f4f6'; 
-    ctx.lineWidth = thick; 
+    ctx.strokeStyle = '#f3f4f6';
+    ctx.lineWidth = thick;
     ctx.stroke();
 
-    if (total > 0){
-      if (pctNP > 0) arc(0, pctNP, '#ef4444');
-      if (pct   > 0) arc(pctNP, pctNP + pct, '#22c55e');
+    // Calcular fatias relativas ao total geral (elegíveis + dispensados)
+    if (totalAll > 0) {
+      const pctPartAll = Math.round((part       / totalAll) * 100);
+      const pctNPAll   = Math.round((nPart      / totalAll) * 100);
+      const pctDAll    = Math.round((nDispSafe  / totalAll) * 100);
+      let cursor = 0;
+      if (pctNPAll  > 0){ arc(cursor, cursor + pctNPAll,  '#ef4444'); cursor += pctNPAll;  }
+      if (pctPartAll > 0){ arc(cursor, cursor + pctPartAll, '#22c55e'); cursor += pctPartAll; }
+      if (pctDAll   > 0){ arc(cursor, cursor + pctDAll,   '#38bdf8'); }
     }
   }
 
@@ -1705,7 +1750,14 @@ async function dashProcessar(selTit, dashStatus) {
   const segMs = datasReais?.segMs;
   const domMs = datasReais?.domMs;
 
-  // Excluir funcionários em férias/afastamento — usa datas reais se disponíveis
+  // Classificar os não participantes em:
+  //   • dispensados  — não participaram MAS estavam de férias/afastados na semana
+  //   • naoPart      — não participaram SEM justificativa (faltaram mesmo)
+  const dispensados = funcAtivos.filter(f =>
+    !setMatPart.has(normalizarMatricula(f.Matricula)) &&
+    funcEstaAfastadoNaSemana(f.Matricula, semanaNorm, segMs, domMs)
+  );
+
   const naoPart = funcAtivos.filter(f =>
     !setMatPart.has(normalizarMatricula(f.Matricula)) &&
     !funcEstaAfastadoNaSemana(f.Matricula, semanaNorm, segMs, domMs)
@@ -1729,17 +1781,35 @@ async function dashProcessar(selTit, dashStatus) {
     Setor: f.Setor ?? ''
   })).sort((a,b) => String(a.Nome ?? '').localeCompare(String(b.Nome ?? ''), 'pt-PT', { sensitivity: 'base' }));
 
-  DASH_participantes = participantesFull; 
+  const dispensadosFull = dispensados.map(f => {
+    // Obter informação do motivo do afastamento
+    const mat = normalizarMatricula(f.Matricula ?? '');
+    const regFerias = feriasServidor.filter(fr => afastNormMat(fr.Matricula) === mat);
+    const motivo = regFerias.length ? String(regFerias[0].Situacao || 'Férias/Afastamento') : 'Férias/Afastamento';
+    const periodo = regFerias.length ? [regFerias[0].InicioFerias, regFerias[0].FimFerias].filter(Boolean).join(' a ') : '';
+    return {
+      Matricula: mat,
+      Nome: f.Nome ?? '',
+      Setor: f.Setor ?? '',
+      Motivo: motivo,
+      Periodo: periodo
+    };
+  }).sort((a,b) => String(a.Nome ?? '').localeCompare(String(b.Nome ?? ''), 'pt-PT', { sensitivity: 'base' }));
+
+  DASH_participantes    = participantesFull;
   DASH_naoParticipantes = naoParticipantesFull;
 
-  const total = funcAtivos.filter(f => !funcEstaAfastadoNaSemana(f.Matricula, semanaNorm, segMs, domMs)).length;
-  const part = participantesFull.length;
+  // Total elegíveis = ativos - dispensados (férias/afastamento)
+  // Esta é a base correta para o cálculo de adesão
+  const total = funcAtivos.length - dispensados.length;
+  const part  = participantesFull.length;
   const nPart = naoParticipantesFull.length;
+  const nDisp = dispensadosFull.length;
 
   const tituloAlvo = tituloTrein || (selTit || '-');
 
-  dashKPIs({ total, part, nPart, semana: semanaNorm, titulo: tituloAlvo, registrosAll: DASH_registrosAll || [], funcAtivos });
-  dashRender(naoParticipantesFull, participantesFull);
+  dashKPIs({ total, part, nPart, nDisp, semana: semanaNorm, titulo: tituloAlvo, registrosAll: DASH_registrosAll || [], funcAtivos });
+  dashRender(naoParticipantesFull, participantesFull, dispensadosFull);
   dashStatus.innerHTML = `<div class="text-emerald-600 bg-emerald-50 px-4 py-2 rounded-lg border border-emerald-100">Painel atualizado para a semana: ${semanaNorm}</div>`;
 
   // Exibir os Temas Abordados da semana selecionada
