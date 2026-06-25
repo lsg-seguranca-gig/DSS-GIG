@@ -1165,8 +1165,8 @@ function mapFeriasRow(row) {
 // por isso esta função aceita DATAS REAIS (segMs / domMs em UTC ms) em vez de
 // tentar converter a SemanaISO internamente — isso evita o erro de semana que
 // causava o cálculo incorreto de adesão.
-//
-// Parâmetros:
+// Situações suportadas: "Férias", "Dispensa Médica" (e legado "Afastado INSS").
+// Todos os registros devem ter período (InicioFerias + FimFerias) obrigatório.
 //   matricula  — string com a matrícula do colaborador
 //   semanaNorm — string ISO normalizada (usado apenas como fallback)
 //   segMs      — (opcional) timestamp UTC da segunda-feira da semana real
@@ -1290,16 +1290,16 @@ function afastRenderTags(){
     const nome     = escapeHtml(f.Funcionario || '-');
     const sit      = escapeHtml(f.Situacao || 'Férias');
     const sitNorm  = sit.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
-    const isINSS   = sitNorm.includes('inss') || sitNorm.includes('afastado');
-    const badgeClass = isINSS
+    const isDispMed = sitNorm.includes('dispensa') || sitNorm.includes('medica') || sitNorm.includes('inss') || sitNorm.includes('afastado');
+    const badgeClass = isDispMed
       ? 'bg-rose-100 text-rose-800 border-rose-200'
       : 'bg-amber-100 text-amber-800 border-amber-200';
 
     const dIni   = formatDate(f.InicioFerias);
     const dFim   = formatDate(f.FimFerias);
-    const periodo = isINSS && !f.InicioFerias && !f.FimFerias
-      ? '<em class="text-slate-400">Sem prazo definido</em>'
-      : (dIni && dFim ? `${dIni} a ${dFim}` : (dIni || dFim || '<em class="text-slate-400">—</em>'));
+    const periodo = (dIni && dFim)
+      ? `${dIni} a ${dFim}`
+      : (dIni || dFim || '<em class="text-slate-400">Sem prazo definido</em>');
 
     const statusBadge = f._ativo
       ? '<span class="px-2 py-0.5 text-xs font-bold rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">Ativo</span>'
@@ -1351,13 +1351,13 @@ async function afastInserir(){
   const mat    = document.getElementById('afastInputMat').value.replace(/\D/g,'').padStart(5,'0');
   const nome   = document.getElementById('afastInputNome').value.trim();
   const sit    = document.getElementById('afastInputSit').value;
-  const ini    = document.getElementById('afastInputIni').value;  // yyyy-mm-dd ou ''
+  const ini    = document.getElementById('afastInputIni').value;  // yyyy-mm-dd
   const fim    = document.getElementById('afastInputFim').value;
 
   if (!mat || mat === '00000'){ msgEl.innerHTML = '<span class="text-rose-600">Matrícula inválida.</span>'; return; }
   if (!nome)                  { msgEl.innerHTML = '<span class="text-rose-600">Nome é obrigatório.</span>'; return; }
-  const isFerias = sit.toLowerCase().includes('f') && !sit.toLowerCase().includes('inss');
-  if (isFerias && (!ini || !fim)){ msgEl.innerHTML = '<span class="text-rose-600">Férias exigem início e fim.</span>'; return; }
+  // Datas obrigatórias para todas as situações
+  if (!ini || !fim){ msgEl.innerHTML = '<span class="text-rose-600">Informe o Início e o Fim do período.</span>'; return; }
 
   // Converter datas para formato dd/mm/yyyy (padrão do Sheets)
   const fmtDate = s => {
@@ -1370,8 +1370,8 @@ async function afastInserir(){
     matricula:    mat,
     funcionario:  nome,
     situacao:     sit,
-    inicioFerias: isFerias ? fmtDate(ini) : '',
-    fimFerias:    isFerias ? fmtDate(fim) : ''
+    inicioFerias: fmtDate(ini),
+    fimFerias:    fmtDate(fim)
   };
 
   btnIns.disabled = true;
@@ -1387,8 +1387,8 @@ async function afastInserir(){
     // Atualizar lista local imediatamente
     feriasServidor.push({
       Matricula: mat, Funcionario: nome, Situacao: sit,
-      InicioFerias: isFerias ? fmtDate(ini) : '',
-      FimFerias:    isFerias ? fmtDate(fim) : ''
+      InicioFerias: fmtDate(ini),
+      FimFerias:    fmtDate(fim)
     });
     AFAST_set.add(mat);
     afastRenderTags();
@@ -1460,17 +1460,7 @@ async function afastExcluir(idx){
 
   // Botão inserir
   document.getElementById('btnAfastInserir')?.addEventListener('click', afastInserir);
-
-  // Mostrar/ocultar campos de período conforme situação
-  const selSit  = document.getElementById('afastInputSit');
-  const wIni    = document.getElementById('afastInputIniWrap');
-  const wFim    = document.getElementById('afastInputFimWrap');
-  const togglePeriodo = () => {
-    const isFerias = selSit.value.toLowerCase().includes('f') && !selSit.value.toLowerCase().includes('inss');
-    [wIni, wFim].forEach(el => { if(el) el.style.display = isFerias ? '' : 'none'; });
-  };
-  selSit?.addEventListener('change', togglePeriodo);
-  togglePeriodo(); // estado inicial
+  // Campos de Início e Fim são sempre visíveis — obrigatórios para todas as situações
 })();
 
 document.getElementById('btnDashAtualizar').addEventListener('click', dashAtualizar);
