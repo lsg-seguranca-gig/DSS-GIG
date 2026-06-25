@@ -356,16 +356,45 @@ async function _ensureXLSX(){
   await _loadScript('https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js');
 }
 
+// Rastreia se os scripts b64 já foram carregados com sucesso
+let _b64Loaded = false;
+
 async function _ensureJsPDF(){
-  if (window.jspdf) return;
-  // Carrega as imagens base64 (logo + assinaturas) e o jsPDF em paralelo
-  await Promise.all([
-    _loadScript('/logo_b64.js'),
-    _loadScript('/assin_b64.js'),
-    _loadScript('https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js'),
-  ]);
-  // autotable depende do jsPDF — carrega em sequência
-  await _loadScript('https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js');
+  // Carrega jsPDF se ainda não disponível
+  if (!window.jspdf) {
+    await _loadScript('https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js');
+  }
+
+  // autoTable deve ser carregado DEPOIS do jsPDF e só uma vez
+  const testDoc = window.jspdf && new window.jspdf.jsPDF();
+  if (!testDoc || typeof testDoc.autoTable !== 'function') {
+    await _loadScript('https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js');
+  }
+
+  // Carrega logo_b64.js e assin_b64.js da raiz do site
+  // Usa caminhos absolutos a partir da raiz — os arquivos estão na raiz do repositório
+  if (!_b64Loaded) {
+    await Promise.all([
+      _loadScriptForce('/gestor/logo_b64.js'),
+      _loadScriptForce('/gestor/assin_b64.js'),
+    ]);
+    _b64Loaded = !!(window._LOGO_FALLBACK_B64 && window._ASSINATURAS_IMG_B64);
+  }
+}
+
+// Versão de _loadScript que SEMPRE recarrega (remove tag anterior se existir)
+// — necessário quando um script falhou na carga anterior
+function _loadScriptForce(src){
+  return new Promise((resolve, reject) => {
+    // Remover tag antiga (pode ter falhado)
+    const existing = document.querySelector(`script[src="${src}"]`);
+    if (existing) existing.remove();
+    const s = document.createElement('script');
+    s.src = src;
+    s.onload = resolve;
+    s.onerror = () => reject(new Error('Falha ao carregar: ' + src));
+    document.head.appendChild(s);
+  });
 }
 
 // Exportação em Excel (SheetJS)
@@ -914,25 +943,58 @@ function afastSalvar(){
 }
 
 // Gestão de renderização das listas de presenças e faltas no ecrã Dashboard
-function dashRender(naoParticipantes, participantes){
+function dashRender(naoParticipantes, participantes, dispensados){
   const tbodyNP = document.getElementById('tbodyNP');
-  const tbodyP = document.getElementById('tbodyP');
-  if (!naoParticipantes || !naoParticipantes.length){ 
-    tbodyNP.innerHTML = '<tr><td colspan="3" class="px-4 py-8 text-center text-emerald-600 font-semibold bg-emerald-50">Todos os colaboradores participaram! 🎉</td></tr>'; 
-  } else { 
-    tbodyNP.innerHTML = naoParticipantes.map(n => `<tr><td class="px-4 py-3 font-semibold text-slate-900">${escapeHtml(n.Matricula ?? '')}</td><td class="px-4 py-3">${escapeHtml(n.Nome ?? '')}</td><td class="px-4 py-3">${escapeHtml(n.Setor ?? '')}</td></tr>`).join(''); 
+  const tbodyP  = document.getElementById('tbodyP');
+  const tbodyD  = document.getElementById('tbodyDispensados');
+
+  if (tbodyNP) {
+    if (!naoParticipantes || !naoParticipantes.length)
+      tbodyNP.innerHTML = '<tr><td colspan="3" class="px-4 py-8 text-center text-emerald-600 font-semibold bg-emerald-50">✅ Todos os colaboradores elegíveis participaram!</td></tr>';
+    else
+      tbodyNP.innerHTML = naoParticipantes.map(n => `
+        <tr class="hover:bg-rose-50/40 transition-colors">
+          <td class="px-4 py-3 font-semibold text-slate-900">${escapeHtml(n.Matricula??'')}</td>
+          <td class="px-4 py-3">${escapeHtml(n.Nome??'')}</td>
+          <td class="px-4 py-3">${escapeHtml(n.Setor??'')}</td>
+        </tr>`).join('');
   }
-  if (!participantes || !participantes.length){ 
-    tbodyP.innerHTML = '<tr><td colspan="4" class="px-4 py-8 text-center text-slate-400">Nenhum registo de participação processado.</td></tr>'; 
-  } else { 
-    tbodyP.innerHTML = participantes.map(p => `<tr><td class="px-4 py-3 font-semibold text-slate-900">${escapeHtml(p.Matricula ?? '')}</td><td class="px-4 py-3">${escapeHtml(p.Nome ?? '')}</td><td class="px-4 py-3">${escapeHtml(p.Setor ?? '')}</td><td class="px-4 py-3">${escapeHtml(formatTimestamp(p.Timestamp))}</td></tr>`).join(''); 
+
+  if (tbodyP) {
+    if (!participantes || !participantes.length)
+      tbodyP.innerHTML = '<tr><td colspan="4" class="px-4 py-8 text-center text-slate-400">Nenhum registo de participação processado.</td></tr>';
+    else
+      tbodyP.innerHTML = participantes.map(p => `
+        <tr class="hover:bg-emerald-50/40 transition-colors">
+          <td class="px-4 py-3 font-semibold text-slate-900">${escapeHtml(p.Matricula??'')}</td>
+          <td class="px-4 py-3">${escapeHtml(p.Nome??'')}</td>
+          <td class="px-4 py-3">${escapeHtml(p.Setor??'')}</td>
+          <td class="px-4 py-3">${escapeHtml(formatTimestamp(p.Timestamp))}</td>
+        </tr>`).join('');
+  }
+
+  if (tbodyD) {
+    if (!dispensados || !dispensados.length)
+      tbodyD.innerHTML = '<tr><td colspan="5" class="px-4 py-8 text-center text-slate-400">Nenhum colaborador dispensado nesta semana.</td></tr>';
+    else
+      tbodyD.innerHTML = dispensados.map(d => `
+        <tr class="hover:bg-sky-50/40 transition-colors">
+          <td class="px-4 py-3 font-semibold text-slate-900">${escapeHtml(d.Matricula??'')}</td>
+          <td class="px-4 py-3">${escapeHtml(d.Nome??'')}</td>
+          <td class="px-4 py-3">${escapeHtml(d.Setor??'')}</td>
+          <td class="px-4 py-3 font-medium text-sky-700">${escapeHtml(d.Motivo??'')}</td>
+          <td class="px-4 py-3 text-slate-500 text-xs">${escapeHtml(d.Periodo??'')}</td>
+        </tr>`).join('');
   }
 }
 
 // Renderização e cálculo de dados estatísticos (KPIs) semanais
-function dashKPIs({ total, part, nPart, semana, titulo, registrosAll, funcAtivos }){
-  const pct   = total > 0 ? Math.round((part  / total) * 100) : 0;
-  const pctNP = total > 0 ? Math.round((nPart / total) * 100) : 0;
+function dashKPIs({ total, part, nPart, nDisp, semana, titulo, registrosAll, funcAtivos }){
+  const nDispSafe = nDisp ?? 0;
+  const totalAll  = total + nDispSafe; // total geral = elegíveis + dispensados
+  const pct    = total > 0 ? Math.round((part   / total) * 100) : 0;
+  const pctNP  = total > 0 ? Math.round((nPart  / total) * 100) : 0;
+  const pctD   = totalAll > 0 ? Math.round((nDispSafe / totalAll) * 100) : 0;
 
   document.getElementById('kpiTotalAtivos').textContent     = String(total ?? '-');
   document.getElementById('kpiParticiparam').textContent    = String(part  ?? '-');
@@ -942,10 +1004,15 @@ function dashKPIs({ total, part, nPart, semana, titulo, registrosAll, funcAtivos
   document.getElementById('kpiSemanaSel').textContent       = String(semana ?? '-');
   document.getElementById('kpiTituloSel').textContent       = String(titulo ?? '-');
 
+  const kpiDisp = document.getElementById('kpiDispensados');
+  if (kpiDisp) kpiDisp.textContent = String(nDispSafe);
+
   document.getElementById('barPart').style.width    = total ? `${pct}%`   : '0%';
   document.getElementById('barNaoPart').style.width = total ? `${pctNP}%` : '0%';
+  const barDisp = document.getElementById('barDisp');
+  if (barDisp) barDisp.style.width = totalAll ? `${pctD}%` : '0%';
 
-  // Renderização dinâmica do gráfico de rosca nativo usando HTML5 Canvas
+  // Gráfico de rosca: verde=participaram, vermelho=em falta, azul=dispensados
   const canvas = document.getElementById('kpiDonut');
   if (canvas) {
     const ctx = canvas.getContext('2d');
@@ -953,23 +1020,30 @@ function dashKPIs({ total, part, nPart, semana, titulo, registrosAll, funcAtivos
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     const arc = (s, e, color) => {
-      ctx.beginPath(); 
+      ctx.beginPath();
       ctx.arc(cx, cy, r, (s / 100) * 2 * Math.PI - Math.PI / 2, (e / 100) * 2 * Math.PI - Math.PI / 2);
-      ctx.strokeStyle = color; 
-      ctx.lineWidth = thick; 
-      ctx.lineCap = 'round'; 
+      ctx.strokeStyle = color;
+      ctx.lineWidth = thick;
+      ctx.lineCap = 'round';
       ctx.stroke();
     };
 
-    ctx.beginPath(); 
+    // Fundo cinza
+    ctx.beginPath();
     ctx.arc(cx, cy, r, 0, 2 * Math.PI);
-    ctx.strokeStyle = '#f3f4f6'; 
-    ctx.lineWidth = thick; 
+    ctx.strokeStyle = '#f3f4f6';
+    ctx.lineWidth = thick;
     ctx.stroke();
 
-    if (total > 0){
-      if (pctNP > 0) arc(0, pctNP, '#ef4444');
-      if (pct   > 0) arc(pctNP, pctNP + pct, '#22c55e');
+    // Calcular fatias relativas ao total geral (elegíveis + dispensados)
+    if (totalAll > 0) {
+      const pctPartAll = Math.round((part       / totalAll) * 100);
+      const pctNPAll   = Math.round((nPart      / totalAll) * 100);
+      const pctDAll    = Math.round((nDispSafe  / totalAll) * 100);
+      let cursor = 0;
+      if (pctNPAll  > 0){ arc(cursor, cursor + pctNPAll,  '#ef4444'); cursor += pctNPAll;  }
+      if (pctPartAll > 0){ arc(cursor, cursor + pctPartAll, '#22c55e'); cursor += pctPartAll; }
+      if (pctDAll   > 0){ arc(cursor, cursor + pctDAll,   '#38bdf8'); }
     }
   }
 
@@ -1083,56 +1157,66 @@ function mapFeriasRow(row) {
  * - Situação "Afastado INSS" → sempre afastado (sem período)
  * - Situação "Férias" → afastado se a semana ISO cai dentro do período
  * ---------------------------------------------------------------- */
-function funcEstaAfastadoNaSemana(matricula, semanaNorm){
+// ── funcEstaAfastadoNaSemana ─────────────────────────────────────────────────
+// Verifica se um colaborador estava de férias ou afastado durante pelo menos
+// UM DIA da semana indicada.
+//
+// IMPORTANTE: a planilha usa numeração sequencial própria (W24 ≠ semana ISO 24),
+// por isso esta função aceita DATAS REAIS (segMs / domMs em UTC ms) em vez de
+// tentar converter a SemanaISO internamente — isso evita o erro de semana que
+// causava o cálculo incorreto de adesão.
+//
+// Parâmetros:
+//   matricula  — string com a matrícula do colaborador
+//   semanaNorm — string ISO normalizada (usado apenas como fallback)
+//   segMs      — (opcional) timestamp UTC da segunda-feira da semana real
+//   domMs      — (opcional) timestamp UTC do domingo da semana real
+function funcEstaAfastadoNaSemana(matricula, semanaNorm, segMs, domMs){
   const mat = afastNormMat(matricula);
   const registros = feriasServidor.filter(f => afastNormMat(f.Matricula) === mat);
   if (!registros.length) return false;
 
+  // Helper: parse de data em múltiplos formatos → UTC ms ou null
+  const parseMs = s => {
+    if (!s) return null;
+    s = String(s).trim();
+    const isoFull = s.match(/^(\d{4})-(\d{2})-(\d{2})T/);
+    if (isoFull) return Date.UTC(+isoFull[1], +isoFull[2]-1, +isoFull[3]);
+    const br = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (br) return Date.UTC(+br[3], +br[2]-1, +br[1]);
+    const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (iso) return Date.UTC(+iso[1], +iso[2]-1, +iso[3]);
+    return null;
+  };
+
+  // Calcular segundas e domingos a partir do título de treinamento se não fornecidos
+  // Fallback para conversão ISO (menos preciso mas melhor do que nada)
+  let wSeg = segMs, wDom = domMs;
+  if (!wSeg || !wDom) {
+    const monday = semanaISOToMonday(semanaNorm);
+    if (monday) {
+      wSeg = monday.getTime();
+      wDom = monday.getTime() + 6 * 86400000;
+    }
+  }
+
   for (const f of registros){
-    const sitNorm = String(f.Situacao || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
-    // Afastado INSS: sem período → sempre exclui
-    if (sitNorm.includes('inss') || sitNorm.includes('afastado')){
+    const sitNorm = String(f.Situacao || '').toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
+
+    const dIniMs = parseMs(f.InicioFerias);
+    const dFimMs = parseMs(f.FimFerias);
+
+    if (!dIniMs && !dFimMs) {
+      // Sem período → afastamento contínuo (INSS, etc.) → exclui sempre
       return true;
     }
-    // Férias: verificar se a semana cai no período
-    if (sitNorm.includes('ferias') || sitNorm.includes('férias')){
-      if (!f.InicioFerias || !f.FimFerias) return true; // sem período → exclui sempre
-      // Converter datas BR (dd/mm/yyyy) ou ISO (yyyy-mm-dd) para Date
-      const parseDate = s => {
-        if (!s) return null;
-        s = String(s).trim();
-        // ISO completo com timezone: 2026-05-04T07:00:00.000Z
-        const isoFull = s.match(/^(\d{4})-(\d{2})-(\d{2})T/);
-        if (isoFull) return new Date(`${isoFull[1]}-${isoFull[2]}-${isoFull[3]}`);
-        // dd/mm/yyyy
-        const br = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-        if (br) return new Date(`${br[3]}-${br[2].padStart(2,'0')}-${br[1].padStart(2,'0')}`);
-        // yyyy-mm-dd
-        const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-        if (iso) return new Date(s);
-        return null;
-      };
-      const dIni = parseDate(f.InicioFerias);
-      const dFim = parseDate(f.FimFerias);
-      if (!dIni || !dFim) return true;
 
-      // Converter semana ISO para segunda e domingo
-      const isoToMonday = (isoWeek) => {
-        const m = isoWeek.match(/^(\d{4})-W(\d{2})$/);
-        if (!m) return null;
-        const year = parseInt(m[1]), week = parseInt(m[2]);
-        const jan4 = new Date(year, 0, 4);
-        const dayOfWeek = jan4.getDay() || 7;
-        const monday = new Date(jan4);
-        monday.setDate(jan4.getDate() - dayOfWeek + 1 + (week - 1) * 7);
-        return monday;
-      };
-      const monday = isoToMonday(semanaNorm || '');
-      if (!monday) return true;
-      const sunday = new Date(monday); sunday.setDate(monday.getDate() + 6);
-      // Sobreposição: férias começa antes de domingo E termina depois de segunda
-      if (dIni <= sunday && dFim >= monday) return true;
-    }
+    // Sobreposição: pelo menos 1 dia da semana cai no período de afastamento
+    // Condição: início-afastamento <= domingo-semana E fim-afastamento >= segunda-semana
+    const iniOk = !dIniMs || (wDom !== undefined && dIniMs <= wDom);
+    const fimOk = !dFimMs || (wSeg !== undefined && dFimMs >= wSeg);
+    if (iniOk && fimOk) return true;
   }
   return false;
 }
@@ -1145,17 +1229,63 @@ function afastRenderTags(){
   const tbody  = document.getElementById('tbodyAfastados');
   if (!tbody) return;
 
-  if (badge) badge.textContent = feriasServidor.length;
+  const hoje = new Date();
+  const hojeMs = Date.UTC(hoje.getUTCFullYear(), hoje.getUTCMonth(), hoje.getUTCDate());
 
-  if (feriasServidor.length === 0){
-    tbody.innerHTML = `<tr><td colspan="5" class="px-6 py-10 text-center text-slate-400 italic">
+  const parseMs = s => {
+    if (!s) return null; s = String(s).trim();
+    const isoFull = s.match(/^(\d{4})-(\d{2})-(\d{2})T/);
+    if (isoFull) return Date.UTC(+isoFull[1],+isoFull[2]-1,+isoFull[3]);
+    const br = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (br) return Date.UTC(+br[3],+br[2]-1,+br[1]);
+    const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (iso) return Date.UTC(+iso[1],+iso[2]-1,+iso[3]);
+    return null;
+  };
+
+  // Classificar registros em ativos (período inclui hoje) e históricos (já encerrados)
+  const comStatus = feriasServidor.map((f, idx) => {
+    const dIniMs = parseMs(f.InicioFerias);
+    const dFimMs = parseMs(f.FimFerias);
+    let ativo = false;
+    if (!dIniMs && !dFimMs) ativo = true;          // sem período → sempre ativo (INSS)
+    else if (dIniMs && !dFimMs) ativo = hojeMs >= dIniMs;
+    else if (!dIniMs && dFimMs) ativo = hojeMs <= dFimMs;
+    else ativo = hojeMs >= dIniMs && hojeMs <= dFimMs;
+    return { ...f, _idx: idx, _ativo: ativo };
+  });
+
+  const totalAtivos = comStatus.filter(f => f._ativo).length;
+  if (badge) badge.textContent = `${totalAtivos} ativos / ${comStatus.length} total`;
+
+  if (comStatus.length === 0){
+    tbody.innerHTML = `<tr><td colspan="6" class="px-6 py-10 text-center text-slate-400 italic">
       Nenhum registo na aba <strong>Ferias</strong> do Google Sheets.<br>
       <span class="text-xs">Use o formulário acima para inserir o primeiro registo.</span>
     </td></tr>`;
     return;
   }
 
-  tbody.innerHTML = feriasServidor.map((f, idx) => {
+  const formatDate = s => {
+    if (!s) return '';
+    s = String(s).trim();
+    const isoFull = s.match(/^(\d{4})-(\d{2})-(\d{2})T/);
+    if (isoFull) return `${isoFull[3]}/${isoFull[2]}/${isoFull[1]}`;
+    const isoSimple = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (isoSimple) return `${isoSimple[3]}/${isoSimple[2]}/${isoSimple[1]}`;
+    if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(s)) return s;
+    return s;
+  };
+
+  // Ordenar: ativos primeiro, depois históricos por data mais recente
+  const sorted = [...comStatus].sort((a, b) => {
+    if (a._ativo !== b._ativo) return a._ativo ? -1 : 1;
+    const aMs = parseMs(a.InicioFerias) || 0;
+    const bMs = parseMs(b.InicioFerias) || 0;
+    return bMs - aMs;
+  });
+
+  tbody.innerHTML = sorted.map((f) => {
     const mat      = afastNormMat(f.Matricula);
     const nome     = escapeHtml(f.Funcionario || '-');
     const sit      = escapeHtml(f.Situacao || 'Férias');
@@ -1165,37 +1295,36 @@ function afastRenderTags(){
       ? 'bg-rose-100 text-rose-800 border-rose-200'
       : 'bg-amber-100 text-amber-800 border-amber-200';
 
-    const formatDate = s => {
-      if (!s) return '';
-      s = String(s).trim();
-      // ISO completo com timezone: 2026-05-04T07:00:00.000Z → usa apenas a parte da data
-      const isoFull = s.match(/^(\d{4})-(\d{2})-(\d{2})T/);
-      if (isoFull) return `${isoFull[3]}/${isoFull[2]}/${isoFull[1]}`;
-      // yyyy-mm-dd simples → dd/mm/yyyy
-      const isoSimple = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-      if (isoSimple) return `${isoSimple[3]}/${isoSimple[2]}/${isoSimple[1]}`;
-      // já está em dd/mm/yyyy — mantém
-      if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(s)) return s;
-      return s;
-    };
-    const dIni  = formatDate(f.InicioFerias);
-    const dFim  = formatDate(f.FimFerias);
-    const periodo = isINSS ? '<em class="text-slate-400">Sem prazo definido</em>'
-                           : (dIni && dFim ? `${dIni} a ${dFim}` : (dIni || dFim || '<em class="text-slate-400">—</em>'));
+    const dIni   = formatDate(f.InicioFerias);
+    const dFim   = formatDate(f.FimFerias);
+    const periodo = isINSS && !f.InicioFerias && !f.FimFerias
+      ? '<em class="text-slate-400">Sem prazo definido</em>'
+      : (dIni && dFim ? `${dIni} a ${dFim}` : (dIni || dFim || '<em class="text-slate-400">—</em>'));
 
-    return `<tr class="hover:bg-slate-50 transition-colors">
+    const statusBadge = f._ativo
+      ? '<span class="px-2 py-0.5 text-xs font-bold rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">Ativo</span>'
+      : '<span class="px-2 py-0.5 text-xs font-bold rounded-full bg-slate-100 text-slate-500 border border-slate-200">Encerrado</span>';
+
+    // Botão excluir com aviso extra para registros encerrados
+    const deleteBtn = f._ativo
+      ? `<button type="button" data-idx="${f._idx}" class="btnAfastExcluir inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-rose-600 hover:text-white hover:bg-rose-500 border border-rose-200 hover:border-rose-500 rounded-lg transition-colors">
+           <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+           Excluir
+         </button>`
+      : `<button type="button" data-idx="${f._idx}" class="btnAfastExcluir inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-slate-400 hover:text-white hover:bg-slate-400 border border-slate-200 hover:border-slate-400 rounded-lg transition-colors" title="⚠️ Não exclua registros históricos — eles garantem que o colaborador apareça como Dispensado nas semanas passadas">
+           <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+           ⚠️ Histórico
+         </button>`;
+
+    return `<tr class="hover:bg-slate-50 transition-colors ${f._ativo ? '' : 'opacity-70'}">
       <td class="px-4 py-3 font-mono font-semibold text-slate-800">${mat}</td>
       <td class="px-4 py-3 font-medium text-slate-800">${nome}</td>
       <td class="px-4 py-3">
         <span class="px-2.5 py-1 text-xs font-semibold rounded-full border ${badgeClass}">${sit}</span>
       </td>
       <td class="px-4 py-3 text-sm text-slate-600">${periodo}</td>
-      <td class="px-4 py-3 text-center">
-        <button type="button" data-idx="${idx}" class="btnAfastExcluir inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-rose-600 hover:text-white hover:bg-rose-500 border border-rose-200 hover:border-rose-500 rounded-lg transition-colors">
-          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
-          Excluir
-        </button>
-      </td>
+      <td class="px-4 py-3">${statusBadge}</td>
+      <td class="px-4 py-3 text-center">${deleteBtn}</td>
     </tr>`;
   }).join('');
 
@@ -1203,6 +1332,11 @@ function afastRenderTags(){
   tbody.querySelectorAll('.btnAfastExcluir').forEach(btn => {
     btn.addEventListener('click', function(){
       const idx = parseInt(this.dataset.idx);
+      const reg = feriasServidor[idx];
+      const isEncerrado = !sorted.find(s => s._idx === idx)?._ativo;
+      if (isEncerrado) {
+        if (!confirm(`⚠️ ATENÇÃO: Este registro já está encerrado.\n\nExcluir registros históricos fará o colaborador "${reg?.Funcionario || ''}" aparecer incorretamente como "Não Participou" nas semanas em que esteve afastado.\n\nTem certeza que deseja excluir mesmo assim?`)) return;
+      }
       afastExcluir(idx);
     });
   });
@@ -1650,10 +1784,33 @@ async function dashProcessar(selTit, dashStatus) {
   const funcAtivos = (DASH_funcionarios||[]).filter(f => ativoValido(f.Ativo ?? f.ativo));
   const setMatPart = new Set(participantes.map(p => normalizarMatricula(p.Matricula)));
 
-  // Excluir funcionários em férias/afastamento considerando o período da semana selecionada
+  // Extrair datas reais da semana a partir do campo Titulo do treinamento
+  // (ex: "15/06/2026 a 21/06/2026") — mais confiável que converter SemanaISO
+  // porque a planilha usa numeração sequencial própria (não ISO 8601).
+  const tituloTrein = (() => {
+    const t = (DASH_treinamentos||[]).find(t => normalizarSemanaISO(t.SemanaISO) === semanaNorm);
+    return t ? String(t.Titulo || '') : (selTit || '');
+  })();
+  const datasReais = (() => {
+    const m = tituloTrein.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/g);
+    if (!m || m.length < 2) return null;
+    const toMs = s => { const p = s.split('/'); return Date.UTC(+p[2], +p[1]-1, +p[0]); };
+    return { segMs: toMs(m[0]), domMs: toMs(m[1]) };
+  })();
+  const segMs = datasReais?.segMs;
+  const domMs = datasReais?.domMs;
+
+  // Classificar os não participantes em:
+  //   • dispensados  — não participaram MAS estavam de férias/afastados na semana
+  //   • naoPart      — não participaram SEM justificativa (faltaram mesmo)
+  const dispensados = funcAtivos.filter(f =>
+    !setMatPart.has(normalizarMatricula(f.Matricula)) &&
+    funcEstaAfastadoNaSemana(f.Matricula, semanaNorm, segMs, domMs)
+  );
+
   const naoPart = funcAtivos.filter(f =>
     !setMatPart.has(normalizarMatricula(f.Matricula)) &&
-    !funcEstaAfastadoNaSemana(f.Matricula, semanaNorm)
+    !funcEstaAfastadoNaSemana(f.Matricula, semanaNorm, segMs, domMs)
   );
 
   const mapFunc = new Map(funcAtivos.map(f => [normalizarMatricula(f.Matricula), f]));
@@ -1674,26 +1831,134 @@ async function dashProcessar(selTit, dashStatus) {
     Setor: f.Setor ?? ''
   })).sort((a,b) => String(a.Nome ?? '').localeCompare(String(b.Nome ?? ''), 'pt-PT', { sensitivity: 'base' }));
 
-  DASH_participantes = participantesFull; 
+  const dispensadosFull = dispensados.map(f => {
+    // Obter informação do motivo do afastamento
+    const mat = normalizarMatricula(f.Matricula ?? '');
+    const regFerias = feriasServidor.filter(fr => afastNormMat(fr.Matricula) === mat);
+    const motivo = regFerias.length ? String(regFerias[0].Situacao || 'Férias/Afastamento') : 'Férias/Afastamento';
+    const periodo = regFerias.length ? [regFerias[0].InicioFerias, regFerias[0].FimFerias].filter(Boolean).join(' a ') : '';
+    return {
+      Matricula: mat,
+      Nome: f.Nome ?? '',
+      Setor: f.Setor ?? '',
+      Motivo: motivo,
+      Periodo: periodo
+    };
+  }).sort((a,b) => String(a.Nome ?? '').localeCompare(String(b.Nome ?? ''), 'pt-PT', { sensitivity: 'base' }));
+
+  DASH_participantes    = participantesFull;
   DASH_naoParticipantes = naoParticipantesFull;
 
-  const total = funcAtivos.filter(f => !funcEstaAfastadoNaSemana(f.Matricula, semanaNorm)).length;
-  const part = participantesFull.length;
+  // Total elegíveis = ativos - dispensados (férias/afastamento)
+  // Esta é a base correta para o cálculo de adesão
+  const total = funcAtivos.length - dispensados.length;
+  const part  = participantesFull.length;
   const nPart = naoParticipantesFull.length;
+  const nDisp = dispensadosFull.length;
 
-  const tituloAlvo = (() => { 
-    const t = (DASH_treinamentos||[]).find(t => normalizarSemanaISO(t.SemanaISO) === semanaNorm);
-    return t && t.Titulo ? String(t.Titulo) : (selTit || '-');
-  })();
+  const tituloAlvo = tituloTrein || (selTit || '-');
 
-  dashKPIs({ total, part, nPart, semana: semanaNorm, titulo: tituloAlvo, registrosAll: DASH_registrosAll || [], funcAtivos });
-  dashRender(naoParticipantesFull, participantesFull);
+  dashKPIs({ total, part, nPart, nDisp, semana: semanaNorm, titulo: tituloAlvo, registrosAll: DASH_registrosAll || [], funcAtivos });
+  dashRender(naoParticipantesFull, participantesFull, dispensadosFull);
   dashStatus.innerHTML = `<div class="text-emerald-600 bg-emerald-50 px-4 py-2 rounded-lg border border-emerald-100">Painel atualizado para a semana: ${semanaNorm}</div>`;
 
   // Exibir os Temas Abordados da semana selecionada
   const treinoAlvo = (DASH_treinamentos||[]).find(t => normalizarSemanaISO(t.SemanaISO) === semanaNorm);
   const assuntos = treinoAlvo && treinoAlvo.Assuntos ? String(treinoAlvo.Assuntos) : '';
   renderTemasAbordados('dashTemasAbordados', assuntos ? [{ titulo: tituloAlvo, semanaISO: semanaNorm, assuntos }] : []);
+
+  // Calcular histórico de faltas injustificadas (todas as semanas)
+  calcularHistoricoFaltas();
+}
+
+// ── Histórico de Faltas Injustificadas ───────────────────────────────────────
+// Para cada semana registada nos Treinamentos, calcula quais funcionários ativos
+// NÃO participaram e NÃO estavam de férias/afastados — ou seja, faltaram sem
+// justificativa. Chamado a cada "Atualizar" do Dashboard.
+async function calcularHistoricoFaltas(){
+  const tbody = document.getElementById('tbodyHistoricoFaltas');
+  const totalEl = document.getElementById('historicoFaltasTotal');
+  if (!tbody) return;
+
+  tbody.innerHTML = '<tr><td colspan="5" class="px-4 py-8 text-center text-slate-400">A calcular...</td></tr>';
+
+  try {
+    // Garantir dados carregados
+    await dashEnsureData();
+
+    const treinamentos = (DASH_treinamentos || []).filter(t => ativoValido(t.Ativo ?? t.ativo ?? 'true'));
+    const registrosAll = DASH_registrosAll || [];
+    const funcAtivos   = (DASH_funcionarios || []).filter(f => ativoValido(f.Ativo ?? f.ativo));
+    const mapFunc      = new Map(funcAtivos.map(f => [normalizarMatricula(f.Matricula), f]));
+
+    if (!treinamentos.length) {
+      tbody.innerHTML = '<tr><td colspan="5" class="px-4 py-8 text-center text-slate-400">Nenhum treinamento encontrado.</td></tr>';
+      if (totalEl) totalEl.textContent = '0';
+      return;
+    }
+
+    // Helper: dado um Titulo como "15/06/2026 a 21/06/2026", extrair datas
+    const datasDoTitulo = titulo => {
+      const matches = String(titulo || '').match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/g);
+      if (!matches || matches.length < 2) return null;
+      const toMs = s => { const p = s.split('/'); return Date.UTC(+p[2], +p[1]-1, +p[0]); };
+      return { ini: toMs(matches[0]), fim: toMs(matches[1]) };
+    };
+
+    const linhas = [];
+
+    // Ordenar semanas da mais recente para a mais antiga
+    const semanasSorted = [...treinamentos].sort((a, b) =>
+      String(b.SemanaISO || '').localeCompare(String(a.SemanaISO || ''))
+    );
+
+    for (const trein of semanasSorted) {
+      const semanaNorm = normalizarSemanaISO(String(trein.SemanaISO || ''));
+      const titulo     = String(trein.Titulo || '');
+      const datas      = datasDoTitulo(titulo);
+
+      // Matrículas que participaram nesta semana
+      const partNesta = new Set(
+        registrosAll
+          .filter(r => normalizarSemanaISO(String(r.SemanaISO || '')) === semanaNorm)
+          .map(r => normalizarMatricula(r.Matricula))
+      );
+
+      for (const f of funcAtivos) {
+        const mat = normalizarMatricula(f.Matricula);
+        if (partNesta.has(mat)) continue;
+
+        // Usar datas reais do Titulo — mais preciso que conversão ISO
+        const afastado = datas
+          ? funcEstaAfastadoNaSemana(mat, semanaNorm, datas.ini, datas.fim)
+          : funcEstaAfastadoNaSemana(mat, semanaNorm);
+        if (afastado) continue;
+
+        linhas.push({ semanaISO: semanaNorm, titulo, matricula: mat, nome: f.Nome||'', setor: f.Setor||'' });
+      }
+    }
+
+    if (totalEl) totalEl.textContent = String(linhas.length);
+
+    if (!linhas.length) {
+      tbody.innerHTML = '<tr><td colspan="5" class="px-4 py-8 text-center text-emerald-600 font-medium">✅ Nenhuma falta injustificada registada.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = linhas.map(l => `
+      <tr class="hover:bg-amber-50/40 transition-colors">
+        <td class="px-4 py-3 font-mono text-xs text-slate-500">${escapeHtml(l.semanaISO)}</td>
+        <td class="px-4 py-3 text-xs text-slate-500">${escapeHtml(l.titulo)}</td>
+        <td class="px-4 py-3 font-mono font-semibold text-slate-700">${escapeHtml(l.matricula)}</td>
+        <td class="px-4 py-3 font-semibold text-slate-800">${escapeHtml(l.nome)}</td>
+        <td class="px-4 py-3 text-slate-600">${escapeHtml(l.setor)}</td>
+      </tr>`).join('');
+
+  } catch(err) {
+    console.error('[Histórico Faltas]', err);
+    tbody.innerHTML = `<tr><td colspan="5" class="px-4 py-8 text-center text-rose-500">Erro ao calcular: ${escapeHtml(String(err.message || err))}</td></tr>`;
+    if (totalEl) totalEl.textContent = '—';
+  }
 }
 
 // Exportação Excel de Não Participantes do Dashboard
