@@ -976,15 +976,22 @@ function dashRender(naoParticipantes, participantes, dispensados){
   if (tbodyD) {
     if (!dispensados || !dispensados.length)
       tbodyD.innerHTML = '<tr><td colspan="5" class="px-4 py-8 text-center text-slate-400">Nenhum colaborador dispensado nesta semana.</td></tr>';
-    else
+    else {
+      const fmtPeriodo = s => {
+        if (!s) return '';
+        // Converter ISO com timezone (2026-06-08T07:00:00.000Z) → dd/mm/aaaa
+        return s.replace(/(\d{4})-(\d{2})-(\d{2})T[^\s]*/g, (_, y, m, d) => `${d}/${m}/${y}`)
+                .replace(/(\d{4})-(\d{2})-(\d{2})/g, (_, y, m, d) => `${d}/${m}/${y}`);
+      };
       tbodyD.innerHTML = dispensados.map(d => `
         <tr class="hover:bg-sky-50/40 transition-colors">
           <td class="px-4 py-3 font-semibold text-slate-900">${escapeHtml(d.Matricula??'')}</td>
           <td class="px-4 py-3">${escapeHtml(d.Nome??'')}</td>
           <td class="px-4 py-3">${escapeHtml(d.Setor??'')}</td>
           <td class="px-4 py-3 font-medium text-sky-700">${escapeHtml(d.Motivo??'')}</td>
-          <td class="px-4 py-3 text-slate-500 text-xs">${escapeHtml(d.Periodo??'')}</td>
+          <td class="px-4 py-3 text-slate-500 text-xs">${escapeHtml(fmtPeriodo(d.Periodo??''))}</td>
         </tr>`).join('');
+    }
   }
 }
 
@@ -1010,7 +1017,10 @@ function dashKPIs({ total, part, nPart, nDisp, semana, titulo, registrosAll, fun
   document.getElementById('barPart').style.width    = total ? `${pct}%`   : '0%';
   document.getElementById('barNaoPart').style.width = total ? `${pctNP}%` : '0%';
   const barDisp = document.getElementById('barDisp');
-  if (barDisp) barDisp.style.width = totalAll ? `${pctD}%` : '0%';
+  if (barDisp) {
+    barDisp.style.width = totalAll ? `${pctD}%` : '0%';
+    barDisp.style.backgroundColor = '#38bdf8'; // sky-400 azul - garante a cor
+  }
 
   // Gráfico de rosca: verde=participaram, vermelho=em falta, azul=dispensados
   const canvas = document.getElementById('kpiDonut');
@@ -1413,15 +1423,46 @@ async function afastInserir(){
 async function afastExcluir(idx){
   const f = feriasServidor[idx];
   if (!f) return;
-  if (!confirm(`Excluir o registo de "${f.Funcionario || f.Matricula}" (${f.Situacao})?\n\nEste colaborador voltará a ser considerado ativo no dashboard.`)) return;
-
-  const mat   = afastNormMat(f.Matricula);
-  const tbody = document.getElementById('tbodyAfastados');
   const msgEl = document.getElementById('afastStatusMsg');
+
+  // Verificar se o registro ainda está ativo
+  const hoje = new Date();
+  const hojeMs = Date.UTC(hoje.getUTCFullYear(), hoje.getUTCMonth(), hoje.getUTCDate());
+  const parseMs = s => {
+    if (!s) return null; s = String(s).trim();
+    const isoFull = s.match(/^(\d{4})-(\d{2})-(\d{2})T/);
+    if (isoFull) return Date.UTC(+isoFull[1],+isoFull[2]-1,+isoFull[3]);
+    const br = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (br) return Date.UTC(+br[3],+br[2]-1,+br[1]);
+    const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (iso) return Date.UTC(+iso[1],+iso[2]-1,+iso[3]);
+    return null;
+  };
+  const dFimMs = parseMs(f.FimFerias);
+  const isEncerrado = dFimMs !== null && dFimMs < hojeMs;
+
+  if (isEncerrado) {
+    // Registro encerrado: apenas ocultar da view local, NÃO excluir do banco
+    if (!confirm(
+      `"${f.Funcionario || f.Matricula}" já está com período encerrado.\n\n` +
+      `O registro histórico será mantido no banco de dados (necessário para o cálculo correto de dispensados nas semanas passadas).\n\n` +
+      `Deseja apenas ocultá-lo desta lista?`
+    )) return;
+    feriasServidor.splice(idx, 1);
+    AFAST_set.clear();
+    feriasServidor.forEach(r => { const m = afastNormMat(r.Matricula); if (m !== '00000') AFAST_set.add(m); });
+    afastRenderTags();
+    if (msgEl) { msgEl.innerHTML = '<span class="text-sky-600 font-semibold">✓ Ocultado desta lista (registro mantido no histórico).</span>'; setTimeout(()=>{ msgEl.innerHTML=''; }, 4000); }
+    return;
+  }
+
+  // Registro ativo: excluir do banco
+  if (!confirm(`Excluir o registo ativo de "${f.Funcionario || f.Matricula}" (${f.Situacao})?\n\nEste colaborador voltará a ser considerado ativo no dashboard.`)) return;
+
+  const mat = afastNormMat(f.Matricula);
   if (msgEl) msgEl.innerHTML = '<span class="text-amber-600">A excluir...</span>';
 
   try {
-    // Tenta action=deleteFerias e action=excluirFerias como fallback
     let success = false;
     for (const action of ['deleteFerias','excluirFerias','removeFerias']){
       try {
@@ -1433,11 +1474,9 @@ async function afastExcluir(idx){
         if (data && data.ok){ success = true; break; }
       } catch(e){ /* tenta próximo */ }
     }
-    if (!success) throw new Error('O servidor não reconheceu a ação de exclusão.');
+    if (!success) throw new Error('Falha ao excluir no servidor.');
 
-    // Atualizar lista local
     feriasServidor.splice(idx, 1);
-    // Reconstruir AFAST_set
     AFAST_set.clear();
     feriasServidor.forEach(r => { const m = afastNormMat(r.Matricula); if (m !== '00000') AFAST_set.add(m); });
     afastRenderTags();
@@ -1930,19 +1969,35 @@ async function calcularHistoricoFaltas(){
 
     if (totalEl) totalEl.textContent = String(linhas.length);
 
+    // Guardar linhas globalmente para filtragem
+    _historicoFaltasLinhas = linhas;
+
+    // Popular dropdowns de filtro
+    const semanas = [...new Set(linhas.map(l => l.semanaISO))].sort((a,b) => b.localeCompare(a));
+    const setores = [...new Set(linhas.map(l => l.setor).filter(Boolean))].sort();
+    const selSem  = document.getElementById('filtroHistSemana');
+    const selSet  = document.getElementById('filtroHistSetor');
+    if (selSem) {
+      const cur = selSem.value;
+      selSem.innerHTML = '<option value="">Todas as semanas</option>' + semanas.map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('');
+      if (cur && semanas.includes(cur)) selSem.value = cur;
+    }
+    if (selSet) {
+      const cur = selSet.value;
+      selSet.innerHTML = '<option value="">Todos os setores</option>' + setores.map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('');
+      if (cur && setores.includes(cur)) selSet.value = cur;
+    }
+
     if (!linhas.length) {
-      tbody.innerHTML = '<tr><td colspan="5" class="px-4 py-8 text-center text-emerald-600 font-medium">✅ Nenhuma falta injustificada registada.</td></tr>';
+      document.getElementById('tbodyHistoricoFaltas').innerHTML =
+        '<tr><td colspan="5" class="px-4 py-8 text-center text-emerald-600 font-medium">✅ Nenhuma falta injustificada registada.</td></tr>';
+      const countEl = document.getElementById('historicoFaltasFiltrado');
+      if (countEl) countEl.textContent = '0 de 0';
       return;
     }
 
-    tbody.innerHTML = linhas.map(l => `
-      <tr class="hover:bg-amber-50/40 transition-colors">
-        <td class="px-4 py-3 font-mono text-xs text-slate-500">${escapeHtml(l.semanaISO)}</td>
-        <td class="px-4 py-3 text-xs text-slate-500">${escapeHtml(l.titulo)}</td>
-        <td class="px-4 py-3 font-mono font-semibold text-slate-700">${escapeHtml(l.matricula)}</td>
-        <td class="px-4 py-3 font-semibold text-slate-800">${escapeHtml(l.nome)}</td>
-        <td class="px-4 py-3 text-slate-600">${escapeHtml(l.setor)}</td>
-      </tr>`).join('');
+    // Renderizar com filtros actuais
+    _renderHistoricoFiltrado();
 
   } catch(err) {
     console.error('[Histórico Faltas]', err);
@@ -1950,6 +2005,59 @@ async function calcularHistoricoFaltas(){
     if (totalEl) totalEl.textContent = '—';
   }
 }
+
+// Armazena todas as linhas do histórico para filtragem
+let _historicoFaltasLinhas = [];
+
+function _renderHistoricoFiltrado(){
+  const tbody      = document.getElementById('tbodyHistoricoFaltas');
+  const filtNome   = (document.getElementById('filtroHistNome')?.value || '').toLowerCase().trim();
+  const filtSemana = document.getElementById('filtroHistSemana')?.value || '';
+  const filtSetor  = document.getElementById('filtroHistSetor')?.value || '';
+  const countEl   = document.getElementById('historicoFaltasFiltrado');
+  if (!tbody) return;
+
+  const filtradas = _historicoFaltasLinhas.filter(l => {
+    if (filtSemana && l.semanaISO !== filtSemana) return false;
+    if (filtSetor  && l.setor !== filtSetor)      return false;
+    if (filtNome   && !l.nome.toLowerCase().includes(filtNome) && !l.matricula.includes(filtNome)) return false;
+    return true;
+  });
+
+  if (countEl) countEl.textContent = `${filtradas.length} de ${_historicoFaltasLinhas.length}`;
+
+  if (!filtradas.length){
+    tbody.innerHTML = '<tr><td colspan="5" class="px-4 py-8 text-center text-slate-400">Nenhum resultado para os filtros aplicados.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = filtradas.map(l => `
+    <tr class="hover:bg-amber-50/40 transition-colors">
+      <td class="px-4 py-3 font-mono text-xs text-slate-500">${escapeHtml(l.semanaISO)}</td>
+      <td class="px-4 py-3 text-xs text-slate-500">${escapeHtml(l.titulo)}</td>
+      <td class="px-4 py-3 font-mono font-semibold text-slate-700">${escapeHtml(l.matricula)}</td>
+      <td class="px-4 py-3 font-semibold text-slate-800">${escapeHtml(l.nome)}</td>
+      <td class="px-4 py-3 text-slate-600">${escapeHtml(l.setor)}</td>
+    </tr>`).join('');
+}
+
+// Inicializar listeners dos filtros do Histórico (chamado uma vez)
+(function initHistoricoFiltros(){
+  const btnLimpar = document.getElementById('btnFiltroHistLimpar');
+  ['filtroHistNome','filtroHistSemana','filtroHistSetor'].forEach(id => {
+    document.getElementById(id)?.addEventListener('input', _renderHistoricoFiltrado);
+    document.getElementById(id)?.addEventListener('change', _renderHistoricoFiltrado);
+  });
+  btnLimpar?.addEventListener('click', () => {
+    const nEl = document.getElementById('filtroHistNome');
+    const sEl = document.getElementById('filtroHistSemana');
+    const stEl = document.getElementById('filtroHistSetor');
+    if (nEl) nEl.value = '';
+    if (sEl) sEl.value = '';
+    if (stEl) stEl.value = '';
+    _renderHistoricoFiltrado();
+  });
+})();
 
 // Exportação Excel de Não Participantes do Dashboard
 async function dashGerarXLS_NP(){
