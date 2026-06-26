@@ -539,10 +539,8 @@
       </div>
 
       <!-- ── Histórico de Faltas ───────────────────────────────────────────────── -->
-      <!-- Mostra, para TODAS as semanas registadas, quem não assistiu e NÃO
-           estava de férias/afastado — ou seja, quem simplesmente esqueceu. -->
       <div class="mt-8 bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
-        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
           <div>
             <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
               <svg class="w-5 h-5 text-amber-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
@@ -555,6 +553,39 @@
             <span id="historicoFaltasTotal" class="text-sm font-bold text-amber-600 bg-amber-50 border border-amber-100 px-3 py-1 rounded-full">—</span>
           </div>
         </div>
+
+        <!-- Filtros do Histórico -->
+        <div class="flex flex-wrap gap-3 mb-4 p-3 bg-slate-50 rounded-xl border border-slate-100">
+          <div class="flex-1 min-w-[160px]">
+            <label class="block text-xs font-semibold text-slate-500 mb-1">🔍 Colaborador / Matrícula</label>
+            <input type="text" id="filtroHistNome" placeholder="Pesquisar nome ou matrícula..."
+              class="w-full px-3 py-1.5 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-400 bg-white" />
+          </div>
+          <div class="min-w-[140px]">
+            <label class="block text-xs font-semibold text-slate-500 mb-1">📅 Semana</label>
+            <select id="filtroHistSemana"
+              class="w-full px-3 py-1.5 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-400 bg-white">
+              <option value="">Todas as semanas</option>
+            </select>
+          </div>
+          <div class="min-w-[130px]">
+            <label class="block text-xs font-semibold text-slate-500 mb-1">🏢 Setor</label>
+            <select id="filtroHistSetor"
+              class="w-full px-3 py-1.5 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-400 bg-white">
+              <option value="">Todos os setores</option>
+            </select>
+          </div>
+          <div class="flex items-end">
+            <button id="btnFiltroHistLimpar"
+              class="px-3 py-1.5 text-xs font-semibold text-slate-500 hover:text-slate-800 border border-slate-200 hover:border-slate-400 rounded-lg transition-colors bg-white">
+              ✕ Limpar
+            </button>
+          </div>
+          <div class="flex items-end ml-auto">
+            <span class="text-xs text-slate-400">Exibindo: <strong id="historicoFaltasFiltrado" class="text-slate-700">—</strong></span>
+          </div>
+        </div>
+
         <div class="overflow-x-auto custom-scrollbar border border-slate-100 rounded-xl max-h-[500px]">
           <table class="min-w-full divide-y divide-slate-100 text-sm" id="tblHistoricoFaltas">
             <thead class="bg-slate-50 text-slate-600 sticky top-0 z-10">
@@ -586,4 +617,4 @@
 
   <script src="/gestor/app.js" defer></script>
 </body>
-</html>
+        </html>
