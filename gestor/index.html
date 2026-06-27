@@ -347,20 +347,20 @@
           </div>
 
           <!-- Tabela de registros -->
-          <div class="border border-slate-100 rounded-xl overflow-hidden">
-            <table class="min-w-full divide-y divide-slate-100 text-sm" id="tblAfastados">
-              <thead class="bg-slate-50 text-slate-600">
+          <div class="overflow-x-auto overflow-y-auto max-h-96 custom-scrollbar border border-slate-100 rounded-xl">
+            <table class="min-w-[700px] w-full divide-y divide-slate-100 text-sm" id="tblAfastados">
+              <thead class="bg-slate-50 text-slate-600 sticky top-0 z-10">
                 <tr>
-                  <th class="px-4 py-3 text-left font-semibold text-xs uppercase tracking-wider">Matrícula</th>
-                  <th class="px-4 py-3 text-left font-semibold text-xs uppercase tracking-wider">Funcionário</th>
-                  <th class="px-4 py-3 text-left font-semibold text-xs uppercase tracking-wider">Situação</th>
-                  <th class="px-4 py-3 text-left font-semibold text-xs uppercase tracking-wider">Período</th>
-                  <th class="px-4 py-3 text-left font-semibold text-xs uppercase tracking-wider">Status</th>
-                  <th class="px-4 py-3 text-center font-semibold text-xs uppercase tracking-wider">Ação</th>
+                  <th class="px-4 py-3 text-left font-semibold text-xs uppercase tracking-wider whitespace-nowrap">Matrícula</th>
+                  <th class="px-4 py-3 text-left font-semibold text-xs uppercase tracking-wider whitespace-nowrap">Funcionário</th>
+                  <th class="px-4 py-3 text-left font-semibold text-xs uppercase tracking-wider whitespace-nowrap">Situação</th>
+                  <th class="px-4 py-3 text-left font-semibold text-xs uppercase tracking-wider whitespace-nowrap">Período</th>
+                  <th class="px-4 py-3 text-left font-semibold text-xs uppercase tracking-wider whitespace-nowrap">Status</th>
+                  <th class="px-4 py-3 text-center font-semibold text-xs uppercase tracking-wider whitespace-nowrap">Ação</th>
                 </tr>
               </thead>
               <tbody id="tbodyAfastados" class="bg-white divide-y divide-slate-100 text-slate-700">
-                <tr><td colspan="5" class="px-6 py-8 text-center text-slate-400">Clique em "Atualizar" para carregar os registos do Google Sheets.</td></tr>
+                <tr><td colspan="6" class="px-6 py-8 text-center text-slate-400">Clique em "Atualizar" para carregar os registos do Google Sheets.</td></tr>
               </tbody>
             </table>
           </div>
@@ -617,4 +617,4 @@
 
   <script src="/gestor/app.js" defer></script>
 </body>
-        </html>
+</html>
