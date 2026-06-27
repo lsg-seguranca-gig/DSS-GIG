@@ -646,43 +646,89 @@ async function gerarPDF(){
     doc.autoTable({
       startY: yStartFirstPage,
       margin: { left: M_LEFT, right: M_RIGHT, top: yStartOtherPages, bottom: M_BOTTOM + 80 },
-      pageBreak: 'auto', 
+      pageBreak: 'auto',
       tableWidth: usableWidth,
-      columns, 
+      columns,
       body: rows,
-      styles: { font: 'helvetica', fontSize: 10, cellPadding: 4, valign: 'middle', overflow: 'linebreak', minCellHeight: 36 },
+      styles: { font: 'helvetica', fontSize: 10, cellPadding: 4, valign: 'middle', overflow: 'linebreak', minCellHeight: 52 },
       headStyles: { fillColor: [33, 150, 243], textColor: 255, halign: 'center' },
-      columnStyles: { Matricula: { halign: 'left' }, Nome: { halign: 'left' }, Setor: { halign: 'left', cellWidth: 120 }, DataFmt: { halign: 'left' }, _sig: { halign: 'center', cellWidth: 150 } },
-      didParseCell: (data) => { 
-        if (data.section === 'body' && data.column.dataKey === '_sig'){ 
-          data.cell.text = ['']; 
-          if (data.cell && data.cell.styles){ data.cell.styles.lineWidth = 0; } 
-        } 
+      columnStyles: {
+        Matricula: { halign: 'left', cellWidth: 60 },
+        Nome:      { halign: 'left' },
+        Setor:     { halign: 'left', cellWidth: 110 },
+        DataFmt:   { halign: 'left', cellWidth: 90 },
+        _sig:      { halign: 'center', cellWidth: 130 }
       },
-      didDrawPage: (data) => { 
-        drawHeader(data.pageNumber); 
-        drawFooter(data.pageNumber, totalPagesExp); 
-        if (data.pageNumber > 1 && data.cursor && data.cursor.y < yStartOtherPages){ data.cursor.y = yStartOtherPages; } 
+      didParseCell: (data) => {
+        if (data.section === 'body' && data.column.dataKey === '_sig'){
+          data.cell.text = [''];
+          if (data.cell && data.cell.styles){ data.cell.styles.lineWidth = 0; }
+        }
+      },
+      didDrawPage: (data) => {
+        drawHeader(data.pageNumber);
+        drawFooter(data.pageNumber, totalPagesExp);
+        if (data.pageNumber > 1 && data.cursor && data.cursor.y < yStartOtherPages){ data.cursor.y = yStartOtherPages; }
       },
       didDrawCell: (data) => {
         if (data.section === 'body' && data.column && data.column.dataKey === '_sig'){
           const val = data.row?.raw?._sig || '';
           if (typeof val === 'string' && /^data:image\/(png|jpeg|jpg);base64,/i.test(val)){
-            try { 
+            try {
               const cleanVal = val.replace(/\s/g, '');
-              const props = doc.getImageProperties(cleanVal); 
-              const wPtNat=(props.width*72)/96; 
-              const hPtNat=(props.height*72)/96; 
-              const pad=4; 
-              const maxW=data.cell.width-pad*2; 
-              const maxH=data.cell.height-pad*2; 
-              const scale=Math.min(maxW/wPtNat, maxH/hPtNat, 1); 
-              const w=wPtNat*scale; 
-              const h=hPtNat*scale; 
-              const x=data.cell.x + (data.cell.width - w)/2; 
-              const y=data.cell.y + (data.cell.height - h)/2; 
-              doc.addImage(cleanVal, props.fileType || 'PNG', x, y, w, h); 
-            } catch(e){}
+
+              // Processar a assinatura no Canvas para:
+              // 1. Fundo branco (remove transparência que causa assinaturas claras)
+              // 2. Aumentar contraste/escurecer traços
+              let finalImg = cleanVal;
+              try {
+                const canvas = document.createElement('canvas');
+                const imgEl  = new Image();
+                imgEl.src    = cleanVal;
+                // Usar dimensões reais ou fallback
+                const nW = imgEl.naturalWidth  || 400;
+                const nH = imgEl.naturalHeight || 160;
+                canvas.width  = nW;
+                canvas.height = nH;
+                const ctx = canvas.getContext('2d');
+                // Fundo branco
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, nW, nH);
+                ctx.drawImage(imgEl, 0, 0);
+                // Escurecer pixels: aumenta o canal escuro (reduz RGB claro)
+                const imgData = ctx.getImageData(0, 0, nW, nH);
+                const d = imgData.data;
+                for (let i = 0; i < d.length; i += 4){
+                  // Se pixel é escuro (traço da assinatura), torná-lo mais preto
+                  const brightness = (d[i] + d[i+1] + d[i+2]) / 3;
+                  if (brightness < 180){
+                    d[i]   = Math.max(0, d[i]   - 40);
+                    d[i+1] = Math.max(0, d[i+1] - 40);
+                    d[i+2] = Math.max(0, d[i+2] - 40);
+                  } else {
+                    // Pixels claros → branco puro
+                    d[i] = d[i+1] = d[i+2] = 255;
+                  }
+                  d[i+3] = 255; // opacidade total
+                }
+                ctx.putImageData(imgData, 0, 0);
+                finalImg = canvas.toDataURL('image/png');
+              } catch(canvasErr){ finalImg = cleanVal; }
+
+              const props = doc.getImageProperties(finalImg);
+              const pad  = 3;
+              const maxW = data.cell.width  - pad * 2;
+              const maxH = data.cell.height - pad * 2;
+              // Escalar para preencher a maior parte da célula mantendo proporção
+              const scaleW = maxW / (props.width  * 72 / 96);
+              const scaleH = maxH / (props.height * 72 / 96);
+              const scale  = Math.min(scaleW, scaleH);
+              const w = (props.width  * 72 / 96) * scale;
+              const h = (props.height * 72 / 96) * scale;
+              const x = data.cell.x + (data.cell.width  - w) / 2;
+              const y = data.cell.y + (data.cell.height - h) / 2;
+              doc.addImage(finalImg, 'PNG', x, y, w, h);
+            } catch(e){ console.warn('Sig render:', e); }
           }
         }
       },
@@ -692,23 +738,40 @@ async function gerarPDF(){
     const totalPages = doc.internal.getNumberOfPages();
     doc.setPage(totalPages);
 
-    // Bloco de Instrutores — usa a imagem assinaturas.png embutida diretamente
+    // Bloco de Instrutores — melhora qualidade renderizando em Canvas 2× antes de inserir no PDF
     if (window._ASSINATURAS_IMG_B64 && window._ASSINATURAS_IMG_B64.startsWith('data:image')) {
       try {
         const yAfterTable = doc.lastAutoTable.finalY ?? (pageHeight - M_BOTTOM - 140);
         const footerAreaH = M_BOTTOM + 4 * L_H + 20;
 
-        // Obter dimensões naturais da imagem para calcular proporção correta
-        const props = doc.getImageProperties(window._ASSINATURAS_IMG_B64);
-        const natW = props.width, natH = props.height;
-        const ratio = natH / natW;
+        // Upscale a imagem em Canvas (2× resolução) para melhor qualidade no PDF
+        let highResImg = window._ASSINATURAS_IMG_B64;
+        try {
+          const SCALE = 2; // 2× = resolução dobrada
+          const tmpImg = new Image();
+          tmpImg.src   = window._ASSINATURAS_IMG_B64;
+          const srcW = tmpImg.naturalWidth  || 1200;
+          const srcH = tmpImg.naturalHeight || 400;
+          const canvas2 = document.createElement('canvas');
+          canvas2.width  = srcW * SCALE;
+          canvas2.height = srcH * SCALE;
+          const ctx2 = canvas2.getContext('2d');
+          ctx2.imageSmoothingEnabled  = true;
+          ctx2.imageSmoothingQuality  = 'high';
+          // Fundo branco para evitar artefactos de transparência
+          ctx2.fillStyle = '#ffffff';
+          ctx2.fillRect(0, 0, canvas2.width, canvas2.height);
+          ctx2.drawImage(tmpImg, 0, 0, canvas2.width, canvas2.height);
+          highResImg = canvas2.toDataURL('image/png'); // PNG sem perdas
+        } catch(e) { console.warn('Canvas upscale falhou, usando original:', e); }
 
-        // A imagem ocupa toda a largura útil da página
-        const imgW = usableWidth;
-        const imgH = imgW * ratio;
+        // Calcular proporção com a imagem original (para dimensões no PDF)
+        const props = doc.getImageProperties(window._ASSINATURAS_IMG_B64);
+        const ratio = props.height / props.width;
+        const imgW  = usableWidth;
+        const imgH  = imgW * ratio;
 
         let yImg = yAfterTable + 16;
-        // Se não couber na página atual, cria nova página
         if (yImg + imgH > pageHeight - footerAreaH) {
           doc.addPage();
           const newPageNum = doc.internal.getNumberOfPages();
@@ -718,7 +781,7 @@ async function gerarPDF(){
           yImg = yStartOtherPages + 10;
         }
 
-        doc.addImage(window._ASSINATURAS_IMG_B64, 'JPEG', M_LEFT, yImg, imgW, imgH);
+        doc.addImage(highResImg, 'PNG', M_LEFT, yImg, imgW, imgH);
       } catch(e) {
         console.warn('Erro ao renderizar imagem de assinaturas:', e);
       }
