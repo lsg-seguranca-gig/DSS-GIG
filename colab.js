@@ -28,11 +28,19 @@ function normMat(v) {
   return String(v || '').replace(/\D/g, '').padStart(5, '0');
 }
 
+// Entende múltiplos formatos: "dd/mm/aaaa" (texto digitado) e formatos ISO
+// ("aaaa-mm-dd" ou "aaaa-mm-ddTHH:mm:ss.sssZ" — o que a API devolve quando a
+// célula da planilha foi reconhecida como Data em vez de texto puro). Sem
+// isso, um período de férias com célula-Data faz o funcionário ficar
+// bloqueado para sempre, mesmo depois de as férias terminarem.
 function parseDateBR(s) {
   if (!s) return null;
-  const m = String(s).trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-  if (!m) return null;
-  return new Date(Date.UTC(+m[3], +m[2] - 1, +m[1]));
+  s = String(s).trim();
+  const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (iso) return new Date(Date.UTC(+iso[1], +iso[2] - 1, +iso[3]));
+  const br = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (br) return new Date(Date.UTC(+br[3], +br[2] - 1, +br[1]));
+  return null;
 }
 
 function isoParaSegunda(iso) {
@@ -396,10 +404,13 @@ document.getElementById('btnBuscar').addEventListener('click', async () => {
 
     if (feriaHoje) {
       const sit = (feriaHoje.Situacao || 'Férias / Afastamento').toUpperCase();
-      // Usar as strings originais (dd/mm/aaaa) diretamente — sem converter para Date
-      const ini = feriaHoje.InicioFerias || '';
-      const fim = feriaHoje.FimFerias    || '';
-      const periodo = (ini || fim) ? ` (${ini || '?'}${fim ? ' a ' + fim : ''})` : '';
+      // Formata a partir do Date já interpretado (ini/fim, calculados acima),
+      // para exibir sempre dd/mm/aaaa — mesmo quando o valor original vier em
+      // formato ISO (célula de planilha do tipo Data).
+      const fmtDia = d => d ? String(d.getUTCDate()).padStart(2,'0') + '/' + String(d.getUTCMonth()+1).padStart(2,'0') + '/' + d.getUTCFullYear() : '';
+      const iniFmt = fmtDia(parseDateBR(feriaHoje.InicioFerias));
+      const fimFmt = fmtDia(parseDateBR(feriaHoje.FimFerias));
+      const periodo = (iniFmt || fimFmt) ? ` (${iniFmt || '?'}${fimFmt ? ' a ' + fimFmt : ''})` : '';
       showInfo(`
         <div class="flex flex-col items-center gap-3 text-center py-2">
           <span class="text-4xl">🚫</span>
