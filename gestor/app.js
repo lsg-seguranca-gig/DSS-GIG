@@ -126,6 +126,22 @@ function _cachedFetch(action){
   return _apiCache[action];
 }
 
+// Igual a _cachedFetch, mas devolve também se a chamada realmente teve
+// sucesso (para não confundir "sem dados" com "a busca falhou").
+const _apiCacheComStatus = {};
+function _cachedFetchComStatus(action){
+  if (!_apiCacheComStatus[action]) {
+    _apiCacheComStatus[action] = apiFetch('action=' + action)
+      .then(async r => {
+        if (!r.ok) return { ok: false, json: null };
+        const j = await r.json().catch(() => null);
+        return { ok: !!(j && j.ok !== false), json: j };
+      })
+      .catch(() => ({ ok: false, json: null }));
+  }
+  return _apiCacheComStatus[action];
+}
+
 // NOTA: nenhuma chamada à API é feita automaticamente ao abrir a página.
 // Os dados (treinamentos/registos/funcionários/férias) só são carregados
 // quando o usuário interage com os filtros e clica em "Pesquisar"/"Atualizar".
@@ -1627,16 +1643,26 @@ document.getElementById('dashTitulo').addEventListener('change', function(){
   }
 })();
 
+// Guarda quais fontes de dados falharam na última chamada a dashEnsureData(),
+// para que a UI possa avisar o usuário em vez de mostrar "0%" silenciosamente
+// quando, por exemplo, a busca de registros falhou/expirou.
+let DASH_ULTIMAS_FALHAS = [];
+
 async function dashEnsureData(){
+  DASH_ULTIMAS_FALHAS = [];
   // Carregar tudo em paralelo (treinamentos, funcionarios, registros)
-  const [jTrein, jFunc, jRegs] = await Promise.all([
-    !DASH_treinamentos ? _cachedFetch('treinamentos').catch(() => null) : Promise.resolve(null),
-    !DASH_funcionarios ? _cachedFetch('funcionarios').catch(() => null) : Promise.resolve(null),
-    !DASH_registrosAll ? _cachedFetch('registros').catch(() => null)    : Promise.resolve(null),
+  const [rTrein, rFunc, rRegs] = await Promise.all([
+    !DASH_treinamentos ? _cachedFetchComStatus('treinamentos') : Promise.resolve({ ok: true, json: null }),
+    !DASH_funcionarios ? _cachedFetchComStatus('funcionarios') : Promise.resolve({ ok: true, json: null }),
+    !DASH_registrosAll ? _cachedFetchComStatus('registros')    : Promise.resolve({ ok: true, json: null }),
   ]);
-  if (!DASH_treinamentos) DASH_treinamentos = _parseRows(jTrein);
-  if (!DASH_funcionarios) DASH_funcionarios = _parseRows(jFunc);
-  if (!DASH_registrosAll) DASH_registrosAll = _parseRows(jRegs);
+  if (!rTrein.ok) DASH_ULTIMAS_FALHAS.push('treinamentos');
+  if (!rFunc.ok)  DASH_ULTIMAS_FALHAS.push('funcionários');
+  if (!rRegs.ok)  DASH_ULTIMAS_FALHAS.push('registros');
+
+  if (!DASH_treinamentos) DASH_treinamentos = _parseRows(rTrein.json);
+  if (!DASH_funcionarios) DASH_funcionarios = _parseRows(rFunc.json);
+  if (!DASH_registrosAll) DASH_registrosAll = _parseRows(rRegs.json);
 
   // Carregar férias — tenta todos os nomes possíveis da aba no GAS.
   // As tentativas são feitas em PARALELO (em vez de sequenciais) para que
@@ -1777,12 +1803,29 @@ async function dashAtualizar(){
     delete _apiCache['treinamentos'];
     delete _apiCache['registros'];
     delete _apiCache['funcionarios'];
+    delete _apiCacheComStatus['treinamentos'];
+    delete _apiCacheComStatus['registros'];
+    delete _apiCacheComStatus['funcionarios'];
     DASH_treinamentos = null;
     DASH_funcionarios = null;
     DASH_registrosAll = null;
 
     // Carregar todos os dados em paralelo
     await dashEnsureData();
+
+    // Se alguma fonte falhou (ex.: timeout do Google Apps Script numa planilha
+    // grande), não seguimos em frente fingindo que os dados são "0" — isso
+    // induz o gestor a pensar que ninguém participou quando, na verdade, a
+    // busca é que falhou. Avisamos e paramos aqui.
+    if (DASH_ULTIMAS_FALHAS.length){
+      if (dashStatus) dashStatus.innerHTML =
+        '<div class="text-rose-600 bg-rose-50 px-4 py-2 rounded-lg border border-rose-100">' +
+        '⚠️ Falha ao carregar: ' + DASH_ULTIMAS_FALHAS.join(', ') + '. ' +
+        'Os dados abaixo podem estar incompletos — clique em "Atualizar" para tentar novamente.' +
+        '</div>';
+      return;
+    }
+
     afastRenderTags(); // Atualizar tabela de férias após carregar
 
     await dashPopularSelects();
