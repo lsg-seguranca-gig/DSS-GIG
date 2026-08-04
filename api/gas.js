@@ -18,6 +18,37 @@
 
 const GAS_URL = process.env.GAS_URL;
 
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// Faz uma tentativa completa de chamada ao GAS (com o passo de seguir o
+// redirect manualmente). Lança erro se algo der errado — quem chama decide
+// se tenta de novo.
+async function chamarGasUmaVez(targetUrl, req) {
+  let firstRes;
+  if (req.method === 'POST') {
+    firstRes = await fetch(targetUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req.body || {}),
+      redirect: 'manual',
+    });
+  } else {
+    firstRes = await fetch(targetUrl, { method: 'GET', redirect: 'manual' });
+  }
+
+  let finalText;
+  if (firstRes.status >= 300 && firstRes.status < 400) {
+    const location = firstRes.headers.get('location');
+    if (!location) throw new Error(`GAS retornou ${firstRes.status} sem header Location.`);
+    const secondRes = await fetch(location, { method: 'GET', redirect: 'follow' });
+    finalText = await secondRes.text();
+  } else {
+    finalText = await firstRes.text();
+  }
+
+  return JSON.parse(finalText); // lança se não for JSON válido — é o sinal para tentar de novo
+}
+
 export default async function handler(req, res) {
   // ── CORS ───────────────────────────────────────────────────────────────────
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -45,68 +76,35 @@ export default async function handler(req, res) {
 
     console.log(`[gas] ${req.method} action=${action} → ${targetUrl}`);
 
-    // ── Primeira requisição — NÃO segue redirect automaticamente ──────────
-    // O GAS retorna 302 → Location: <url_real_do_json>
-    // Precisamos capturar esse Location e fazer uma segunda chamada GET.
-    let firstRes;
+    // ── Chama o GAS ──────────────────────────────────────────────────────
+    // Retentativa automática só é segura para leituras (GET/idempotentes).
+    // Para POST (ex.: salvar um registro de participação), NUNCA reenviamos
+    // sozinhos: se a 1ª tentativa já tiver sido processada pelo GAS e só a
+    // RESPOSTA tiver se perdido no caminho, reenviar criaria uma linha
+    // duplicada na planilha — pior do que mostrar um erro para o usuário.
+    const podeTentarNovamente = req.method !== 'POST';
+    const maxTentativas = podeTentarNovamente ? 2 : 1;
 
-    if (req.method === 'POST') {
-      firstRes = await fetch(targetUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(req.body || {}),
-        redirect: 'manual',
-      });
-    } else {
-      firstRes = await fetch(targetUrl, {
-        method: 'GET',
-        redirect: 'manual',
-      });
-    }
-
-    console.log(`[gas] primeira resposta: status=${firstRes.status}`);
-
-    // ── Segue redirect manualmente (302 / 301 / 307 / 308) ────────────────
-    let finalText;
-
-    if (firstRes.status >= 300 && firstRes.status < 400) {
-      const location = firstRes.headers.get('location');
-      console.log(`[gas] redirect → ${location}`);
-
-      if (!location) {
-        return res.status(502).json({
-          ok: false,
-          error: `GAS retornou ${firstRes.status} sem header Location.`
-        });
-      }
-
-      // Segunda chamada: sempre GET para a URL final
-      const secondRes = await fetch(location, {
-        method: 'GET',
-        redirect: 'follow',
-      });
-
-      console.log(`[gas] segunda resposta: status=${secondRes.status}`);
-      finalText = await secondRes.text();
-
-    } else {
-      // Não houve redirect — lê a resposta direto
-      finalText = await firstRes.text();
-    }
-
-    console.log(`[gas] resposta final (primeiros 200 chars): ${finalText.slice(0, 200)}`);
-
-    // ── Parseia e retorna ──────────────────────────────────────────────────
     let json;
-    try {
-      json = JSON.parse(finalText);
-    } catch {
-      console.error('[gas] resposta não-JSON:', finalText.slice(0, 500));
-      return res.status(502).json({
-        ok: false,
-        error: 'GAS retornou resposta não-JSON. Verifique se o script está publicado corretamente.',
-        raw: finalText.slice(0, 300)
-      });
+    let ultimoErro;
+    for (let tentativa = 1; tentativa <= maxTentativas; tentativa++) {
+      try {
+        json = await chamarGasUmaVez(targetUrl, req);
+        ultimoErro = null;
+        break;
+      } catch (err) {
+        ultimoErro = err;
+        console.warn(`[gas] tentativa ${tentativa} falhou: ${err.message || err}`);
+        if (tentativa < maxTentativas) await sleep(400);
+      }
+    }
+
+    if (ultimoErro) {
+      console.error('[gas] falhou:', ultimoErro);
+      const msg = req.method === 'POST'
+        ? 'Não foi possível confirmar se os dados foram salvos (falha na resposta do Google, não no envio). Antes de tentar de novo, verifique na planilha se o registro já não foi gravado — para evitar duplicidade.'
+        : 'GAS retornou resposta não-JSON após retentativa. Verifique se o script está publicado corretamente.';
+      return res.status(502).json({ ok: false, error: msg });
     }
 
     return res.status(200).json(json);
