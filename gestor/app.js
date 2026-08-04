@@ -1664,30 +1664,26 @@ async function dashEnsureData(){
   if (!DASH_funcionarios) DASH_funcionarios = _parseRows(rFunc.json);
   if (!DASH_registrosAll) DASH_registrosAll = _parseRows(rRegs.json);
 
-  // Carregar férias — tenta todos os nomes possíveis da aba no GAS.
-  // As tentativas são feitas em PARALELO (em vez de sequenciais) para que
-  // o carregamento seja o mais rápido possível.
-  const feriasCandidates = ['ferias','Ferias','férias','Férias','ausencias','Ausencias','ausências','Ausências','vacation','leaves'];
+  // Carregar férias — o backend já expõe uma action única e correta
+  // (action=ferias, que trata graciosamente até o caso da aba não existir).
+  // Antes fazíamos 10 chamadas em paralelo "adivinhando" o nome da aba —
+  // isso sobrecarregava o GAS com requisições simultâneas desnecessárias e
+  // contribuía para falhas intermitentes em TODAS as chamadas (inclusive
+  // treinamentos/funcionários/registros, que competiam pelos mesmos
+  // recursos). Mantemos só 1-2 aliases como rede de segurança.
   let feriasOk = false;
-  const feriasResultados = await Promise.all(feriasCandidates.map(async action => {
+  for (const action of ['ferias', 'Ferias']) {
     try {
       const res = await apiFetch('action=' + action);
       const data = await res.json().catch(() => null);
-      return { action, data };
-    } catch(e) {
-      return { action, data: null };
-    }
-  }));
-  for (const { action, data } of feriasResultados) {
-    if (data && data.ok) {
-      const rawRows = _parseRows(data);
-      if (rawRows.length > 0) {
+      if (data && data.ok) {
+        const rawRows = _parseRows(data);
         feriasServidor = rawRows.map(mapFeriasRow).filter(f => f.Matricula && f.Matricula !== '00000');
         feriasOk = true;
         console.info('[Férias] Carregado via action=' + action + ', ' + feriasServidor.length + ' registo(s)');
         break;
       }
-    }
+    } catch(e) { /* tenta o próximo alias */ }
   }
 
   if (!feriasOk) {
