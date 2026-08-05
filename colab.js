@@ -112,6 +112,16 @@ async function fetchFuncionario(m) {
   return apiFetch('action=funcionario&matricula=' + encodeURIComponent(m));
 }
 
+// Combina, numa única chamada ao GAS, tudo que a identificação do colaborador
+// precisa: dados do funcionário, férias/afastamentos dele, catálogo de
+// treinamentos e os registros de participação dele. Substitui as 4 chamadas
+// separadas que existiam antes (1 sequencial + 3 em paralelo), reduzindo o
+// número de idas-e-voltas de rede — cada uma delas paga um custo fixo de
+// latência, então menos chamadas = identificação mais rápida.
+async function fetchIdentificarColaborador(m) {
+  return apiFetch('action=identificarColaborador&matricula=' + encodeURIComponent(m));
+}
+
 async function fetchTreinamentos() {
   return apiFetch('action=treinamentos');
 }
@@ -362,8 +372,9 @@ document.getElementById('btnBuscar').addEventListener('click', async () => {
   </svg> A buscar...`;
 
   try {
-    // 1. Verificar funcionário
-    const resp = await fetchFuncionario(m);
+    // 1+2. Identificar funcionário e já trazer férias/treinamentos/registros
+    // dele numa ÚNICA chamada ao backend (antes eram 4 chamadas separadas).
+    const resp = await fetchIdentificarColaborador(m);
     if (!resp || !resp.ok) {
       const d = resp && resp.error ? ` (${resp.error})` : '';
       showInfo(alertCard('error', `Falha ao consultar funcionário${d}.`));
@@ -374,15 +385,14 @@ document.getElementById('btnBuscar').addEventListener('click', async () => {
       return;
     }
 
-    funcionario = resp.data;
+    funcionario = resp.funcionario;
     const matNorm = normMat(funcionario.Matricula);
 
-    // 2. Carregar férias, treinamentos e registros em paralelo
-    const [fResp, tResp, rResp] = await Promise.all([
-      fetchFeriasList(),
-      fetchTreinamentos(),
-      fetchRegistros(funcionario.Matricula),
-    ]);
+    // Mantém o mesmo formato das antigas respostas separadas, para não
+    // precisar reescrever a lógica abaixo que já consumia fResp/tResp/rResp.
+    const fResp = { ok: true, data: resp.ferias      || [] };
+    const tResp = { ok: true, data: resp.treinamentos || [] };
+    const rResp = { ok: true, data: resp.registros    || [] };
 
     // 3. Processar registros de férias/afastamento deste colaborador
     let listaFerias = [];
