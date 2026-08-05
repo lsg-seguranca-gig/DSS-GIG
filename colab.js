@@ -117,7 +117,7 @@ async function fetchTreinamentos() {
 }
 
 async function fetchRegistros(m) {
-  return apiFetch('action=registros&matricula=' + encodeURIComponent(m));
+  return apiFetch('action=registros&matricula=' + encodeURIComponent(m) + '&exato=1');
 }
 
 async function fetchFeriasList() {
