@@ -174,45 +174,18 @@ function _buildTituloOpts(mapaISO, prefixOpt){
 // o select oculto de Semana ISO do Dashboard. Esta é a ÚNICA carga
 // automática feita ao abrir a página — os dados pesados (resultados da
 // pesquisa, KPIs do Dashboard, férias) continuam sendo carregados apenas
-// quando o usuário clicar em "Pesquisar"/"Atualizar". Usamos tanto
-// "treinamentos" (catálogo oficial) quanto "registos" (que pode conter
-// semanas mais antigas que já não estão mais no catálogo), para que os
-// dropdowns mostrem TODAS as semanas disponíveis na base de dados.
+// quando o usuário clicar em "Pesquisar"/"Atualizar".
+//
+// Os dropdowns usam "treinamentos" (catálogo oficial, leve — poucas dezenas
+// de linhas) para aparecer quase instantaneamente. Em seguida, em segundo
+// plano, complementamos com "registros" (pode ter semanas mais antigas que
+// já saíram do catálogo) — mas SEM bloquear a exibição inicial, já que esse
+// é o dataset pesado (1700+ linhas) que antes fazia o dropdown demorar
+// dezenas de segundos para aparecer.
 let _catalogoCarregado = false;
-async function carregarCatalogoSemanas(){
-  if (_catalogoCarregado) return;
+let _catalogoComplementado = false;
 
-  const normF = s => String(s??'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
-  const exactos = ['Titulo','titulo','TITULO','Title','title','TituloVideo','titulovideo'];
-  const mapaISO = new Map();
-  const isoSet = new Set();
-
-  try {
-    const [jTrein, jRegs] = await Promise.all([
-      _cachedFetch('treinamentos'),
-      _cachedFetch('registros'),
-    ]);
-
-    const rows1 = _parseRows(jTrein);
-    const chaves = Object.keys(rows1[0]||{});
-    const campo = exactos.find(c => chaves.includes(c)) ?? chaves.find(k => normF(k).includes('titul')) ?? null;
-    if (campo) rows1.forEach(r => {
-      const t = String(r[campo]??'').trim();
-      const iso = String(r.SemanaISO??'').trim();
-      if(t) mapaISO.set(t, iso);
-      if(iso) isoSet.add(iso);
-    });
-
-    const rows2 = _parseRows(jRegs);
-    rows2.forEach(r => {
-      const t = String(r.TituloVideo??r.Titulo??r.titulo??'').trim();
-      const iso = String(r.SemanaISO??'').trim();
-      if(t && !mapaISO.has(t)) mapaISO.set(t, iso);
-      else if(t && !mapaISO.get(t) && iso) mapaISO.set(t, iso);
-      if(iso) isoSet.add(iso);
-    });
-  } catch(e){}
-
+function _popularSelectsCatalogo(mapaISO, isoSet){
   if (mapaISO.size) {
     const opts = _buildTituloOpts(mapaISO, '');
 
@@ -225,8 +198,6 @@ async function carregarCatalogoSemanas(){
     const selAtualD = selD.value;
     selD.innerHTML = '<option value="">Selecione um título...</option>' + opts;
     if (selAtualD && [...selD.options].some(o => o.value === selAtualD)) selD.value = selAtualD;
-
-    _catalogoCarregado = true;
   }
 
   if (isoSet.size) {
@@ -234,6 +205,49 @@ async function carregarCatalogoSemanas(){
     const selIso = document.getElementById('dashSemanaIso');
     if (selIso) selIso.innerHTML = '<option value="">Selecione...</option>' + isoList.map(sem => `<option value="${escapeHtml(sem)}">${escapeHtml(sem)}</option>`).join('');
   }
+}
+
+function _extrairTituloISO(rows, campoTitulo, mapaISO, isoSet){
+  rows.forEach(r => {
+    const t = String((campoTitulo ? r[campoTitulo] : (r.TituloVideo ?? r.Titulo ?? r.titulo)) ?? '').trim();
+    const iso = String(r.SemanaISO ?? '').trim();
+    if (t && !mapaISO.has(t)) mapaISO.set(t, iso);
+    else if (t && iso && !mapaISO.get(t)) mapaISO.set(t, iso);
+    if (iso) isoSet.add(iso);
+  });
+}
+
+async function carregarCatalogoSemanas(){
+  if (_catalogoCarregado) return;
+
+  const normF = s => String(s??'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  const exactos = ['Titulo','titulo','TITULO','Title','title','TituloVideo','titulovideo'];
+  const mapaISO = new Map();
+  const isoSet = new Set();
+
+  // ── Etapa 1 (rápida): só o catálogo oficial de treinamentos ────────────
+  try {
+    const jTrein = await _cachedFetch('treinamentos');
+    const rows1 = _parseRows(jTrein);
+    const chaves = Object.keys(rows1[0]||{});
+    const campo = exactos.find(c => chaves.includes(c)) ?? chaves.find(k => normF(k).includes('titul')) ?? null;
+    if (campo) _extrairTituloISO(rows1, campo, mapaISO, isoSet);
+  } catch(e){}
+
+  _popularSelectsCatalogo(mapaISO, isoSet);
+  _catalogoCarregado = mapaISO.size > 0;
+
+  // ── Etapa 2 (em segundo plano): complementa com semanas antigas que só
+  // existem em "registros" e não estão mais no catálogo. Não bloqueia nada
+  // que já foi mostrado na etapa 1 — só adiciona opções extras se achar.
+  if (_catalogoComplementado) return;
+  _catalogoComplementado = true;
+  try {
+    const jRegs = await _cachedFetch('registros');
+    const antesDoTamanho = mapaISO.size;
+    _extrairTituloISO(_parseRows(jRegs), null, mapaISO, isoSet);
+    if (mapaISO.size !== antesDoTamanho) _popularSelectsCatalogo(mapaISO, isoSet);
+  } catch(e){}
 }
 
 // Carrega o catálogo imediatamente (fire-and-forget)
