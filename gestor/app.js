@@ -285,6 +285,9 @@ async function buscar(){
   const qs = new URLSearchParams({ action: 'registros' });
   if (fMat) qs.append('matricula', fMat);
   if (fNome) qs.append('nome', fNome);
+  if (fTitulo) qs.append('titulo', fTitulo);
+  if (fDataI) qs.append('dataInicial', fDataI);
+  if (fDataF) qs.append('dataFinal', fDataF);
 
   try {
     const res = await apiFetch(qs.toString());
@@ -557,6 +560,40 @@ async function gerarPDF(){
     const baseSource = (Array.isArray(registrosFiltrados) && registrosFiltrados.length) ? registrosFiltrados : registros;
     if (!baseSource || !baseSource.length){ alert('Sem dados disponíveis para gerar PDF.'); return; }
     const base = [...baseSource].sort((a,b) => String(a.Nome ?? '').localeCompare(String(b.Nome ?? ''), 'pt-PT', { sensitivity: 'base' }));
+
+    // A busca da tela não traz mais as assinaturas (fica mais leve/rápida
+    // para simples visualização). Aqui, só na hora de gerar o PDF — onde a
+    // assinatura é essencial —, buscamos elas sob demanda, reaproveitando os
+    // mesmos filtros da última pesquisa, e mesclamos no conjunto de dados.
+    try {
+      if (base.length && base.length <= 200) {
+        const qsSig = new URLSearchParams({ action: 'registros', comAssinatura: '1' });
+        const fMatAtual   = document.getElementById('fMat').value.trim();
+        const fNomeAtual  = document.getElementById('fNome').value.trim();
+        const fTituloAtual = document.getElementById('fSemanaTitulo').value.trim();
+        const fDataIAtual = document.getElementById('fDataInicio').value;
+        const fDataFAtual = document.getElementById('fDataFinal').value;
+        if (fMatAtual) qsSig.append('matricula', fMatAtual);
+        if (fNomeAtual) qsSig.append('nome', fNomeAtual);
+        if (fTituloAtual) qsSig.append('titulo', fTituloAtual);
+        if (fDataIAtual) qsSig.append('dataInicial', fDataIAtual);
+        if (fDataFAtual) qsSig.append('dataFinal', fDataFAtual);
+
+        const resSig = await apiFetch(qsSig.toString());
+        const dataSig = await resSig.json().catch(() => null);
+        if (dataSig && dataSig.ok && Array.isArray(dataSig.data)) {
+          const mapaSig = new Map();
+          dataSig.data.forEach(r => {
+            const chave = `${r.Matricula ?? ''}__${r.SemanaISO ?? ''}__${r.TituloVideo ?? ''}`;
+            if (r.AssinaturaPNG) mapaSig.set(chave, r.AssinaturaPNG);
+          });
+          base.forEach(r => {
+            const chave = `${r.Matricula ?? ''}__${r.SemanaISO ?? ''}__${r.TituloVideo ?? ''}`;
+            if (mapaSig.has(chave)) r.AssinaturaPNG = mapaSig.get(chave);
+          });
+        }
+      }
+    } catch(e) { console.warn('Não foi possível carregar assinaturas para o PDF:', e); }
     const titulos = [...new Set(base.map(r => r.TituloVideo).filter(Boolean))];
     const tituloSemana = titulos.length ? titulos.join('; ') : '-';
 
