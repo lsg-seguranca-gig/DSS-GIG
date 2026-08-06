@@ -350,12 +350,11 @@ function renderTabela(list){
   const tbody = document.getElementById('tbody');
   tbody.innerHTML = '';
   if (!list || list.length === 0){ 
-    tbody.innerHTML = '<tr><td colspan="7" class="px-6 py-10 text-center text-slate-400">Sem registos encontrados para os filtros aplicados.</td></tr>'; 
+    tbody.innerHTML = '<tr><td colspan="6" class="px-6 py-10 text-center text-slate-400">Sem registos encontrados para os filtros aplicados.</td></tr>'; 
     return; 
   }
   tbody.innerHTML = list.map(r => {
     const dataPart = formatTimestamp(r.Timestamp);
-    const assinatura = r.AssinaturaPNG ? '<img class="sig-img" src="' + r.AssinaturaPNG + '" alt="Assinatura" />' : '-';
     return `
       <tr class="hover:bg-slate-50 transition-colors">
         <td class="px-6 py-4 whitespace-nowrap font-medium text-slate-900">${escapeHtml(r.Matricula ?? '')}</td>
@@ -364,7 +363,6 @@ function renderTabela(list){
         <td style="display:none">${escapeHtml(r.SemanaISO ?? '')}</td>
         <td class="px-6 py-4 max-w-xs truncate" title="${escapeHtml(r.TituloVideo ?? '')}">${escapeHtml(r.TituloVideo ?? '')}</td>
         <td class="px-6 py-4 whitespace-nowrap">${escapeHtml(dataPart)}</td>
-        <td class="px-6 py-4 whitespace-nowrap">${assinatura}</td>
       </tr>`;
   }).join('');
 }
@@ -563,21 +561,15 @@ async function gerarPDF(){
 
     // A busca da tela não traz mais as assinaturas (fica mais leve/rápida
     // para simples visualização). Aqui, só na hora de gerar o PDF — onde a
-    // assinatura é essencial —, buscamos elas sob demanda, reaproveitando os
-    // mesmos filtros da última pesquisa, e mesclamos no conjunto de dados.
+    // assinatura é essencial —, buscamos elas sob demanda, usando a lista de
+    // matrículas que JÁ ESTÁ CONFIRMADA em `base` (a mesma que vai para o
+    // relatório) — não relemos o formulário, para não depender de nada ter
+    // mudado entre a pesquisa e o clique em "Gerar PDF".
     try {
-      if (base.length && base.length <= 200) {
+      const matriculasBase = [...new Set(base.map(r => r.Matricula).filter(v => v !== null && v !== undefined && v !== ''))];
+      if (matriculasBase.length && matriculasBase.length <= 200) {
         const qsSig = new URLSearchParams({ action: 'registros', comAssinatura: '1' });
-        const fMatAtual   = document.getElementById('fMat').value.trim();
-        const fNomeAtual  = document.getElementById('fNome').value.trim();
-        const fTituloAtual = document.getElementById('fSemanaTitulo').value.trim();
-        const fDataIAtual = document.getElementById('fDataInicio').value;
-        const fDataFAtual = document.getElementById('fDataFinal').value;
-        if (fMatAtual) qsSig.append('matricula', fMatAtual);
-        if (fNomeAtual) qsSig.append('nome', fNomeAtual);
-        if (fTituloAtual) qsSig.append('titulo', fTituloAtual);
-        if (fDataIAtual) qsSig.append('dataInicial', fDataIAtual);
-        if (fDataFAtual) qsSig.append('dataFinal', fDataFAtual);
+        qsSig.set('matriculas', matriculasBase.join(','));
 
         const resSig = await apiFetch(qsSig.toString());
         const dataSig = await resSig.json().catch(() => null);
@@ -591,7 +583,11 @@ async function gerarPDF(){
             const chave = `${r.Matricula ?? ''}__${r.SemanaISO ?? ''}__${r.TituloVideo ?? ''}`;
             if (mapaSig.has(chave)) r.AssinaturaPNG = mapaSig.get(chave);
           });
+        } else {
+          console.warn('[PDF] busca de assinaturas não retornou ok:', dataSig);
         }
+      } else if (matriculasBase.length > 200) {
+        console.warn('[PDF] mais de 200 pessoas — assinaturas não serão buscadas automaticamente.');
       }
     } catch(e) { console.warn('Não foi possível carregar assinaturas para o PDF:', e); }
     const titulos = [...new Set(base.map(r => r.TituloVideo).filter(Boolean))];
