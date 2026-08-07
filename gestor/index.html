@@ -294,7 +294,10 @@
         </summary>
 
         <div class="px-6 pb-6 space-y-5">
-          <div class="bg-blue-50 border border-blue-200 rounded-xl p-4 text-sm text-blue-800">
+          <div id="msgHistPerm" class="bg-blue-50 border border-blue-200 rounded-xl p-4 text-sm text-blue-800 relative pr-10">
+            <button type="button" onclick="document.getElementById('msgHistPerm').remove()" class="absolute top-3 right-3 text-blue-400 hover:text-blue-700 transition-colors" title="Fechar avisos">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
             <p class="font-semibold mb-1">📋 Histórico permanente — nunca apague registros passados</p>
             <p class="text-xs text-blue-700">Todos os afastamentos (passados e atuais) devem ser mantidos aqui. O sistema usa as datas de cada registro para determinar automaticamente quem estava dispensado em cada semana selecionada no Dashboard — mesmo que o período já tenha terminado. Apagar um registro passado fará o colaborador aparecer incorretamente como "Não Participou" naquela semana.</p>
           </div>
