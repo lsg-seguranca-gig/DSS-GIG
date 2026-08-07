@@ -18,7 +18,6 @@ const API_BASE = "/api/gas";
    * LSG SKY CHEFS — LOGO EMBUTIDO (SVG) COMO FALLBACK GARANTIDO
    * Usado no PDF se lsg sky chefs logo.png não estiver acessível
    * ==================================================== */
-  // window._LOGO_FALLBACK_B64 é resolvido no momento do uso (após lazy load via logo_b64.js)
 
   /* ====================================================
    * INSTRUTORES DO TREINAMENTO
@@ -40,17 +39,12 @@ const API_BASE = "/api/gas";
   },
 ];
 
-// Imagem de assinaturas dos instrutores embutida diretamente no código
-// window._ASSINATURAS_IMG_B64 é resolvido no momento do uso (após lazy load via assin_b64.js)
-
 // Pré-carregamento do logo assim que a página abre (para o PDF não precisar esperar)
 let _logoLoadPromise = null;
 function loadLogoAsDataURL(){
   if (_logoLoadPromise) return _logoLoadPromise;
-  // Logo real já embutido como window._LOGO_FALLBACK_B64 — resolve imediatamente (sem esperar rede)
   LOGO_DATAURL = window._LOGO_FALLBACK_B64;
   _logoLoadPromise = Promise.resolve(LOGO_DATAURL);
-  // Tentativa silenciosa de usar o ficheiro externo se disponível no servidor
   fetch(LOGO_SRC, { cache: 'force-cache' })
     .then(r => r.ok ? r.blob() : Promise.reject())
     .then(blob => new Promise((res, rej) => {
@@ -84,7 +78,6 @@ function setupDatePicker(textId, nativeId, calBtnId){
   const btn    = document.getElementById(calBtnId);
   if (!txt || !native || !btn) return;
 
-  // Aplicar máscara dd/mm/aaaa dinamicamente ao digitar
   txt.addEventListener('input', function(){
     let v = this.value.replace(/\D/g, '');
     if (v.length > 8) v = v.slice(0, 8);
@@ -93,14 +86,12 @@ function setupDatePicker(textId, nativeId, calBtnId){
     else                    this.value = v;
   });
 
-  // Abrir o datepicker nativo invisível ao clicar no ícone do calendário
   btn.addEventListener('click', function(){
     const m = txt.value.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
     if (m) native.value = `${m[3]}-${m[2]}-${m[1]}`;
     native.showPicker ? native.showPicker() : native.click();
   });
 
-  // Sincronizar o valor selecionado no nativo de volta para o input formatado
   native.addEventListener('change', function(){
     if (!this.value) return;
     const [y, mo, d] = this.value.split('-');
@@ -126,8 +117,6 @@ function _cachedFetch(action){
   return _apiCache[action];
 }
 
-// Igual a _cachedFetch, mas devolve também se a chamada realmente teve
-// sucesso (para não confundir "sem dados" com "a busca falhou").
 const _apiCacheComStatus = {};
 function _cachedFetchComStatus(action){
   if (!_apiCacheComStatus[action]) {
@@ -142,11 +131,6 @@ function _cachedFetchComStatus(action){
   return _apiCacheComStatus[action];
 }
 
-// NOTA: nenhuma chamada à API é feita automaticamente ao abrir a página.
-// Os dados (treinamentos/registos/funcionários/férias) só são carregados
-// quando o usuário interage com os filtros e clica em "Pesquisar"/"Atualizar".
-
-// Descompactação das estruturas JSON retornadas pela API (GAS)
 function _parseRows(json){
   if (Array.isArray(json))         return json;
   if (Array.isArray(json?.data))   return json.data;
@@ -158,7 +142,6 @@ function _parseRows(json){
   return [];
 }
 
-// Auxiliar para a geração das opções (Dropdown) dos títulos e semanas
 function _buildTituloOpts(mapaISO, prefixOpt){
   return prefixOpt + [...mapaISO.entries()]
     .sort((a,b)=>{ 
@@ -169,19 +152,6 @@ function _buildTituloOpts(mapaISO, prefixOpt){
     .map(([t]) => `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`).join('');
 }
 
-// Carrega o catálogo de Semanas/Títulos (treinamentos + registos) e popula
-// os dropdowns "Título do Vídeo" (Principal), "Tema / Vídeo" (Dashboard) e
-// o select oculto de Semana ISO do Dashboard. Esta é a ÚNICA carga
-// automática feita ao abrir a página — os dados pesados (resultados da
-// pesquisa, KPIs do Dashboard, férias) continuam sendo carregados apenas
-// quando o usuário clicar em "Pesquisar"/"Atualizar".
-//
-// Os dropdowns usam "treinamentos" (catálogo oficial, leve — poucas dezenas
-// de linhas) para aparecer quase instantaneamente. Em seguida, em segundo
-// plano, complementamos com "registros" (pode ter semanas mais antigas que
-// já saíram do catálogo) — mas SEM bloquear a exibição inicial, já que esse
-// é o dataset pesado (1700+ linhas) que antes fazia o dropdown demorar
-// dezenas de segundos para aparecer.
 let _catalogoCarregado = false;
 let _catalogoComplementado = false;
 
@@ -225,7 +195,6 @@ async function carregarCatalogoSemanas(){
   const mapaISO = new Map();
   const isoSet = new Set();
 
-  // ── Etapa 1 (rápida): só o catálogo oficial de treinamentos ────────────
   try {
     const jTrein = await _cachedFetch('treinamentos');
     const rows1 = _parseRows(jTrein);
@@ -237,9 +206,6 @@ async function carregarCatalogoSemanas(){
   _popularSelectsCatalogo(mapaISO, isoSet);
   _catalogoCarregado = mapaISO.size > 0;
 
-  // ── Etapa 2 (em segundo plano): complementa com semanas antigas que só
-  // existem em "registros" e não estão mais no catálogo. Não bloqueia nada
-  // que já foi mostrado na etapa 1 — só adiciona opções extras se achar.
   if (_catalogoComplementado) return;
   _catalogoComplementado = true;
   try {
@@ -250,11 +216,8 @@ async function carregarCatalogoSemanas(){
   } catch(e){}
 }
 
-// Carrega o catálogo imediatamente (fire-and-forget)
 carregarCatalogoSemanas();
 
-// Caso a primeira tentativa falhe (ex.: instabilidade de rede no momento do
-// load), tenta novamente na primeira interação do usuário com os campos.
 (function initFiltroTitulo(){
   const selP = document.getElementById('fSemanaTitulo');
   const selD = document.getElementById('dashTitulo');
@@ -264,9 +227,6 @@ carregarCatalogoSemanas();
     sel.addEventListener('mousedown', carregarCatalogoSemanas, { once: true });
   });
 })();
-
-
-
 
 // Lógica principal de pesquisa de registos
 async function buscar(){
@@ -299,12 +259,6 @@ async function buscar(){
     const di = normalizarDataInput(fDataI);
     const df = fimDoDia(normalizarDataInput(fDataF));
 
-    // Filtro de data: compara diretamente o Timestamp de cada registo com o
-    // intervalo informado. Isso garante que "Data Inicial = Data Final = 15/06/2026"
-    // retorne todos os registos cujo Timestamp caia nesse dia — independentemente
-    // da semana ISO a que pertençam.
-    // O filtro por "Título do Vídeo" continua funcionando por semana (valor do select).
-
     let lista = registros.filter(r => {
       const ts = parseTimestamp(r.Timestamp);
       if (!ts) return false;
@@ -330,7 +284,6 @@ async function buscar(){
     renderTabela(registrosFiltrados);
     status.innerHTML = '<div class="text-emerald-600 font-semibold bg-emerald-50 px-4 py-2.5 rounded-lg border border-emerald-100">Pesquisa concluída: ' + registrosFiltrados.length + ' registo(s) encontrado(s).</div>';
 
-    // Exibir os Temas Abordados da(s) semana(s) presente(s) nos resultados
     try {
       const temas = await buscarAssuntosPorSemana(registrosFiltrados);
       renderTemasAbordados('temasAbordados', temas);
@@ -367,10 +320,6 @@ function renderTabela(list){
   }).join('');
 }
 
-// ─── Lazy loaders: as bibliotecas de exportação só são baixadas quando ───
-// ─── o usuário realmente clicar em "Exportar Excel" ou "Gerar PDF".    ───
-// ─── Isso elimina ~1,4 MB de scripts bloqueantes do carregamento inicial. ─
-
 function _loadScript(src){
   return new Promise((resolve, reject) => {
     if (document.querySelector(`script[src="${src}"]`)) { resolve(); return; }
@@ -387,23 +336,18 @@ async function _ensureXLSX(){
   await _loadScript('https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js');
 }
 
-// Rastreia se os scripts b64 já foram carregados com sucesso
 let _b64Loaded = false;
 
 async function _ensureJsPDF(){
-  // Carrega jsPDF se ainda não disponível
   if (!window.jspdf) {
     await _loadScript('https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js');
   }
 
-  // autoTable deve ser carregado DEPOIS do jsPDF e só uma vez
   const testDoc = window.jspdf && new window.jspdf.jsPDF();
   if (!testDoc || typeof testDoc.autoTable !== 'function') {
     await _loadScript('https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js');
   }
 
-  // Carrega logo_b64.js e assin_b64.js da raiz do site
-  // Usa caminhos absolutos a partir da raiz — os arquivos estão na raiz do repositório
   if (!_b64Loaded) {
     await Promise.all([
       _loadScriptForce('/gestor/logo_b64.js'),
@@ -413,11 +357,8 @@ async function _ensureJsPDF(){
   }
 }
 
-// Versão de _loadScript que SEMPRE recarrega (remove tag anterior se existir)
-// — necessário quando um script falhou na carga anterior
 function _loadScriptForce(src){
   return new Promise((resolve, reject) => {
-    // Remover tag antiga (pode ter falhado)
     const existing = document.querySelector(`script[src="${src}"]`);
     if (existing) existing.remove();
     const s = document.createElement('script');
@@ -458,12 +399,6 @@ async function fetchTreinamentos(){
   }
 }
 
-// Busca os "Assuntos" (Temas Abordados) cadastrados na aba Treinamentos para
-// um conjunto de registos já filtrados (ex.: resultado de uma pesquisa).
-// Reaproveita exatamente a mesma lógica de correspondência usada no PDF:
-// tenta casar pelo Título do vídeo e, em último caso, pela Semana ISO.
-// Retorna um array de blocos { titulo, semanaISO, assuntos }, um por semana
-// distinta presente em `lista`, ordenados da mais recente para a mais antiga.
 async function buscarAssuntosPorSemana(lista){
   if (!Array.isArray(lista) || !lista.length) return [];
   const titulos = [...new Set(lista.map(r => r.TituloVideo).filter(Boolean))];
@@ -479,14 +414,12 @@ async function buscarAssuntosPorSemana(lista){
     if (!hit && semanaISO) hit = (tList||[]).find(t => normalizarSemanaISO(String(t['SemanaISO'])) === normalizarSemanaISO(semanaISO));
     const assuntos = hit && hit['Assuntos'] ? String(hit['Assuntos']) : '';
     return { titulo: tit, semanaISO, assuntos };
-  }).filter(b => b.assuntos); // só mostrar blocos que de facto têm assuntos cadastrados
+  }).filter(b => b.assuntos);
 
   blocks.sort((a, b) => dashCompareSemanaISODesc(a.semanaISO, b.semanaISO));
   return blocks;
 }
 
-// Renderiza os blocos de Assuntos num contentor (usado em Principal e Dashboard).
-// Esconde o contentor quando não há nada a mostrar.
 function renderTemasAbordados(containerId, blocks){
   const el = document.getElementById(containerId);
   if (!el) return;
@@ -510,7 +443,6 @@ function renderTemasAbordados(containerId, blocks){
   el.classList.remove('hidden');
 }
 
-// Auxiliares de Assinatura Digital e Parsing de URLs de Base64
 const __dataUrlCache = new Map();
 function isDataURLImage(v){ return (typeof v === 'string' && /^data:image\/(png|jpeg|jpg);base64,/i.test(v.trim())); }
 async function urlToDataURL(url){ 
@@ -559,12 +491,6 @@ async function gerarPDF(){
     if (!baseSource || !baseSource.length){ alert('Sem dados disponíveis para gerar PDF.'); return; }
     const base = [...baseSource].sort((a,b) => String(a.Nome ?? '').localeCompare(String(b.Nome ?? ''), 'pt-PT', { sensitivity: 'base' }));
 
-    // A busca da tela não traz mais as assinaturas (fica mais leve/rápida
-    // para simples visualização). Aqui, só na hora de gerar o PDF — onde a
-    // assinatura é essencial —, buscamos elas sob demanda, usando a lista de
-    // matrículas que JÁ ESTÁ CONFIRMADA em `base` (a mesma que vai para o
-    // relatório) — não relemos o formulário, para não depender de nada ter
-    // mudado entre a pesquisa e o clique em "Gerar PDF".
     try {
       const matriculasBase = [...new Set(base.map(r => r.Matricula).filter(v => v !== null && v !== undefined && v !== ''))];
       if (matriculasBase.length && matriculasBase.length <= 200) {
@@ -583,11 +509,7 @@ async function gerarPDF(){
             const chave = `${r.Matricula ?? ''}__${r.SemanaISO ?? ''}__${r.TituloVideo ?? ''}`;
             if (mapaSig.has(chave)) r.AssinaturaPNG = mapaSig.get(chave);
           });
-        } else {
-          console.warn('[PDF] busca de assinaturas não retornou ok:', dataSig);
         }
-      } else if (matriculasBase.length > 200) {
-        console.warn('[PDF] mais de 200 pessoas — assinaturas não serão buscadas automaticamente.');
       }
     } catch(e) { console.warn('Não foi possível carregar assinaturas para o PDF:', e); }
     const titulos = [...new Set(base.map(r => r.TituloVideo).filter(Boolean))];
@@ -601,10 +523,6 @@ async function gerarPDF(){
     const usableWidth = pageWidth - M_LEFT - M_RIGHT;
     const LOGO_W = 120, LOGO_H = 52, L_H = 14;
 
-    // Montar um bloco "Semana / Temas Abordados" para cada Título de Vídeo
-    // presente nos registos selecionados. Se mais de um vídeo (mais de uma
-    // semana) tiver sido selecionado, cada um aparece em seu próprio bloco,
-    // com os respectivos assuntos.
     let semanaBlocks = [];
     try {
       const tList = await fetchTreinamentos();
@@ -618,13 +536,11 @@ async function gerarPDF(){
         const assuntos = hit && hit['Assuntos'] ? String(hit['Assuntos']) : '';
         return { titulo: tit || tituloSemana, semanaISO, assuntos };
       });
-      // Ordenar da semana mais recente para a mais antiga
       semanaBlocks.sort((a, b) => dashCompareSemanaISODesc(a.semanaISO, b.semanaISO));
     } catch(e){
       semanaBlocks = [{ titulo: tituloSemana, semanaISO: '', assuntos: '' }];
     }
 
-    // Pré-calcular as linhas de cada bloco de assuntos (já com a quebra automática)
     semanaBlocks.forEach(b => {
       b.assuntosLines = [];
       if (b.assuntos) {
@@ -635,7 +551,6 @@ async function gerarPDF(){
     });
 
     function drawHeader(pageNumber){
-      // Logo embutido — sempre disponível, formato JPEG
       if (LOGO_DATAURL && LOGO_DATAURL.startsWith('data:image')) {
         try {
           const fmt = LOGO_DATAURL.includes('data:image/svg') ? 'SVG'
@@ -659,7 +574,7 @@ async function gerarPDF(){
             });
             y += L_H + b.assuntosLines.length * L_H;
           }
-          y += L_H; // espaçamento entre blocos de semana
+          y += L_H;
         });
       }
     }
@@ -690,15 +605,13 @@ async function gerarPDF(){
 
     const totalPagesExp = '{total_pages_count_string}';
 
-    // Calcular a altura total ocupada pelos blocos "Semana / Temas Abordados"
-    // (deve usar exatamente o mesmo cálculo de incrementos usado em drawHeader)
     let alturaBlocosSemana = 0;
     semanaBlocks.forEach(b => {
-      alturaBlocosSemana += 2 * L_H; // linha "Semana: X"
+      alturaBlocosSemana += 2 * L_H;
       if (b.assuntosLines.length){
-        alturaBlocosSemana += L_H + b.assuntosLines.length * L_H; // "Temas Abordados:" + linhas
+        alturaBlocosSemana += L_H + b.assuntosLines.length * L_H;
       }
-      alturaBlocosSemana += L_H; // espaçamento entre blocos
+      alturaBlocosSemana += L_H;
     });
 
     let yStartFirstPage = M_TOP + 20 + 2 * L_H + alturaBlocosSemana + L_H;
@@ -739,40 +652,31 @@ async function gerarPDF(){
           if (typeof val === 'string' && /^data:image\/(png|jpeg|jpg);base64,/i.test(val)){
             try {
               const cleanVal = val.replace(/\s/g, '');
-
-              // Processar a assinatura no Canvas para:
-              // 1. Fundo branco (remove transparência que causa assinaturas claras)
-              // 2. Aumentar contraste/escurecer traços
               let finalImg = cleanVal;
               try {
                 const canvas = document.createElement('canvas');
                 const imgEl  = new Image();
                 imgEl.src    = cleanVal;
-                // Usar dimensões reais ou fallback
                 const nW = imgEl.naturalWidth  || 400;
                 const nH = imgEl.naturalHeight || 160;
                 canvas.width  = nW;
                 canvas.height = nH;
                 const ctx = canvas.getContext('2d');
-                // Fundo branco
                 ctx.fillStyle = '#ffffff';
                 ctx.fillRect(0, 0, nW, nH);
                 ctx.drawImage(imgEl, 0, 0);
-                // Escurecer pixels: aumenta o canal escuro (reduz RGB claro)
                 const imgData = ctx.getImageData(0, 0, nW, nH);
                 const d = imgData.data;
                 for (let i = 0; i < d.length; i += 4){
-                  // Se pixel é escuro (traço da assinatura), torná-lo mais preto
                   const brightness = (d[i] + d[i+1] + d[i+2]) / 3;
                   if (brightness < 180){
                     d[i]   = Math.max(0, d[i]   - 40);
                     d[i+1] = Math.max(0, d[i+1] - 40);
                     d[i+2] = Math.max(0, d[i+2] - 40);
                   } else {
-                    // Pixels claros → branco puro
                     d[i] = d[i+1] = d[i+2] = 255;
                   }
-                  d[i+3] = 255; // opacidade total
+                  d[i+3] = 255;
                 }
                 ctx.putImageData(imgData, 0, 0);
                 finalImg = canvas.toDataURL('image/png');
@@ -782,7 +686,6 @@ async function gerarPDF(){
               const pad  = 3;
               const maxW = data.cell.width  - pad * 2;
               const maxH = data.cell.height - pad * 2;
-              // Escalar para preencher a maior parte da célula mantendo proporção
               const scaleW = maxW / (props.width  * 72 / 96);
               const scaleH = maxH / (props.height * 72 / 96);
               const scale  = Math.min(scaleW, scaleH);
@@ -797,20 +700,17 @@ async function gerarPDF(){
       },
     });
 
-    // Garante que estamos na última página absoluta para desenhar os instrutores
     const totalPages = doc.internal.getNumberOfPages();
     doc.setPage(totalPages);
 
-    // Bloco de Instrutores — melhora qualidade renderizando em Canvas 2× antes de inserir no PDF
     if (window._ASSINATURAS_IMG_B64 && window._ASSINATURAS_IMG_B64.startsWith('data:image')) {
       try {
         const yAfterTable = doc.lastAutoTable.finalY ?? (pageHeight - M_BOTTOM - 140);
         const footerAreaH = M_BOTTOM + 4 * L_H + 20;
 
-        // Upscale a imagem em Canvas (2× resolução) para melhor qualidade no PDF
         let highResImg = window._ASSINATURAS_IMG_B64;
         try {
-          const SCALE = 2; // 2× = resolução dobrada
+          const SCALE = 2;
           const tmpImg = new Image();
           tmpImg.src   = window._ASSINATURAS_IMG_B64;
           const srcW = tmpImg.naturalWidth  || 1200;
@@ -821,14 +721,12 @@ async function gerarPDF(){
           const ctx2 = canvas2.getContext('2d');
           ctx2.imageSmoothingEnabled  = true;
           ctx2.imageSmoothingQuality  = 'high';
-          // Fundo branco para evitar artefactos de transparência
           ctx2.fillStyle = '#ffffff';
           ctx2.fillRect(0, 0, canvas2.width, canvas2.height);
           ctx2.drawImage(tmpImg, 0, 0, canvas2.width, canvas2.height);
-          highResImg = canvas2.toDataURL('image/png'); // PNG sem perdas
+          highResImg = canvas2.toDataURL('image/png');
         } catch(e) { console.warn('Canvas upscale falhou, usando original:', e); }
 
-        // Calcular proporção com a imagem original (para dimensões no PDF)
         const props = doc.getImageProperties(window._ASSINATURAS_IMG_B64);
         const ratio = props.height / props.width;
         const imgW  = usableWidth;
@@ -913,7 +811,6 @@ async function excluirFuncionarioViaPrompt(){
     }
     const matricula = mRaw;
 
-    // Buscar localmente os dados do colaborador para confirmar exclusão
     await dashEnsureData();
     const colab = (DASH_funcionarios || []).find(f => afastNormMat(f.Matricula) === matricula);
 
@@ -930,7 +827,6 @@ async function excluirFuncionarioViaPrompt(){
     let success = false;
     let errorMsg = '';
 
-    // Prova de exclusão primária: action=excluirFuncionario
     try {
       const res = await fetch(API_BASE + '?action=excluirFuncionario', {
         method: 'POST',
@@ -947,7 +843,6 @@ async function excluirFuncionarioViaPrompt(){
       errorMsg = e.message;
     }
 
-    // Fallback 1: action=deleteFuncionario
     if (!success) {
       try {
         const res = await fetch(API_BASE + '?action=deleteFuncionario', {
@@ -966,7 +861,6 @@ async function excluirFuncionarioViaPrompt(){
       }
     }
 
-    // Fallback 2: action=excluirColaborador
     if (!success) {
       try {
         const res = await fetch(API_BASE + '?action=excluirColaborador', {
@@ -991,7 +885,6 @@ async function excluirFuncionarioViaPrompt(){
 
     status.innerHTML = '<div class="text-emerald-600 bg-emerald-50 px-4 py-2 rounded-lg border border-emerald-100">Colaborador removido em definitivo do Sheets!</div>';
 
-    // Limpar cache local para forçar recarregamento na próxima busca
     delete _apiCache['funcionarios'];
     DASH_funcionarios = null;
   } catch(err){
@@ -1063,12 +956,10 @@ let DASH_participantes = [], DASH_naoParticipantes = [];
 /* ====== GESTÃO DE AUSÊNCIAS / FÉRIAS ====== */
 let AFAST_set = new Set(); 
 
-// Funções de Gestão de cache das ausências re-definidas para evitar erros de referência (ReferenceError)
 function afastSalvar(){ 
   try { localStorage.setItem('dss_afast', JSON.stringify([...AFAST_set])); } catch(e){} 
 }
 
-// Gestão de renderização das listas de presenças e faltas no ecrã Dashboard
 function dashRender(naoParticipantes, participantes, dispensados){
   const tbodyNP = document.getElementById('tbodyNP');
   const tbodyP  = document.getElementById('tbodyP');
@@ -1105,7 +996,6 @@ function dashRender(naoParticipantes, participantes, dispensados){
     else {
       const fmtPeriodo = s => {
         if (!s) return '';
-        // Converter ISO com timezone (2026-06-08T07:00:00.000Z) → dd/mm/aaaa
         return s.replace(/(\d{4})-(\d{2})-(\d{2})T[^\s]*/g, (_, y, m, d) => `${d}/${m}/${y}`)
                 .replace(/(\d{4})-(\d{2})-(\d{2})/g, (_, y, m, d) => `${d}/${m}/${y}`);
       };
@@ -1121,10 +1011,9 @@ function dashRender(naoParticipantes, participantes, dispensados){
   }
 }
 
-// Renderização e cálculo de dados estatísticos (KPIs) semanais
 function dashKPIs({ total, part, nPart, nDisp, semana, titulo, registrosAll, funcAtivos }){
   const nDispSafe = nDisp ?? 0;
-  const totalAll  = total + nDispSafe; // total geral = elegíveis + dispensados
+  const totalAll  = total + nDispSafe;
   const pct    = total > 0 ? Math.round((part   / total) * 100) : 0;
   const pctNP  = total > 0 ? Math.round((nPart  / total) * 100) : 0;
   const pctD   = totalAll > 0 ? Math.round((nDispSafe / totalAll) * 100) : 0;
@@ -1145,10 +1034,9 @@ function dashKPIs({ total, part, nPart, nDisp, semana, titulo, registrosAll, fun
   const barDisp = document.getElementById('barDisp');
   if (barDisp) {
     barDisp.style.width = totalAll ? `${pctD}%` : '0%';
-    barDisp.style.backgroundColor = '#38bdf8'; // sky-400 azul - garante a cor
+    barDisp.style.backgroundColor = '#38bdf8';
   }
 
-  // Gráfico de rosca: verde=participaram, vermelho=em falta, azul=dispensados
   const canvas = document.getElementById('kpiDonut');
   if (canvas) {
     const ctx = canvas.getContext('2d');
@@ -1164,14 +1052,12 @@ function dashKPIs({ total, part, nPart, nDisp, semana, titulo, registrosAll, fun
       ctx.stroke();
     };
 
-    // Fundo cinza
     ctx.beginPath();
     ctx.arc(cx, cy, r, 0, 2 * Math.PI);
     ctx.strokeStyle = '#f3f4f6';
     ctx.lineWidth = thick;
     ctx.stroke();
 
-    // Calcular fatias relativas ao total geral (elegíveis + dispensados)
     if (totalAll > 0) {
       const pctPartAll = Math.round((part       / totalAll) * 100);
       const pctNPAll   = Math.round((nPart      / totalAll) * 100);
@@ -1183,7 +1069,6 @@ function dashKPIs({ total, part, nPart, nDisp, semana, titulo, registrosAll, fun
     }
   }
 
-  // KPIs Secundários: Colaboradores sem nenhuma adesão (Nunca Participaram)
   const nuncaEl   = document.getElementById('kpiNuncaCount');
   const nuncaList = document.getElementById('kpiNuncaList');
   const regs = Array.isArray(registrosAll) ? registrosAll : [];
@@ -1210,7 +1095,6 @@ function dashKPIs({ total, part, nPart, nDisp, semana, titulo, registrosAll, fun
     }
   }
 
-  // Algoritmo de Assiduidade e Agilidade (Top 5 mais frequentes)
   const assiduosEl = document.getElementById('kpiAssiduosList');
   if (assiduosEl){
     const regsPorMatSemana = new Map();
@@ -1288,31 +1172,11 @@ function mapFeriasRow(row) {
   };
 }
 
-/* ----------------------------------------------------------------
- * Verifica se um funcionário está afastado considerando a semana ISO
- * - Situação "Afastado INSS" → sempre afastado (sem período)
- * - Situação "Férias" → afastado se a semana ISO cai dentro do período
- * ---------------------------------------------------------------- */
-// ── funcEstaAfastadoNaSemana ─────────────────────────────────────────────────
-// Verifica se um colaborador estava de férias ou afastado durante pelo menos
-// UM DIA da semana indicada.
-//
-// IMPORTANTE: a planilha usa numeração sequencial própria (W24 ≠ semana ISO 24),
-// por isso esta função aceita DATAS REAIS (segMs / domMs em UTC ms) em vez de
-// tentar converter a SemanaISO internamente — isso evita o erro de semana que
-// causava o cálculo incorreto de adesão.
-// Situações suportadas: "Férias", "Dispensa Médica" (e legado "Afastado INSS").
-// Todos os registros devem ter período (InicioFerias + FimFerias) obrigatório.
-//   matricula  — string com a matrícula do colaborador
-//   semanaNorm — string ISO normalizada (usado apenas como fallback)
-//   segMs      — (opcional) timestamp UTC da segunda-feira da semana real
-//   domMs      — (opcional) timestamp UTC do domingo da semana real
 function funcEstaAfastadoNaSemana(matricula, semanaNorm, segMs, domMs){
   const mat = afastNormMat(matricula);
   const registros = feriasServidor.filter(f => afastNormMat(f.Matricula) === mat);
   if (!registros.length) return false;
 
-  // Helper: parse de data em múltiplos formatos → UTC ms ou null
   const parseMs = s => {
     if (!s) return null;
     s = String(s).trim();
@@ -1325,8 +1189,6 @@ function funcEstaAfastadoNaSemana(matricula, semanaNorm, segMs, domMs){
     return null;
   };
 
-  // Calcular segundas e domingos a partir do título de treinamento se não fornecidos
-  // Fallback para conversão ISO (menos preciso mas melhor do que nada)
   let wSeg = segMs, wDom = domMs;
   if (!wSeg || !wDom) {
     const monday = semanaISOToMonday(semanaNorm);
@@ -1337,19 +1199,13 @@ function funcEstaAfastadoNaSemana(matricula, semanaNorm, segMs, domMs){
   }
 
   for (const f of registros){
-    const sitNorm = String(f.Situacao || '').toLowerCase()
-      .normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
-
     const dIniMs = parseMs(f.InicioFerias);
     const dFimMs = parseMs(f.FimFerias);
 
     if (!dIniMs && !dFimMs) {
-      // Sem período → afastamento contínuo (INSS, etc.) → exclui sempre
       return true;
     }
 
-    // Sobreposição: pelo menos 1 dia da semana cai no período de afastamento
-    // Condição: início-afastamento <= domingo-semana E fim-afastamento >= segunda-semana
     const iniOk = !dIniMs || (wDom !== undefined && dIniMs <= wDom);
     const fimOk = !dFimMs || (wSeg !== undefined && dFimMs >= wSeg);
     if (iniOk && fimOk) return true;
@@ -1357,9 +1213,6 @@ function funcEstaAfastadoNaSemana(matricula, semanaNorm, segMs, domMs){
   return false;
 }
 
-/* ----------------------------------------------------------------
- * Renderiza a tabela de férias/ausências com botão de exclusão
- * ---------------------------------------------------------------- */
 function afastRenderTags(){
   const badge  = document.getElementById('afastBadge');
   const tbody  = document.getElementById('tbodyAfastados');
@@ -1379,12 +1232,11 @@ function afastRenderTags(){
     return null;
   };
 
-  // Classificar registros em ativos (período inclui hoje) e históricos (já encerrados)
   const comStatus = feriasServidor.map((f, idx) => {
     const dIniMs = parseMs(f.InicioFerias);
     const dFimMs = parseMs(f.FimFerias);
     let ativo = false;
-    if (!dIniMs && !dFimMs) ativo = true;          // sem período → sempre ativo (INSS)
+    if (!dIniMs && !dFimMs) ativo = true;
     else if (dIniMs && !dFimMs) ativo = hojeMs >= dIniMs;
     else if (!dIniMs && dFimMs) ativo = hojeMs <= dFimMs;
     else ativo = hojeMs >= dIniMs && hojeMs <= dFimMs;
@@ -1413,7 +1265,6 @@ function afastRenderTags(){
     return s;
   };
 
-  // Ordenar: ativos primeiro, depois históricos por data mais recente
   const sorted = [...comStatus].sort((a, b) => {
     if (a._ativo !== b._ativo) return a._ativo ? -1 : 1;
     const aMs = parseMs(a.InicioFerias) || 0;
@@ -1441,7 +1292,6 @@ function afastRenderTags(){
       ? '<span class="px-2 py-0.5 text-xs font-bold rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">Ativo</span>'
       : '<span class="px-2 py-0.5 text-xs font-bold rounded-full bg-slate-100 text-slate-500 border border-slate-200">Encerrado</span>';
 
-    // Botão excluir com aviso extra para registros encerrados
     const deleteBtn = f._ativo
       ? `<button type="button" data-idx="${f._idx}" class="btnAfastExcluir inline-flex items-center gap-1 px-2.5 py-1.5 text-xs font-semibold text-rose-600 hover:text-white hover:bg-rose-500 border border-rose-200 hover:border-rose-500 rounded-lg transition-colors">
            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
@@ -1464,850 +1314,39 @@ function afastRenderTags(){
     </tr>`;
   }).join('');
 
-  // Delegação de eventos para botões de exclusão
   tbody.querySelectorAll('.btnAfastExcluir').forEach(btn => {
     btn.addEventListener('click', function(){
       const idx = parseInt(this.dataset.idx);
       const reg = feriasServidor[idx];
       const isEncerrado = !sorted.find(s => s._idx === idx)?._ativo;
       if (isEncerrado) {
-        if (!confirm(`⚠️ ATENÇÃO: Este registro já está encerrado.\n\nExcluir registros históricos fará o colaborador "${reg?.Funcionario || ''}" aparecer incorretamente como "Não Participou" nas semanas em que esteve afastado.\n\nTem certeza que deseja excluir mesmo assim?`)) return;
+        if (!confirm(`⚠️ ATENÇÃO: Este registro já está encerrado.\n\nExcluir registros históricos fará o colaborador "${reg?.Funcionario || ''}" aparecer incorretamente como Ausente/Falta em relatórios passados.\n\nDeseja realmente excluir do Sheets?`)) {
+          return;
+        }
       }
-      afastExcluir(idx);
+      if (reg && reg.Matricula) {
+        afastRemover(reg.Matricula, reg.Situacao);
+      }
     });
   });
 }
 
-/* ----------------------------------------------------------------
- * Inserir novo registo de férias/ausência no Google Sheets
- * ---------------------------------------------------------------- */
-async function afastInserir(){
-  const msgEl  = document.getElementById('afastStatusMsg');
-  const btnIns = document.getElementById('btnAfastInserir');
-  const mat    = document.getElementById('afastInputMat').value.replace(/\D/g,'').padStart(5,'0');
-  const nome   = document.getElementById('afastInputNome').value.trim();
-  const sit    = document.getElementById('afastInputSit').value;
-  const ini    = document.getElementById('afastInputIni').value;  // yyyy-mm-dd
-  const fim    = document.getElementById('afastInputFim').value;
-
-  if (!mat || mat === '00000'){ msgEl.innerHTML = '<span class="text-rose-600">Matrícula inválida.</span>'; return; }
-  if (!nome)                  { msgEl.innerHTML = '<span class="text-rose-600">Nome é obrigatório.</span>'; return; }
-  // Datas obrigatórias para todas as situações
-  if (!ini || !fim){ msgEl.innerHTML = '<span class="text-rose-600">Informe o Início e o Fim do período.</span>'; return; }
-
-  // Converter datas para formato dd/mm/yyyy (padrão do Sheets)
-  const fmtDate = s => {
-    if (!s) return '';
-    const m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-    return m ? `${m[3]}/${m[2]}/${m[1]}` : s;
-  };
-
-  const payload = {
-    matricula:    mat,
-    funcionario:  nome,
-    situacao:     sit,
-    inicioFerias: fmtDate(ini),
-    fimFerias:    fmtDate(fim)
-  };
-
-  btnIns.disabled = true;
-  msgEl.innerHTML = '<span class="text-amber-600">A inserir...</span>';
+async function afastRemover(matricula, situacao){
   try {
-    const res  = await fetch(API_BASE + '?action=addFerias', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
+    const res = await fetch(API_BASE + '?action=deleteFerias', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ matricula, situacao })
     });
-    const data = await res.json().catch(() => ({ ok: false, error: 'Resposta inválida' }));
-    if (!data.ok) throw new Error(data.error || 'Falha no servidor');
-
-    // Atualizar lista local imediatamente
-    feriasServidor.push({
-      Matricula: mat, Funcionario: nome, Situacao: sit,
-      InicioFerias: fmtDate(ini),
-      FimFerias:    fmtDate(fim)
-    });
-    AFAST_set.add(mat);
-    afastRenderTags();
-    msgEl.innerHTML = '<span class="text-emerald-600 font-semibold">✓ Inserido com sucesso!</span>';
-    // Limpar formulário
-    document.getElementById('afastInputMat').value  = '';
-    document.getElementById('afastInputNome').value = '';
-    document.getElementById('afastInputSit').value  = 'Férias';
-    document.getElementById('afastInputIni').value  = '';
-    document.getElementById('afastInputFim').value  = '';
-    setTimeout(() => { msgEl.innerHTML = ''; }, 3000);
-  } catch(e){
-    msgEl.innerHTML = `<span class="text-rose-600">Erro: ${e.message}</span>`;
-  } finally {
-    btnIns.disabled = false;
-  }
-}
-
-/* ----------------------------------------------------------------
- * Excluir registo de férias/ausência do Google Sheets
- * ---------------------------------------------------------------- */
-async function afastExcluir(idx){
-  const f = feriasServidor[idx];
-  if (!f) return;
-  const msgEl = document.getElementById('afastStatusMsg');
-
-  // Verificar se o registro ainda está ativo
-  const hoje = new Date();
-  const hojeMs = Date.UTC(hoje.getUTCFullYear(), hoje.getUTCMonth(), hoje.getUTCDate());
-  const parseMs = s => {
-    if (!s) return null; s = String(s).trim();
-    const isoFull = s.match(/^(\d{4})-(\d{2})-(\d{2})T/);
-    if (isoFull) return Date.UTC(+isoFull[1],+isoFull[2]-1,+isoFull[3]);
-    const br = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-    if (br) return Date.UTC(+br[3],+br[2]-1,+br[1]);
-    const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-    if (iso) return Date.UTC(+iso[1],+iso[2]-1,+iso[3]);
-    return null;
-  };
-  const dFimMs = parseMs(f.FimFerias);
-  const isEncerrado = dFimMs !== null && dFimMs < hojeMs;
-
-  if (isEncerrado) {
-    // Registro encerrado: apenas ocultar da view local, NÃO excluir do banco
-    if (!confirm(
-      `"${f.Funcionario || f.Matricula}" já está com período encerrado.\n\n` +
-      `O registro histórico será mantido no banco de dados (necessário para o cálculo correto de dispensados nas semanas passadas).\n\n` +
-      `Deseja apenas ocultá-lo desta lista?`
-    )) return;
-    feriasServidor.splice(idx, 1);
-    AFAST_set.clear();
-    feriasServidor.forEach(r => { const m = afastNormMat(r.Matricula); if (m !== '00000') AFAST_set.add(m); });
-    afastRenderTags();
-    if (msgEl) { msgEl.innerHTML = '<span class="text-sky-600 font-semibold">✓ Ocultado desta lista (registro mantido no histórico).</span>'; setTimeout(()=>{ msgEl.innerHTML=''; }, 4000); }
-    return;
-  }
-
-  // Registro ativo: excluir do banco
-  if (!confirm(`Excluir o registo ativo de "${f.Funcionario || f.Matricula}" (${f.Situacao})?\n\nEste colaborador voltará a ser considerado ativo no dashboard.`)) return;
-
-  const mat = afastNormMat(f.Matricula);
-  if (msgEl) msgEl.innerHTML = '<span class="text-amber-600">A excluir...</span>';
-
-  try {
-    let success = false;
-    for (const action of ['deleteFerias','excluirFerias','removeFerias']){
-      try {
-        const res  = await fetch(API_BASE + '?action=' + action, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ matricula: mat, situacao: f.Situacao })
-        });
-        const data = await res.json().catch(() => null);
-        if (data && data.ok){ success = true; break; }
-      } catch(e){ /* tenta próximo */ }
-    }
-    if (!success) throw new Error('Falha ao excluir no servidor.');
-
-    feriasServidor.splice(idx, 1);
-    AFAST_set.clear();
-    feriasServidor.forEach(r => { const m = afastNormMat(r.Matricula); if (m !== '00000') AFAST_set.add(m); });
-    afastRenderTags();
-    if (msgEl) { msgEl.innerHTML = '<span class="text-emerald-600 font-semibold">✓ Excluído!</span>'; setTimeout(()=>{ msgEl.innerHTML=''; }, 3000); }
-  } catch(e){
-    if (msgEl) msgEl.innerHTML = `<span class="text-rose-600">Erro: ${e.message}</span>`;
-  }
-}
-
-// Inicialização da área de Ausências
-(function initAfast(){
-  afastCarregar(); // restaura AFAST_set do localStorage (compatibilidade)
-  // afastRenderTags() será chamado após dashEnsureData() no dashInit
-
-  const panel   = document.getElementById('afastPanel');
-  const chevron = document.getElementById('afastChevron');
-  if (panel && chevron){
-    panel.addEventListener('toggle', () => { chevron.textContent = panel.open ? '▲' : '▼'; });
-  }
-
-  // Botão inserir
-  document.getElementById('btnAfastInserir')?.addEventListener('click', afastInserir);
-  // Campos de Início e Fim são sempre visíveis — obrigatórios para todas as situações
-})();
-
-document.getElementById('btnDashAtualizar').addEventListener('click', dashAtualizar);
-document.getElementById('btnDashXLSNP').addEventListener('click', dashGerarXLS_NP);
-document.getElementById('btnDashXLSP').addEventListener('click', dashGerarXLS_P);
-
-// Diagnóstico da API — testa todos os endpoints e mostra a resposta bruta
-(function initDiag(){
-  const btnDiag = document.getElementById('btnDiag');
-  const btnDiagClear = document.getElementById('btnDiagClear');
-  const diagBox = document.getElementById('diagBox');
-  if (!btnDiag || !diagBox) return;
-
-  btnDiag.addEventListener('click', async function(){
-    diagBox.classList.remove('hidden');
-    btnDiagClear.classList.remove('hidden');
-    btnDiag.classList.add('hidden');
-    diagBox.textContent = 'A testar endpoints da API...\n';
-
-    const actions = ['treinamentos','registros','funcionarios','ferias','Ferias','ausencias','Ausencias','ferias_ativas'];
-    for (const action of actions) {
-      try {
-        const res = await apiFetch('action=' + action);
-        const txt = await res.text();
-        let parsed;
-        try { parsed = JSON.parse(txt); } catch { parsed = null; }
-        const ok = parsed ? (parsed.ok ? '✅ OK' : '❌ ok=false') : '⚠️  não-JSON';
-        const rows = parsed ? (_parseRows(parsed).length + ' linhas') : '';
-        diagBox.textContent += `[${action}] ${ok} ${rows}\n`;
-        if (parsed && !parsed.ok && parsed.error) diagBox.textContent += `  erro: ${parsed.error}\n`;
-      } catch(e) {
-        diagBox.textContent += `[${action}] ❌ FALHA: ${e.message}\n`;
-      }
-    }
-    diagBox.textContent += '\nDiagnóstico concluído.';
-  });
-
-  btnDiagClear.addEventListener('click', function(){
-    diagBox.classList.add('hidden');
-    btnDiagClear.classList.add('hidden');
-    btnDiag.classList.remove('hidden');
-    diagBox.textContent = '';
-  });
-})();
-
-document.getElementById('dashTitulo').addEventListener('change', function(){
-  const titVal = this.value.trim();
-  const hit = (DASH_treinamentos||[]).find(t => String(t.Titulo).trim() === titVal);
-  document.getElementById('dashSemanaIso').value = (hit && hit.SemanaISO) ? String(hit.SemanaISO) : '';
-});
-
-// Inicialização "leve" do Dashboard: NÃO faz nenhuma chamada à API.
-// Os dados só são carregados quando o usuário clicar em "Atualizar".
-(function dashInitLight(){
-  const dashStatus = document.getElementById('dashStatus');
-  if (dashStatus) {
-    dashStatus.innerHTML = '<div class="text-sky-600 bg-sky-50 px-4 py-2 rounded-lg border border-sky-100">Clique em <strong>Atualizar</strong> para carregar os dados do Dashboard.</div>';
-  }
-  const tbodyAfastados = document.getElementById('tbodyAfastados');
-  if (tbodyAfastados) {
-    tbodyAfastados.innerHTML = '<tr><td colspan="5" class="px-6 py-8 text-center text-slate-400">Clique em "Atualizar" para carregar os registos do Google Sheets.</td></tr>';
-  }
-})();
-
-// Guarda quais fontes de dados falharam na última chamada a dashEnsureData(),
-// para que a UI possa avisar o usuário em vez de mostrar "0%" silenciosamente
-// quando, por exemplo, a busca de registros falhou/expirou.
-let DASH_ULTIMAS_FALHAS = [];
-
-async function dashEnsureData(){
-  DASH_ULTIMAS_FALHAS = [];
-  // Carregar tudo em paralelo (treinamentos, funcionarios, registros)
-  const [rTrein, rFunc, rRegs] = await Promise.all([
-    !DASH_treinamentos ? _cachedFetchComStatus('treinamentos') : Promise.resolve({ ok: true, json: null }),
-    !DASH_funcionarios ? _cachedFetchComStatus('funcionarios') : Promise.resolve({ ok: true, json: null }),
-    !DASH_registrosAll ? _cachedFetchComStatus('registros')    : Promise.resolve({ ok: true, json: null }),
-  ]);
-  if (!rTrein.ok) DASH_ULTIMAS_FALHAS.push('treinamentos');
-  if (!rFunc.ok)  DASH_ULTIMAS_FALHAS.push('funcionários');
-  if (!rRegs.ok)  DASH_ULTIMAS_FALHAS.push('registros');
-
-  if (!DASH_treinamentos) DASH_treinamentos = _parseRows(rTrein.json);
-  if (!DASH_funcionarios) DASH_funcionarios = _parseRows(rFunc.json);
-  if (!DASH_registrosAll) DASH_registrosAll = _parseRows(rRegs.json);
-
-  // Carregar férias — o backend já expõe uma action única e correta
-  // (action=ferias, que trata graciosamente até o caso da aba não existir).
-  // Antes fazíamos 10 chamadas em paralelo "adivinhando" o nome da aba —
-  // isso sobrecarregava o GAS com requisições simultâneas desnecessárias e
-  // contribuía para falhas intermitentes em TODAS as chamadas (inclusive
-  // treinamentos/funcionários/registros, que competiam pelos mesmos
-  // recursos). Mantemos só 1-2 aliases como rede de segurança.
-  let feriasOk = false;
-  for (const action of ['ferias', 'Ferias']) {
-    try {
-      const res = await apiFetch('action=' + action);
-      const data = await res.json().catch(() => null);
-      if (data && data.ok) {
-        const rawRows = _parseRows(data);
-        feriasServidor = rawRows.map(mapFeriasRow).filter(f => f.Matricula && f.Matricula !== '00000');
-        feriasOk = true;
-        console.info('[Férias] Carregado via action=' + action + ', ' + feriasServidor.length + ' registo(s)');
-        break;
-      }
-    } catch(e) { /* tenta o próximo alias */ }
-  }
-
-  if (!feriasOk) {
-    // Fallback final: derivar dos funcionários com campo Situacao
-    const norm = s => String(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
-    const situacoesFerias = ['ferias','afastado','licenca','inss','afastamento','licenca medica','licenca maternidade'];
-    const derived = (DASH_funcionarios || []).filter(f =>
-      situacoesFerias.some(s => norm(f.Situacao || f.situacao || '').includes(s))
-    ).map(f => ({
-      Matricula: f.Matricula,
-      Funcionario: f.Nome,
-      Situacao: f.Situacao || f.situacao || 'Férias',
-      InicioFerias: f.InicioFerias || f.inicioFerias || '',
-      FimFerias: f.FimFerias || f.fimFerias || ''
-    }));
-    if (derived.length) {
-      feriasServidor = derived;
-      console.info('[Férias] Carregado via fallback (campo Situacao), ' + derived.length + ' registo(s)');
-    } else {
-      console.warn('[Férias] Nenhum dado encontrado. Verifique o nome da aba no Google Sheets (use Diagnóstico Bruto da API).');
-    }
-  }
-
-  // Sincronizar conjunto local AFAST_set para o filtro do dashboard
-  AFAST_set.clear();
-  feriasServidor.forEach(f => {
-    const m = afastNormMat(f.Matricula);
-    if (m && m !== '00000') AFAST_set.add(m);
-  });
-}
-
-async function dashPopularSelects(){
-  const normF = s => String(s??'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
-  const exactos = ['Titulo','titulo','TITULO','Title','title','TituloVideo','titulovideo'];
-  const mapaISO = new Map();
-
-  const rows1 = DASH_treinamentos || [];
-  const chaves = Object.keys(rows1[0]||{});
-  const campo = exactos.find(c => chaves.includes(c)) ?? chaves.find(k => normF(k).includes('titul')) ?? null;
-  if (campo) rows1.forEach(r => { const t = String(r[campo]??'').trim(); if(t) mapaISO.set(t, String(r.SemanaISO??'').trim()); });
-
-  const isoSet = new Set(rows1.map(r => String(r.SemanaISO||'')).filter(Boolean));
-
-  const titSel = document.getElementById('dashTitulo');
-  if (mapaISO.size){
-    titSel.innerHTML = '<option value="">Selecione um título...</option>' + _buildTituloOpts(mapaISO, '');
-  }
-
-  const rows2 = DASH_registrosAll || [];
-  rows2.forEach(r => { 
-    const t = String(r.TituloVideo??r.Titulo??r.titulo??'').trim(); 
-    const iso = String(r.SemanaISO??'').trim(); 
-    if(t && !mapaISO.has(t)) mapaISO.set(t, iso); 
-    else if(t && !mapaISO.get(t) && iso) mapaISO.set(t, iso); 
-    if(iso) isoSet.add(iso); 
-  });
-
-  const selAtual = titSel.value;
-  titSel.innerHTML = '<option value="">Selecione um título...</option>' + _buildTituloOpts(mapaISO, '');
-  if (selAtual && [...titSel.options].some(o => o.value === selAtual)) titSel.value = selAtual;
-
-  const isoList = [...isoSet].sort(dashCompareSemanaISODesc);
-  document.getElementById('dashSemanaIso').innerHTML =
-    '<option value="">Selecione...</option>' + isoList.map(sem => `<option value="${escapeHtml(sem)}">${escapeHtml(sem)}</option>`).join('');
-}
-
-function dashSugerirSemanaAtivaMaisRecente(){
-  const ativos = (DASH_treinamentos||[]).filter(t => { 
-    const v = String(t.Ativo??t.ativo??'').toLowerCase().trim(); 
-    return v === 'true' || v === '1' || v === 'sim' || v === 'yes'; 
-  });
-  const lista = ativos.length ? ativos : (DASH_treinamentos||[]);
-  let tituloSelecionado = null;
-  if (lista && lista.length){
-    const hasISO = lista.filter(t => t.SemanaISO && t.Titulo);
-    if (hasISO.length){
-      const maisRecente = hasISO.sort((a,b) => dashCompareSemanaISODesc(String(a.SemanaISO), String(b.SemanaISO)))[0];
-      tituloSelecionado = String(maisRecente.Titulo);
-    }
-  }
-  const titSel = document.getElementById('dashTitulo');
-  if (tituloSelecionado){
-    const opt = [...titSel.options].find(o => o.value === tituloSelecionado);
-    if (opt) titSel.value = opt.value;
-  } else if (titSel.options.length > 1){
-    titSel.selectedIndex = 1;
-  }
-
-  const titVal = titSel.value;
-  if (titVal){
-    const hit = (DASH_treinamentos||[]).find(t => String(t.Titulo).trim() === titVal);
-    if (hit && hit.SemanaISO) document.getElementById('dashSemanaIso').value = String(hit.SemanaISO);
-  }
-}
-
-// Atualização de dados do dashboard com recarregamento limpo das fontes de dados
-async function dashAtualizar(){
-  const dashStatus = document.getElementById('dashStatus');
-  const btnAtualizar = document.getElementById('btnDashAtualizar');
-  const textoOriginalBtn = btnAtualizar ? btnAtualizar.innerHTML : '';
-
-  // Capturar o título selecionado ANTES de limpar o cache
-  const titSelecionadoAntes = document.getElementById('dashTitulo').value.trim();
-
-  if (btnAtualizar) {
-    btnAtualizar.disabled = true;
-    btnAtualizar.innerHTML = '<svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path></svg> A carregar...';
-  }
-  if (dashStatus) dashStatus.innerHTML = '<div class="text-sky-600 bg-sky-50 px-4 py-2 rounded-lg border border-sky-100">A carregar dados atualizados...</div>';
-
-  try {
-    // Limpar cache para forçar recarregamento
-    delete _apiCache['treinamentos'];
-    delete _apiCache['registros'];
-    delete _apiCache['funcionarios'];
-    delete _apiCacheComStatus['treinamentos'];
-    delete _apiCacheComStatus['registros'];
-    delete _apiCacheComStatus['funcionarios'];
-    DASH_treinamentos = null;
-    DASH_funcionarios = null;
-    DASH_registrosAll = null;
-
-    // Carregar todos os dados em paralelo
-    await dashEnsureData();
-
-    // Se alguma fonte falhou (ex.: timeout do Google Apps Script numa planilha
-    // grande), não seguimos em frente fingindo que os dados são "0" — isso
-    // induz o gestor a pensar que ninguém participou quando, na verdade, a
-    // busca é que falhou. Avisamos e paramos aqui.
-    if (DASH_ULTIMAS_FALHAS.length){
-      if (dashStatus) dashStatus.innerHTML =
-        '<div class="text-rose-600 bg-rose-50 px-4 py-2 rounded-lg border border-rose-100">' +
-        '⚠️ Falha ao carregar: ' + DASH_ULTIMAS_FALHAS.join(', ') + '. ' +
-        'Os dados abaixo podem estar incompletos — clique em "Atualizar" para tentar novamente.' +
-        '</div>';
-      return;
-    }
-
-    afastRenderTags(); // Atualizar tabela de férias após carregar
-
-    await dashPopularSelects();
-
-    // Tentar restaurar a seleção anterior; se não existir, sugerir a mais recente
-    const sel = document.getElementById('dashTitulo');
-    if (titSelecionadoAntes && [...sel.options].some(o => o.value === titSelecionadoAntes)) {
-      sel.value = titSelecionadoAntes;
-    } else {
-      dashSugerirSemanaAtivaMaisRecente();
-    }
-
-    // Verificar se há um título selecionado para processar
-    const titFinal = sel.value.trim();
-    if (!titFinal) {
-      if (dashStatus) dashStatus.innerHTML = '<div class="text-amber-600 bg-amber-50 px-4 py-2 rounded-lg border border-amber-100">Por favor, selecione um Tema para prosseguir.</div>';
-      dashRender([], []);
-      dashKPIs({ total: 0, part: 0, nPart: 0, semana: '-', titulo: '-', registrosAll: DASH_registrosAll||[], funcAtivos: (DASH_funcionarios||[]).filter(f => ativoValido(f.Ativo??f.ativo)) });
-      return;
-    }
-
-    // Processar os dados com o título selecionado
-    await dashProcessar(titFinal, dashStatus);
-  } catch(e) {
-    console.error('Erro ao atualizar dashboard:', e);
-    if (dashStatus) dashStatus.innerHTML = '<div class="text-rose-600 bg-rose-50 px-4 py-2 rounded-lg border border-rose-100">Erro ao carregar dados. Tente novamente.</div>';
-  } finally {
-    if (btnAtualizar) {
-      btnAtualizar.disabled = false;
-      btnAtualizar.innerHTML = textoOriginalBtn || '<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg> Atualizar';
-    }
-  }
-}
-
-// Funções auxiliares do dashboard (definidas no escopo global para reutilização)
-function normalizarMatricula(v){ return String(v ?? '').replace(/\D/g, '').padStart(5, '0'); }
-function normalizarSemanaISO(s){ const m = String(s||'').match(/^(\d{4})-W?(\d{1,2})$/i); if(!m) return ''; return `${m[1]}-W${String(m[2]).padStart(2, '0')}`; }
-function ativoValido(v){ return ['true','1','sim','yes'].includes(String(v ?? '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim()); }
-
-// Converte uma Semana ISO (ex: "2026-W24") na data (UTC) da segunda-feira
-// correspondente. Usado pelo filtro de Data Inicial/Final em "buscar()" para
-// determinar quais semanas caem dentro do período informado.
-function semanaISOToMonday(isoWeek){
-  const m = String(isoWeek||'').match(/^(\d{4})-W(\d{1,2})$/i);
-  if (!m) return null;
-  const year = parseInt(m[1], 10), week = parseInt(m[2], 10);
-  const jan4 = new Date(Date.UTC(year, 0, 4));
-  const dow = jan4.getUTCDay() || 7; // 1 (segunda) .. 7 (domingo)
-  const monday = new Date(jan4);
-  monday.setUTCDate(jan4.getUTCDate() - dow + 1 + (week - 1) * 7);
-  monday.setUTCHours(0, 0, 0, 0);
-  return monday;
-}
-
-// Processar e renderizar os dados do dashboard para um título selecionado
-async function dashProcessar(selTit, dashStatus) {
-  let semanaAlvo = '';
-  if (!semanaAlvo && selTit){
-    const hit = (DASH_treinamentos||[]).find(t => String(t.Titulo).trim() === selTit);
-    if (hit && hit.SemanaISO) semanaAlvo = String(hit.SemanaISO);
-  }
-
-  if (!semanaAlvo){
-    dashStatus.innerHTML = '<div class="text-amber-600 bg-amber-50 px-4 py-2 rounded-lg border border-amber-100">Por favor, selecione um Tema para prosseguir.</div>';
-    dashRender([], []);
-    dashKPIs({ total: 0, part: 0, nPart: 0, semana: '-', titulo: '-', registrosAll: DASH_registrosAll||[], funcAtivos: (DASH_funcionarios||[]).filter(f => ativoValido(f.Ativo??f.ativo)) });
-    renderTemasAbordados('dashTemasAbordados', []);
-    return;
-  }
-
-  const semanaNorm = normalizarSemanaISO(semanaAlvo);
-  const mapaPart = new Map();
-
-  for (const r of (DASH_registrosAll||[])){
-    if (normalizarSemanaISO(r.SemanaISO) !== semanaNorm) continue;
-    const key = normalizarMatricula(r.Matricula);
-    const ts = parseTimestamp(r.Timestamp);
-
-    if (!mapaPart.has(key)){
-      mapaPart.set(key, r);
-    } else {
-      const antigo = mapaPart.get(key);
-      const tsAnt = parseTimestamp(antigo.Timestamp);
-      if (ts && tsAnt && ts < tsAnt){
-        mapaPart.set(key, r);
-      }
-    }
-  }
-
-  const participantes = [...mapaPart.values()];
-  const funcAtivos = (DASH_funcionarios||[]).filter(f => ativoValido(f.Ativo ?? f.ativo));
-  const setMatPart = new Set(participantes.map(p => normalizarMatricula(p.Matricula)));
-
-  // Extrair datas reais da semana a partir do campo Titulo do treinamento
-  // (ex: "15/06/2026 a 21/06/2026") — mais confiável que converter SemanaISO
-  // porque a planilha usa numeração sequencial própria (não ISO 8601).
-  const tituloTrein = (() => {
-    const t = (DASH_treinamentos||[]).find(t => normalizarSemanaISO(t.SemanaISO) === semanaNorm);
-    return t ? String(t.Titulo || '') : (selTit || '');
-  })();
-  const datasReais = (() => {
-    const m = tituloTrein.match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/g);
-    if (!m || m.length < 2) return null;
-    const toMs = s => { const p = s.split('/'); return Date.UTC(+p[2], +p[1]-1, +p[0]); };
-    return { segMs: toMs(m[0]), domMs: toMs(m[1]) };
-  })();
-  const segMs = datasReais?.segMs;
-  const domMs = datasReais?.domMs;
-
-  // Classificar os não participantes em:
-  //   • dispensados  — não participaram MAS estavam de férias/afastados na semana
-  //   • naoPart      — não participaram SEM justificativa (faltaram mesmo)
-  const dispensados = funcAtivos.filter(f =>
-    !setMatPart.has(normalizarMatricula(f.Matricula)) &&
-    funcEstaAfastadoNaSemana(f.Matricula, semanaNorm, segMs, domMs)
-  );
-
-  const naoPart = funcAtivos.filter(f =>
-    !setMatPart.has(normalizarMatricula(f.Matricula)) &&
-    !funcEstaAfastadoNaSemana(f.Matricula, semanaNorm, segMs, domMs)
-  );
-
-  const mapFunc = new Map(funcAtivos.map(f => [normalizarMatricula(f.Matricula), f]));
-
-  const participantesFull = participantes.map(p => {
-    const f = mapFunc.get(normalizarMatricula(p.Matricula)) || {};
-    return {
-      Matricula: normalizarMatricula(p.Matricula ?? f.Matricula ?? ''),
-      Nome: p.Nome ?? f.Nome ?? '',
-      Setor: p.Setor ?? f.Setor ?? '',
-      Timestamp: p.Timestamp ?? ''
-    };
-  }).sort((a,b) => String(a.Nome ?? '').localeCompare(String(b.Nome ?? ''), 'pt-PT', { sensitivity: 'base' }));
-
-  const naoParticipantesFull = naoPart.map(f => ({
-    Matricula: normalizarMatricula(f.Matricula ?? ''),
-    Nome: f.Nome ?? '',
-    Setor: f.Setor ?? ''
-  })).sort((a,b) => String(a.Nome ?? '').localeCompare(String(b.Nome ?? ''), 'pt-PT', { sensitivity: 'base' }));
-
-  const dispensadosFull = dispensados.map(f => {
-    // Obter informação do motivo do afastamento
-    const mat = normalizarMatricula(f.Matricula ?? '');
-    const regFerias = feriasServidor.filter(fr => afastNormMat(fr.Matricula) === mat);
-    const motivo = regFerias.length ? String(regFerias[0].Situacao || 'Férias/Afastamento') : 'Férias/Afastamento';
-    const periodo = regFerias.length ? [regFerias[0].InicioFerias, regFerias[0].FimFerias].filter(Boolean).join(' a ') : '';
-    return {
-      Matricula: mat,
-      Nome: f.Nome ?? '',
-      Setor: f.Setor ?? '',
-      Motivo: motivo,
-      Periodo: periodo
-    };
-  }).sort((a,b) => String(a.Nome ?? '').localeCompare(String(b.Nome ?? ''), 'pt-PT', { sensitivity: 'base' }));
-
-  DASH_participantes    = participantesFull;
-  DASH_naoParticipantes = naoParticipantesFull;
-
-  // Total elegíveis = ativos - dispensados (férias/afastamento)
-  // Esta é a base correta para o cálculo de adesão
-  const total = funcAtivos.length - dispensados.length;
-  const part  = participantesFull.length;
-  const nPart = naoParticipantesFull.length;
-  const nDisp = dispensadosFull.length;
-
-  const tituloAlvo = tituloTrein || (selTit || '-');
-
-  dashKPIs({ total, part, nPart, nDisp, semana: semanaNorm, titulo: tituloAlvo, registrosAll: DASH_registrosAll || [], funcAtivos });
-  dashRender(naoParticipantesFull, participantesFull, dispensadosFull);
-  dashStatus.innerHTML = `<div class="text-emerald-600 bg-emerald-50 px-4 py-2 rounded-lg border border-emerald-100">Painel atualizado para a semana: ${semanaNorm}</div>`;
-
-  // Exibir os Temas Abordados da semana selecionada
-  const treinoAlvo = (DASH_treinamentos||[]).find(t => normalizarSemanaISO(t.SemanaISO) === semanaNorm);
-  const assuntos = treinoAlvo && treinoAlvo.Assuntos ? String(treinoAlvo.Assuntos) : '';
-  renderTemasAbordados('dashTemasAbordados', assuntos ? [{ titulo: tituloAlvo, semanaISO: semanaNorm, assuntos }] : []);
-
-  // Calcular histórico de faltas injustificadas (todas as semanas)
-  calcularHistoricoFaltas();
-}
-
-// ── Histórico de Faltas Injustificadas ───────────────────────────────────────
-// Para cada semana registada nos Treinamentos, calcula quais funcionários ativos
-// NÃO participaram e NÃO estavam de férias/afastados — ou seja, faltaram sem
-// justificativa. Chamado a cada "Atualizar" do Dashboard.
-async function calcularHistoricoFaltas(){
-  const tbody = document.getElementById('tbodyHistoricoFaltas');
-  const totalEl = document.getElementById('historicoFaltasTotal');
-  if (!tbody) return;
-
-  tbody.innerHTML = '<tr><td colspan="5" class="px-4 py-8 text-center text-slate-400">A calcular...</td></tr>';
-
-  try {
-    // Garantir dados carregados
-    await dashEnsureData();
-
-    const treinamentos = (DASH_treinamentos || []).filter(t => ativoValido(t.Ativo ?? t.ativo ?? 'true'));
-    const registrosAll = DASH_registrosAll || [];
-    const funcAtivos   = (DASH_funcionarios || []).filter(f => ativoValido(f.Ativo ?? f.ativo));
-    const mapFunc      = new Map(funcAtivos.map(f => [normalizarMatricula(f.Matricula), f]));
-
-    if (!treinamentos.length) {
-      tbody.innerHTML = '<tr><td colspan="5" class="px-4 py-8 text-center text-slate-400">Nenhum treinamento encontrado.</td></tr>';
-      if (totalEl) totalEl.textContent = '0';
-      return;
-    }
-
-    // Helper: dado um Titulo como "15/06/2026 a 21/06/2026", extrair datas
-    const datasDoTitulo = titulo => {
-      const matches = String(titulo || '').match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/g);
-      if (!matches || matches.length < 2) return null;
-      const toMs = s => { const p = s.split('/'); return Date.UTC(+p[2], +p[1]-1, +p[0]); };
-      return { ini: toMs(matches[0]), fim: toMs(matches[1]) };
-    };
-
-    const linhas = [];
-
-    // Ordenar semanas da mais recente para a mais antiga
-    const semanasSorted = [...treinamentos].sort((a, b) =>
-      String(b.SemanaISO || '').localeCompare(String(a.SemanaISO || ''))
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error || 'Erro ao remover ausência');
+    
+    feriasServidor = feriasServidor.filter(f => 
+      !(afastNormMat(f.Matricula) === afastNormMat(matricula) && 
+        (!situacao || String(f.Situacao).toLowerCase() === String(situacao).toLowerCase()))
     );
-
-    for (const trein of semanasSorted) {
-      const semanaNorm = normalizarSemanaISO(String(trein.SemanaISO || ''));
-      const titulo     = String(trein.Titulo || '');
-      const datas      = datasDoTitulo(titulo);
-
-      // Matrículas que participaram nesta semana
-      const partNesta = new Set(
-        registrosAll
-          .filter(r => normalizarSemanaISO(String(r.SemanaISO || '')) === semanaNorm)
-          .map(r => normalizarMatricula(r.Matricula))
-      );
-
-      for (const f of funcAtivos) {
-        const mat = normalizarMatricula(f.Matricula);
-        if (partNesta.has(mat)) continue;
-
-        // Usar datas reais do Titulo — mais preciso que conversão ISO
-        const afastado = datas
-          ? funcEstaAfastadoNaSemana(mat, semanaNorm, datas.ini, datas.fim)
-          : funcEstaAfastadoNaSemana(mat, semanaNorm);
-        if (afastado) continue;
-
-        linhas.push({ semanaISO: semanaNorm, titulo, matricula: mat, nome: f.Nome||'', setor: f.Setor||'' });
-      }
-    }
-
-    if (totalEl) totalEl.textContent = String(linhas.length);
-
-    // Guardar linhas globalmente para filtragem
-    _historicoFaltasLinhas = linhas;
-
-    // Popular dropdowns de filtro
-    const semanas = [...new Set(linhas.map(l => l.semanaISO))].sort((a,b) => b.localeCompare(a));
-    const setores = [...new Set(linhas.map(l => l.setor).filter(Boolean))].sort();
-    const selSem  = document.getElementById('filtroHistSemana');
-    const selSet  = document.getElementById('filtroHistSetor');
-    if (selSem) {
-      const cur = selSem.value;
-      selSem.innerHTML = '<option value="">Todas as semanas</option>' + semanas.map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('');
-      if (cur && semanas.includes(cur)) selSem.value = cur;
-    }
-    if (selSet) {
-      const cur = selSet.value;
-      selSet.innerHTML = '<option value="">Todos os setores</option>' + setores.map(s => `<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join('');
-      if (cur && setores.includes(cur)) selSet.value = cur;
-    }
-
-    if (!linhas.length) {
-      document.getElementById('tbodyHistoricoFaltas').innerHTML =
-        '<tr><td colspan="5" class="px-4 py-8 text-center text-emerald-600 font-medium">✅ Nenhuma falta injustificada registada.</td></tr>';
-      const countEl = document.getElementById('historicoFaltasFiltrado');
-      if (countEl) countEl.textContent = '0 de 0';
-      return;
-    }
-
-    // Renderizar com filtros actuais
-    _renderHistoricoFiltrado();
-
-  } catch(err) {
-    console.error('[Histórico Faltas]', err);
-    tbody.innerHTML = `<tr><td colspan="5" class="px-4 py-8 text-center text-rose-500">Erro ao calcular: ${escapeHtml(String(err.message || err))}</td></tr>`;
-    if (totalEl) totalEl.textContent = '—';
+    afastRenderTags();
+  } catch (err) {
+    alert('Erro ao excluir registro de ausência: ' + err.message);
   }
 }
-
-// Armazena todas as linhas do histórico para filtragem
-let _historicoFaltasLinhas = [];
-
-function _renderHistoricoFiltrado(){
-  const tbody      = document.getElementById('tbodyHistoricoFaltas');
-  const filtNome   = (document.getElementById('filtroHistNome')?.value || '').toLowerCase().trim();
-  const filtSemana = document.getElementById('filtroHistSemana')?.value || '';
-  const filtSetor  = document.getElementById('filtroHistSetor')?.value || '';
-  const countEl   = document.getElementById('historicoFaltasFiltrado');
-  if (!tbody) return;
-
-  const filtradas = _historicoFaltasLinhas.filter(l => {
-    if (filtSemana && l.semanaISO !== filtSemana) return false;
-    if (filtSetor  && l.setor !== filtSetor)      return false;
-    if (filtNome   && !l.nome.toLowerCase().includes(filtNome) && !l.matricula.includes(filtNome)) return false;
-    return true;
-  });
-
-  if (countEl) countEl.textContent = `${filtradas.length} de ${_historicoFaltasLinhas.length}`;
-
-  if (!filtradas.length){
-    tbody.innerHTML = '<tr><td colspan="5" class="px-4 py-8 text-center text-slate-400">Nenhum resultado para os filtros aplicados.</td></tr>';
-    return;
-  }
-
-  tbody.innerHTML = filtradas.map(l => `
-    <tr class="hover:bg-amber-50/40 transition-colors">
-      <td class="px-4 py-3 font-mono text-xs text-slate-500">${escapeHtml(l.semanaISO)}</td>
-      <td class="px-4 py-3 text-xs text-slate-500">${escapeHtml(l.titulo)}</td>
-      <td class="px-4 py-3 font-mono font-semibold text-slate-700">${escapeHtml(l.matricula)}</td>
-      <td class="px-4 py-3 font-semibold text-slate-800">${escapeHtml(l.nome)}</td>
-      <td class="px-4 py-3 text-slate-600">${escapeHtml(l.setor)}</td>
-    </tr>`).join('');
-}
-
-// Inicializar listeners dos filtros do Histórico (chamado uma vez)
-(function initHistoricoFiltros(){
-  const btnLimpar = document.getElementById('btnFiltroHistLimpar');
-  ['filtroHistNome','filtroHistSemana','filtroHistSetor'].forEach(id => {
-    document.getElementById(id)?.addEventListener('input', _renderHistoricoFiltrado);
-    document.getElementById(id)?.addEventListener('change', _renderHistoricoFiltrado);
-  });
-  btnLimpar?.addEventListener('click', () => {
-    const nEl = document.getElementById('filtroHistNome');
-    const sEl = document.getElementById('filtroHistSemana');
-    const stEl = document.getElementById('filtroHistSetor');
-    if (nEl) nEl.value = '';
-    if (sEl) sEl.value = '';
-    if (stEl) stEl.value = '';
-    _renderHistoricoFiltrado();
-  });
-})();
-
-// Exportação Excel de Não Participantes do Dashboard
-async function dashGerarXLS_NP(){
-  const base = DASH_naoParticipantes || []; 
-  if(!base.length){ alert('Não existem dados de ausentes para exportar.'); return; }
-  try { await _ensureXLSX(); } catch(e) { alert('Erro ao carregar biblioteca Excel: ' + e.message); return; }
-  const wb = XLSX.utils.book_new();
-  const ws = XLSX.utils.json_to_sheet(base.map(r => ({ 'Matrícula': r.Matricula ?? '', 'Colaborador': r.Nome ?? '', 'Setor': r.Setor ?? '' })));
-  XLSX.utils.book_append_sheet(wb, ws, 'Ausentes');
-  XLSX.writeFile(wb, `DSS_GIG_NaoParticipantes_${(document.getElementById('kpiSemanaSel').textContent || 'semana')}.xlsx`);
-}
-
-// Exportação Excel de Participantes do Dashboard
-async function dashGerarXLS_P(){
-  const base = DASH_participantes || []; 
-  if(!base.length){ alert('Não existem dados de presenças para exportar.'); return; }
-  try { await _ensureXLSX(); } catch(e) { alert('Erro ao carregar biblioteca Excel: ' + e.message); return; }
-  const wb = XLSX.utils.book_new();
-  const ws = XLSX.utils.json_to_sheet(base.map(r => ({ 'Matrícula': r.Matricula ?? '', 'Colaborador': r.Nome ?? '', 'Setor': r.Setor ?? '', 'Data de Participação': formatTimestamp(r.Timestamp) })));
-  XLSX.utils.book_append_sheet(wb, ws, 'Presencas');
-  XLSX.writeFile(wb, `DSS_GIG_Participantes_${(document.getElementById('kpiSemanaSel').textContent || 'semana')}.xlsx`);
-}
-
-function dashCompareSemanaISODesc(a, b){ 
-  const pa = dashParseSemanaISO(a), pb = dashParseSemanaISO(b); 
-  if (pa.year !== pb.year) return pb.year - pa.year; 
-  return pb.week - pa.week; 
-}
-
-function dashParseSemanaISO(s){ 
-  const m = String(s||'').match(/^(\d{4})-W?(\d{1,2})$/i); 
-  if(!m) return { year: 0, week: 0 }; 
-  return { year: +m[1], week: +m[2] }; 
-}
-
-// ── Dark Mode ─────────────────────────────────────────────────
-(function initDarkMode(){
-  const btn       = document.getElementById('btnDarkMode');
-  const iconDark  = document.getElementById('iconDark');
-  const iconLight = document.getElementById('iconLight');
-  const html      = document.documentElement;
-
-  const apply = (dark) => {
-    if (dark) {
-      html.classList.add('dark');
-      iconDark.classList.add('hidden');
-      iconLight.classList.remove('hidden');
-      btn.title = 'Mudar para modo claro';
-    } else {
-      html.classList.remove('dark');
-      iconDark.classList.remove('hidden');
-      iconLight.classList.add('hidden');
-      btn.title = 'Mudar para modo escuro';
-    }
-    try { localStorage.setItem('dssgig_dark', dark ? '1' : '0'); } catch(e){}
-  };
-
-  // Preferência salva ou preferência do sistema
-  let saved;
-  try { saved = localStorage.getItem('dssgig_dark'); } catch(e){}
-  const prefersDark = window.matchMedia?.('(prefers-color-scheme: dark)').matches;
-  apply(saved !== null ? saved === '1' : prefersDark);
-
-  btn.addEventListener('click', () => apply(!html.classList.contains('dark')));
-})();
-
-// ── Abas / Navegação ─────────────────────────────────────────
-(function initTabs(){
-  const btnPrincipal  = document.getElementById('tabPrincipal');
-  const btnDashboard  = document.getElementById('tabDashboard');
-  const secFiltros    = document.getElementById('cardFiltros');
-  const secResultados = document.getElementById('cardResultados');
-  const secDashboard  = document.getElementById('dashCard');
-
-  function setActive(btnOn, btnOff){
-    // Aba activa: destaque azul + sombra
-    btnOn.classList.add('tab-active', 'bg-brand-500', 'text-white');
-    btnOn.classList.remove('text-slate-600', 'hover:text-slate-900', 'bg-white');
-    // Aba inactiva: discreta
-    btnOff.classList.remove('tab-active', 'bg-brand-500', 'text-white', 'bg-white');
-    btnOff.classList.add('text-slate-600', 'hover:text-slate-900');
-  }
-
-  function showPrincipal(){
-    setActive(btnPrincipal, btnDashboard);
-    secFiltros?.classList.remove('is-hidden');
-    secResultados?.classList.remove('is-hidden');
-    secDashboard?.classList.add('is-hidden');
-  }
-
-  function showDashboard(){
-    setActive(btnDashboard, btnPrincipal);
-    secFiltros?.classList.add('is-hidden');
-    secResultados?.classList.add('is-hidden');
-    secDashboard?.classList.remove('is-hidden');
-  }
-
-  showPrincipal();
-
-  btnPrincipal.addEventListener('click', showPrincipal);
-  btnDashboard.addEventListener('click', showDashboard);
-  btnPrincipal.addEventListener('touchstart', e => { e.preventDefault(); showPrincipal(); }, { passive: false });
-  btnDashboard.addEventListener('touchstart', e => { e.preventDefault(); showDashboard(); }, { passive: false });
-})();
