@@ -1350,3 +1350,164 @@ async function afastRemover(matricula, situacao){
     alert('Erro ao excluir registro de ausência: ' + err.message);
   }
 }
+// Armazena em memória os registros carregados do banco/planilha
+let registrosCarregados = [];
+
+document.addEventListener('DOMContentLoaded', () => {
+  carregarDados();
+
+  const btnExportar = document.getElementById('btnExportarPdf');
+  if (btnExportar) {
+    btnExportar.addEventListener('click', gerarPDFRelatorio);
+  }
+});
+
+/**
+ * Executa a chamada ao Apps Script para buscar as informações
+ */
+function carregarDados() {
+  if (typeof google !== 'undefined' && google.script && google.script.run) {
+    google.script.run
+      .withSuccessHandler(exibirDados)
+      .withFailureHandler(err => {
+        console.error("Erro ao carregar registros do Apps Script:", err);
+      })
+      .obterDadosRegistros();
+  } else {
+    console.warn("Ambiente local detectado (sem google.script.run). Usando array de teste.");
+    registrosCarregados = [];
+    renderizarTabela(registrosCarregados);
+  }
+}
+
+/**
+ * Recebe o array retornado e invoca a renderização
+ */
+function exibirDados(dados) {
+  registrosCarregados = dados || [];
+  renderizarTabela(registrosCarregados);
+}
+
+/**
+ * Renderiza os dados no HTML da página do gestor
+ */
+function renderizarTabela(lista) {
+  const tbody = document.getElementById('tbodyParticiparam');
+  if (!tbody) return;
+
+  tbody.innerHTML = '';
+
+  if (lista.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="4" class="text-center py-4 text-gray-500">Nenhum dado a exibir.</td></tr>`;
+    return;
+  }
+
+  lista.forEach(item => {
+    const tr = document.createElement('tr');
+    tr.className = 'border-b hover:bg-gray-50';
+    tr.innerHTML = `
+      <td class="py-2 px-4">${item.matricula}</td>
+      <td class="py-2 px-4 font-medium">${item.nome}</td>
+      <td class="py-2 px-4">${item.setor}</td>
+      <td class="py-2 px-4">${item.dataHora}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+}
+
+/**
+ * Garante o prefixo data:image/png;base64, na string da imagem
+ */
+function formatarBase64(str) {
+  if (!str || str.trim() === '') return null;
+  if (str.startsWith('data:image')) return str;
+  return 'data:image/png;base64,' + str;
+}
+
+/**
+ * Gera o documento PDF com a tabela e desenha a assinatura PNG em cada linha
+ */
+function gerarPDFRelatorio() {
+  if (!registrosCarregados || registrosCarregados.length === 0) {
+    alert("Não há dados disponíveis para gerar o relatório em PDF.");
+    return;
+  }
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({
+    orientation: 'portrait',
+    unit: 'mm',
+    format: 'a4'
+  });
+
+  // Cabeçalho do Relatório
+  doc.setFontSize(14);
+  doc.setFont('helvetica', 'bold');
+  doc.text("DIÁLOGO SEMANAL DE SEGURANÇA", 14, 15);
+
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Gerado em: ${new Date().toLocaleString('pt-BR')}`, 14, 21);
+
+  // Mapeamento das colunas da tabela
+  const tableData = registrosCarregados.map(item => [
+    item.matricula,
+    item.nome,
+    item.setor,
+    item.dataHora,
+    formatarBase64(item.assinatura) // Guarda o Base64 na última coluna
+  ]);
+
+  doc.autoTable({
+    startY: 26,
+    head: [['Matrícula', 'Colaborador', 'Setor', 'Data de Participação', 'Assinatura']],
+    body: tableData,
+    theme: 'grid',
+    styles: {
+      fontSize: 8,
+      valign: 'middle',
+      cellPadding: 2
+    },
+    headStyles: {
+      fillColor: [240, 240, 240],
+      textColor: [0, 0, 0],
+      fontStyle: 'bold'
+    },
+    columnStyles: {
+      0: { cellWidth: 25 },
+      1: { cellWidth: 60 },
+      2: { cellWidth: 35 },
+      3: { cellWidth: 35 },
+      4: { cellWidth: 30, minCellHeight: 12 } // Garante altura para a imagem da assinatura
+    },
+    // Limpa a string base64 da exibição em texto na célula
+    willDrawCell: (data) => {
+      if (data.section === 'body' && data.column.index === 4) {
+        data.cell.text = [];
+      }
+    },
+    // Desenha a imagem PNG dentro da célula da assinatura
+    didDrawCell: (data) => {
+      if (data.section === 'body' && data.column.index === 4) {
+        const base64Img = data.row.raw[4];
+
+        if (base64Img) {
+          try {
+            doc.addImage(
+              base64Img,
+              'PNG',
+              data.cell.x + 2,  // Margem X na célula
+              data.cell.y + 1,  // Margem Y na célula
+              26,               // Largura (mm)
+              10                // Altura (mm)
+            );
+          } catch (e) {
+            console.error("Erro ao desenhar imagem da assinatura no PDF:", e);
+          }
+        }
+      }
+    }
+  });
+
+  doc.save("Relatorio_Dialogo_Semanal_de_Seguranca.pdf");
+}
