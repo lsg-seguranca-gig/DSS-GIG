@@ -537,10 +537,61 @@ async function ensureDataURLImage(v){
   return await urlToDataURL(v); 
 }
 
+// Carrega uma imagem (inclusive data URL) e só resolve DEPOIS que ela termina
+// de decodificar — usar naturalWidth/drawImage antes disso resulta em canvas
+// em branco, silenciosamente (sem erro), que foi a causa real das
+// assinaturas "sumindo" tanto dos colaboradores quanto dos instrutores.
+function _carregarImagemElemento(src){
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = (e) => reject(e);
+    img.src = src;
+  });
+}
+
+// Processa a assinatura do colaborador no canvas (fundo branco + contraste),
+// aguardando corretamente o carregamento da imagem antes de desenhar.
+async function _processarAssinaturaCanvas(dataUrl){
+  try {
+    const imgEl = await _carregarImagemElemento(dataUrl);
+    const nW = imgEl.naturalWidth  || 400;
+    const nH = imgEl.naturalHeight || 160;
+    const canvas = document.createElement('canvas');
+    canvas.width  = nW;
+    canvas.height = nH;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, nW, nH);
+    ctx.drawImage(imgEl, 0, 0);
+    const imgData = ctx.getImageData(0, 0, nW, nH);
+    const d = imgData.data;
+    for (let i = 0; i < d.length; i += 4){
+      const brightness = (d[i] + d[i+1] + d[i+2]) / 3;
+      if (brightness < 180){
+        d[i]   = Math.max(0, d[i]   - 40);
+        d[i+1] = Math.max(0, d[i+1] - 40);
+        d[i+2] = Math.max(0, d[i+2] - 40);
+      } else {
+        d[i] = d[i+1] = d[i+2] = 255;
+      }
+      d[i+3] = 255;
+    }
+    ctx.putImageData(imgData, 0, 0);
+    return canvas.toDataURL('image/png');
+  } catch(e) {
+    console.warn('Processamento de assinatura falhou, usando original:', e);
+    return dataUrl;
+  }
+}
+
 async function resolveRowSignatures(rows){ 
   const out = []; 
   for(const r of rows){ 
-    const sig = await ensureDataURLImage(r._sig || r.AssinaturaPNG || ''); 
+    let sig = await ensureDataURLImage(r._sig || r.AssinaturaPNG || ''); 
+    if (sig && /^data:image\/(png|jpeg|jpg);base64,/i.test(sig)) {
+      sig = await _processarAssinaturaCanvas(sig);
+    }
     out.push({ ...r, _sig: sig }); 
   } 
   return out; 
@@ -573,6 +624,7 @@ async function gerarPDF(){
 
         const resSig = await apiFetch(qsSig.toString());
         const dataSig = await resSig.json().catch(() => null);
+        console.log('[PDF] busca de assinaturas:', dataSig && dataSig.ok ? `ok, ${dataSig.data.length} registo(s), ${dataSig.data.filter(r=>r.AssinaturaPNG).length} com assinatura` : dataSig);
         if (dataSig && dataSig.ok && Array.isArray(dataSig.data)) {
           const mapaSig = new Map();
           dataSig.data.forEach(r => {
@@ -738,46 +790,7 @@ async function gerarPDF(){
           const val = data.row?.raw?._sig || '';
           if (typeof val === 'string' && /^data:image\/(png|jpeg|jpg);base64,/i.test(val)){
             try {
-              const cleanVal = val.replace(/\s/g, '');
-
-              // Processar a assinatura no Canvas para:
-              // 1. Fundo branco (remove transparência que causa assinaturas claras)
-              // 2. Aumentar contraste/escurecer traços
-              let finalImg = cleanVal;
-              try {
-                const canvas = document.createElement('canvas');
-                const imgEl  = new Image();
-                imgEl.src    = cleanVal;
-                // Usar dimensões reais ou fallback
-                const nW = imgEl.naturalWidth  || 400;
-                const nH = imgEl.naturalHeight || 160;
-                canvas.width  = nW;
-                canvas.height = nH;
-                const ctx = canvas.getContext('2d');
-                // Fundo branco
-                ctx.fillStyle = '#ffffff';
-                ctx.fillRect(0, 0, nW, nH);
-                ctx.drawImage(imgEl, 0, 0);
-                // Escurecer pixels: aumenta o canal escuro (reduz RGB claro)
-                const imgData = ctx.getImageData(0, 0, nW, nH);
-                const d = imgData.data;
-                for (let i = 0; i < d.length; i += 4){
-                  // Se pixel é escuro (traço da assinatura), torná-lo mais preto
-                  const brightness = (d[i] + d[i+1] + d[i+2]) / 3;
-                  if (brightness < 180){
-                    d[i]   = Math.max(0, d[i]   - 40);
-                    d[i+1] = Math.max(0, d[i+1] - 40);
-                    d[i+2] = Math.max(0, d[i+2] - 40);
-                  } else {
-                    // Pixels claros → branco puro
-                    d[i] = d[i+1] = d[i+2] = 255;
-                  }
-                  d[i+3] = 255; // opacidade total
-                }
-                ctx.putImageData(imgData, 0, 0);
-                finalImg = canvas.toDataURL('image/png');
-              } catch(canvasErr){ finalImg = cleanVal; }
-
+              const finalImg = val.replace(/\s/g, '');
               const props = doc.getImageProperties(finalImg);
               const pad  = 3;
               const maxW = data.cell.width  - pad * 2;
@@ -811,8 +824,7 @@ async function gerarPDF(){
         let highResImg = window._ASSINATURAS_IMG_B64;
         try {
           const SCALE = 2; // 2× = resolução dobrada
-          const tmpImg = new Image();
-          tmpImg.src   = window._ASSINATURAS_IMG_B64;
+          const tmpImg = await _carregarImagemElemento(window._ASSINATURAS_IMG_B64);
           const srcW = tmpImg.naturalWidth  || 1200;
           const srcH = tmpImg.naturalHeight || 400;
           const canvas2 = document.createElement('canvas');
