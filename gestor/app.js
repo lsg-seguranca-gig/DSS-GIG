@@ -618,9 +618,23 @@ async function gerarPDF(){
     // mudado entre a pesquisa e o clique em "Gerar PDF".
     try {
       const matriculasBase = [...new Set(base.map(r => r.Matricula).filter(v => v !== null && v !== undefined && v !== ''))];
+      // Derivar o(s) título(s)/semana(s) presentes neste relatório, para que a
+      // busca de assinatura combine matrícula + semana/título — sem isso, o
+      // filtro por matrícula sozinho traz TODO o histórico da pessoa (todas
+      // as semanas que ela já participou), facilmente estourando o limite de
+      // segurança de 200 registos e bloqueando a busca de assinatura.
+      const titulosBase = [...new Set(base.map(r => r.TituloVideo).filter(Boolean))];
+      const semanasBase = [...new Set(base.map(r => r.SemanaISO).filter(Boolean))];
+
       if (matriculasBase.length && matriculasBase.length <= 200) {
         const qsSig = new URLSearchParams({ action: 'registros', comAssinatura: '1' });
         qsSig.set('matriculas', matriculasBase.join(','));
+        // Prioriza "semana" (string simples, só dígitos/letras — ex.: "2026-W31")
+        // sobre "titulo" (pode ter acentos e caracteres especiais que às vezes
+        // se perdem na cadeia de codificação entre navegador → proxy → GAS).
+        if (semanasBase.length === 1) qsSig.set('semana', semanasBase[0]);
+        else if (titulosBase.length === 1) qsSig.set('titulo', titulosBase[0]);
+        console.log('[PDF] filtro de assinatura:', { matriculas: matriculasBase.length, semanasBase, titulosBase });
 
         const resSig = await apiFetch(qsSig.toString());
         const dataSig = await resSig.json().catch(() => null);
