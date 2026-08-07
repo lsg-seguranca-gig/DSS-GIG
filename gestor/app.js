@@ -2,40 +2,35 @@
 // onde o HTML está hospedado (ex.: /gestor/). Por isso usamos caminho absoluto.
 const API_BASE = "/api/gas";
 
-  // Controlo de cache manual e chamadas de API
-  function apiFetch(params, options){
-    const url = API_BASE + '?' + params + '&_t=' + Date.now();
-    return fetch(url, Object.assign({ cache: 'no-store', headers: { 'Cache-Control': 'no-cache' } }, options || {}));
-  }
+// Controlo de cache manual e chamadas de API
+function apiFetch(params, options){
+  const url = API_BASE + '?' + params + '&_t=' + Date.now();
+  return fetch(url, Object.assign({ cache: 'no-store', headers: { 'Cache-Control': 'no-cache' } }, options || {}));
+}
 
-  const LOGO_SRC = "/logo lsg.png";
-  let LOGO_DATAURL = "";
-  let registros = [];
-  let registrosFiltrados = [];
-  let feriasServidor = []; // Guarda as informações da planilha "Ferias" do Google Sheets
+const LOGO_SRC = "/logo lsg.png";
+let LOGO_DATAURL = "";
+let registros = [];
+let registrosFiltrados = [];
+let feriasServidor = []; // Guarda as informações da planilha "Ferias" do Google Sheets
 
-  /* ====================================================
-   * LSG SKY CHEFS — LOGO EMBUTIDO (SVG) COMO FALLBACK GARANTIDO
-   * Usado no PDF se lsg sky chefs logo.png não estiver acessível
-   * ==================================================== */
-
-  /* ====================================================
-   * INSTRUTORES DO TREINAMENTO
-   * As células de assinatura são desenhadas como campos em branco
-   * pelo jsPDF (linha clássica de assinatura)
-   * ==================================================== */
-  const PDF_INSTRUTORES = [
-    {
-      nome: 'Vitor Hugo Teixeira da Silva',
-      cargo: 'Supervisor de Segurança / LSA AVSEC / Ramp Safety Owner',
-      matricula: '15623',
-      assinatura: null
-    },
-    {
-      nome: 'Francinele Ribeiro Machado',
-      cargo: 'Assistente Administrativo / DLSA AVSEC / Ramp Safety Deputy',
-      matricula: '16977',
-      assinatura: null
+/* ====================================================
+ * INSTRUTORES DO TREINAMENTO
+ * As células de assinatura são desenhadas como campos em branco
+ * pelo jsPDF (linha clássica de assinatura)
+ * ==================================================== */
+const PDF_INSTRUTORES = [
+  {
+    nome: 'Vitor Hugo Teixeira da Silva',
+    cargo: 'Supervisor de Segurança / LSA AVSEC / Ramp Safety Owner',
+    matricula: '15623',
+    assinatura: null
+  },
+  {
+    nome: 'Francinele Ribeiro Machado',
+    cargo: 'Assistente Administrativo / DLSA AVSEC / Ramp Safety Deputy',
+    matricula: '16977',
+    assinatura: null
   },
 ];
 
@@ -59,16 +54,16 @@ function loadLogoAsDataURL(){
 }
 loadLogoAsDataURL();
 
-document.getElementById('btnBuscar').addEventListener('click', buscar);
-document.getElementById('btnPDF').addEventListener('click', gerarPDF);
-document.getElementById('btnXLS').addEventListener('click', gerarXLS);
-document.getElementById('btnAddFunc').addEventListener('click', novoFuncionarioViaPrompt);
-document.getElementById('btnDelFunc').addEventListener('click', excluirFuncionarioViaPrompt);
+document.getElementById('btnBuscar')?.addEventListener('click', buscar);
+document.getElementById('btnPDF')?.addEventListener('click', gerarPDF);
+document.getElementById('btnXLS')?.addEventListener('click', gerarXLS);
+document.getElementById('btnAddFunc')?.addEventListener('click', novoFuncionarioViaPrompt);
+document.getElementById('btnDelFunc')?.addEventListener('click', excluirFuncionarioViaPrompt);
 
-['fMat','fNome','fDataInicio','fDataFinal','fSemanaTitulo'].forEach(id=>{
+['fMat','fNome','fDataInicio','fDataFinal','fSemanaTitulo'].forEach(id => {
   const el = document.getElementById(id); 
   if(!el) return; 
-  el.addEventListener('keydown', e=>{ if(e.key === 'Enter'){ e.preventDefault(); buscar(); } });
+  el.addEventListener('keydown', e => { if(e.key === 'Enter'){ e.preventDefault(); buscar(); } });
 });
 
 // Configuração dos Inputs de Data com suporte a Calendário Nativo
@@ -160,14 +155,18 @@ function _popularSelectsCatalogo(mapaISO, isoSet){
     const opts = _buildTituloOpts(mapaISO, '');
 
     const selP = document.getElementById('fSemanaTitulo');
-    const selAtualP = selP.value;
-    selP.innerHTML = '<option value="">Selecione uma semana</option>' + opts;
-    if (selAtualP && [...selP.options].some(o => o.value === selAtualP)) selP.value = selAtualP;
+    if (selP) {
+      const selAtualP = selP.value;
+      selP.innerHTML = '<option value="">Selecione uma semana</option>' + opts;
+      if (selAtualP && [...selP.options].some(o => o.value === selAtualP)) selP.value = selAtualP;
+    }
 
     const selD = document.getElementById('dashTitulo');
-    const selAtualD = selD.value;
-    selD.innerHTML = '<option value="">Selecione um título...</option>' + opts;
-    if (selAtualD && [...selD.options].some(o => o.value === selAtualD)) selD.value = selAtualD;
+    if (selD) {
+      const selAtualD = selD.value;
+      selD.innerHTML = '<option value="">Selecione um título...</option>' + opts;
+      if (selAtualD && [...selD.options].some(o => o.value === selAtualD)) selD.value = selAtualD;
+    }
   }
 
   if (isoSet.size) {
@@ -233,14 +232,14 @@ async function buscar(){
   const status = document.getElementById('status');
   const btnBuscar = document.getElementById('btnBuscar');
   const textoOriginalBuscar = btnBuscar ? btnBuscar.innerHTML : '';
-  status.innerHTML = '<div class="text-sky-600 bg-sky-50 px-4 py-2.5 rounded-lg border border-sky-100">A pesquisar...</div>';
+  if (status) status.innerHTML = '<div class="text-sky-600 bg-sky-50 px-4 py-2.5 rounded-lg border border-sky-100">A pesquisar...</div>';
   if (btnBuscar) { btnBuscar.disabled = true; btnBuscar.innerHTML = '<svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path></svg> A pesquisar...'; }
 
-  const fMat = document.getElementById('fMat').value.trim();
-  const fNome = document.getElementById('fNome').value.trim();
-  const fTitulo = document.getElementById('fSemanaTitulo').value.trim();
-  const fDataI = document.getElementById('fDataInicio').value;
-  const fDataF = document.getElementById('fDataFinal').value;
+  const fMat = document.getElementById('fMat')?.value.trim() ?? '';
+  const fNome = document.getElementById('fNome')?.value.trim() ?? '';
+  const fTitulo = document.getElementById('fSemanaTitulo')?.value.trim() ?? '';
+  const fDataI = document.getElementById('fDataInicio')?.value ?? '';
+  const fDataF = document.getElementById('fDataFinal')?.value ?? '';
 
   const qs = new URLSearchParams({ action: 'registros' });
   if (fMat) qs.append('matricula', fMat);
@@ -282,7 +281,7 @@ async function buscar(){
 
     registrosFiltrados = Array.from(mapa.values()).sort((a,b) => String(a.Nome ?? '').localeCompare(String(b.Nome ?? ''), 'pt-PT', { sensitivity: 'base' }));
     renderTabela(registrosFiltrados);
-    status.innerHTML = '<div class="text-emerald-600 font-semibold bg-emerald-50 px-4 py-2.5 rounded-lg border border-emerald-100">Pesquisa concluída: ' + registrosFiltrados.length + ' registo(s) encontrado(s).</div>';
+    if (status) status.innerHTML = '<div class="text-emerald-600 font-semibold bg-emerald-50 px-4 py-2.5 rounded-lg border border-emerald-100">Pesquisa concluída: ' + registrosFiltrados.length + ' registo(s) encontrado(s).</div>';
 
     try {
       const temas = await buscarAssuntosPorSemana(registrosFiltrados);
@@ -291,7 +290,7 @@ async function buscar(){
       renderTemasAbordados('temasAbordados', []);
     }
   } catch(err){ 
-    status.innerHTML = '<div class="text-rose-600 font-semibold bg-rose-50 px-4 py-2.5 rounded-lg border border-rose-100">Falha ao processar a consulta: ' + (err.message || '') + '</div>'; 
+    if (status) status.innerHTML = '<div class="text-rose-600 font-semibold bg-rose-50 px-4 py-2.5 rounded-lg border border-rose-100">Falha ao processar a consulta: ' + (err.message || '') + '</div>'; 
     renderTemasAbordados('temasAbordados', []);
   } finally {
     if (btnBuscar) { btnBuscar.disabled = false; btnBuscar.innerHTML = textoOriginalBuscar; }
@@ -301,6 +300,7 @@ async function buscar(){
 // Renderização da tabela de registos no ecrã principal
 function renderTabela(list){
   const tbody = document.getElementById('tbody');
+  if (!tbody) return;
   tbody.innerHTML = '';
   if (!list || list.length === 0){ 
     tbody.innerHTML = '<tr><td colspan="6" class="px-6 py-10 text-center text-slate-400">Sem registos encontrados para os filtros aplicados.</td></tr>'; 
@@ -485,7 +485,7 @@ async function gerarPDF(){
   const textoOriginal = btnPDF ? btnPDF.innerHTML : '';
   try {
     if (btnPDF) { btnPDF.disabled = true; btnPDF.innerHTML = '<svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path></svg> A gerar...'; }
-    status.innerHTML = '<div class="text-amber-600 bg-amber-50 px-4 py-2 rounded-lg border border-amber-100">A carregar bibliotecas e recursos...</div>';
+    if (status) status.innerHTML = '<div class="text-amber-600 bg-amber-50 px-4 py-2 rounded-lg border border-amber-100">A carregar bibliotecas e recursos...</div>';
     await Promise.all([_ensureJsPDF(), loadLogoAsDataURL()]);
     const baseSource = (Array.isArray(registrosFiltrados) && registrosFiltrados.length) ? registrosFiltrados : registros;
     if (!baseSource || !baseSource.length){ alert('Sem dados disponíveis para gerar PDF.'); return; }
@@ -599,7 +599,7 @@ async function gerarPDF(){
       { header: 'Assinatura', dataKey: '_sig' },
     ];
 
-    status.innerHTML = '<div class="text-amber-600 bg-amber-50 px-4 py-2 rounded-lg border border-amber-100">A processar assinaturas dos colaboradores...</div>';
+    if (status) status.innerHTML = '<div class="text-amber-600 bg-amber-50 px-4 py-2 rounded-lg border border-amber-100">A processar assinaturas dos colaboradores...</div>';
     let rows = base.map(r => ({ Matricula: r.Matricula??'', Nome: r.Nome??'', Setor: r.Setor??'', DataFmt: formatTimestamp(r.Timestamp)??'', _sig: r.AssinaturaPNG ?? '' }));
     rows = await resolveRowSignatures(rows);
 
@@ -750,10 +750,10 @@ async function gerarPDF(){
 
     if (typeof doc.putTotalPages === 'function'){ doc.putTotalPages(totalPagesExp); }
     doc.save('Relatorio_Dialogo_Semanal_de_Seguranca.pdf');
-    status.innerHTML = '<div class="text-emerald-600 bg-emerald-50 px-4 py-2 rounded-lg border border-emerald-100">PDF gerado com sucesso!</div>';
+    if (status) status.innerHTML = '<div class="text-emerald-600 bg-emerald-50 px-4 py-2 rounded-lg border border-emerald-100">PDF gerado com sucesso!</div>';
   } catch(err) {
     console.error('Erro ao gerar PDF:', err);
-    status.innerHTML = '<div class="text-rose-600 bg-rose-50 px-4 py-2 rounded-lg border border-rose-100">Erro ao gerar PDF: ' + (err.message || 'Erro desconhecido') + '</div>';
+    if (status) status.innerHTML = '<div class="text-rose-600 bg-rose-50 px-4 py-2 rounded-lg border border-rose-100">Erro ao gerar PDF: ' + (err.message || 'Erro desconhecido') + '</div>';
   } finally {
     if (btnPDF) { btnPDF.disabled = false; btnPDF.innerHTML = textoOriginal; }
   }
@@ -782,18 +782,18 @@ async function novoFuncionarioViaPrompt(){
     setor = (setor ?? '').trim();
 
     const ok = confirm(`Confirmar cadastro do novo colaborador?\n\nMatrícula: ${matricula}\nNome: ${nome}\nSetor: ${setor ?? '-'}\nAtivo: SIM`);
-    if (!ok){ status.innerHTML = '<div class="text-amber-600 bg-amber-50 px-4 py-2 rounded-lg border border-amber-100">Operação cancelada.</div>'; return; }
+    if (!ok){ if (status) status.innerHTML = '<div class="text-amber-600 bg-amber-50 px-4 py-2 rounded-lg border border-amber-100">Operação cancelada.</div>'; return; }
 
     const payload = { matricula, nome, setor, ativo: true };
-    status.innerHTML = '<div class="text-amber-500 bg-amber-50 px-4 py-2 rounded-lg border border-amber-100">A submeter novo registo ao servidor...</div>';
+    if (status) status.innerHTML = '<div class="text-amber-500 bg-amber-50 px-4 py-2 rounded-lg border border-amber-100">A submeter novo registo ao servidor...</div>';
 
     const res = await fetch(API_BASE + '?action=addFuncionario', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
     let data; 
     try { data = await res.json(); } catch { data = { ok: false, error: 'Erro de formatação na resposta' }; }
     if (!data.ok) throw new Error(data.error ?? 'Falha ao incluir colaborador');
-    status.innerHTML = '<div class="text-emerald-600 bg-emerald-50 px-4 py-2 rounded-lg border border-emerald-100">Colaborador inserido com sucesso!</div>';
+    if (status) status.innerHTML = '<div class="text-emerald-600 bg-emerald-50 px-4 py-2 rounded-lg border border-emerald-100">Colaborador inserido com sucesso!</div>';
   } catch(err){ 
-    status.innerHTML = '<div class="text-rose-600 bg-rose-50 px-4 py-2 rounded-lg border border-rose-100">' + (err && err.message ? err.message : 'Erro ao processar criação de colaborador') + '</div>'; 
+    if (status) status.innerHTML = '<div class="text-rose-600 bg-rose-50 px-4 py-2 rounded-lg border border-rose-100">' + (err && err.message ? err.message : 'Erro ao processar criação de colaborador') + '</div>'; 
   }
 }
 
@@ -811,8 +811,8 @@ async function excluirFuncionarioViaPrompt(){
     }
     const matricula = mRaw;
 
-    await dashEnsureData();
-    const colab = (DASH_funcionarios || []).find(f => afastNormMat(f.Matricula) === matricula);
+    if (typeof dashEnsureData === 'function') await dashEnsureData();
+    const colab = (typeof DASH_funcionarios !== 'undefined' && DASH_funcionarios || []).find(f => afastNormMat(f.Matricula) === matricula);
 
     let confirmMsg = `Deseja realmente apagar em definitivo o colaborador com a matrícula ${matricula}?`;
     if (colab && colab.Nome) {
@@ -820,9 +820,9 @@ async function excluirFuncionarioViaPrompt(){
     }
 
     const ok = confirm(confirmMsg);
-    if (!ok){ status.innerHTML = '<div class="text-amber-600 bg-amber-50 px-4 py-2 rounded-lg border border-amber-100">Exclusão cancelada.</div>'; return; }
+    if (!ok){ if (status) status.innerHTML = '<div class="text-amber-600 bg-amber-50 px-4 py-2 rounded-lg border border-amber-100">Exclusão cancelada.</div>'; return; }
 
-    status.innerHTML = '<div class="text-rose-500 bg-rose-50 px-4 py-2 rounded-lg border border-rose-100">A remover registo do Google Sheets...</div>';
+    if (status) status.innerHTML = '<div class="text-rose-500 bg-rose-50 px-4 py-2 rounded-lg border border-rose-100">A remover registo do Google Sheets...</div>';
 
     let success = false;
     let errorMsg = '';
@@ -883,12 +883,12 @@ async function excluirFuncionarioViaPrompt(){
       throw new Error(errorMsg || 'Erro desconhecido na remoção do Sheets');
     }
 
-    status.innerHTML = '<div class="text-emerald-600 bg-emerald-50 px-4 py-2 rounded-lg border border-emerald-100">Colaborador removido em definitivo do Sheets!</div>';
+    if (status) status.innerHTML = '<div class="text-emerald-600 bg-emerald-50 px-4 py-2 rounded-lg border border-emerald-100">Colaborador removido em definitivo do Sheets!</div>';
 
     delete _apiCache['funcionarios'];
-    DASH_funcionarios = null;
+    if (typeof DASH_funcionarios !== 'undefined') DASH_funcionarios = null;
   } catch(err){
-    status.innerHTML = '<div class="text-rose-600 bg-rose-50 px-4 py-2 rounded-lg border border-rose-100">' + (err && err.message ? err.message : 'Erro ao excluir colaborador') + '</div>';
+    if (status) status.innerHTML = '<div class="text-rose-600 bg-rose-50 px-4 py-2 rounded-lg border border-rose-100">' + (err && err.message ? err.message : 'Erro ao excluir colaborador') + '</div>';
   }
 }
 
@@ -1018,19 +1018,19 @@ function dashKPIs({ total, part, nPart, nDisp, semana, titulo, registrosAll, fun
   const pctNP  = total > 0 ? Math.round((nPart  / total) * 100) : 0;
   const pctD   = totalAll > 0 ? Math.round((nDispSafe / totalAll) * 100) : 0;
 
-  document.getElementById('kpiTotalAtivos').textContent     = String(total ?? '-');
-  document.getElementById('kpiParticiparam').textContent    = String(part  ?? '-');
-  document.getElementById('kpiNaoParticiparam').textContent = String(nPart ?? '-');
-  document.getElementById('kpiParticiparamPct').textContent = total ? `${pct}%` : '-';
-  document.getElementById('kpiPctNum').textContent          = total ? `${pct}%` : '-';
-  document.getElementById('kpiSemanaSel').textContent       = String(semana ?? '-');
-  document.getElementById('kpiTituloSel').textContent       = String(titulo ?? '-');
+  const elTotal = document.getElementById('kpiTotalAtivos'); if (elTotal) elTotal.textContent = String(total ?? '-');
+  const elPart = document.getElementById('kpiParticiparam'); if (elPart) elPart.textContent = String(part ?? '-');
+  const elNPart = document.getElementById('kpiNaoParticiparam'); if (elNPart) elNPart.textContent = String(nPart ?? '-');
+  const elPct = document.getElementById('kpiParticiparamPct'); if (elPct) elPct.textContent = total ? `${pct}%` : '-';
+  const elPctNum = document.getElementById('kpiPctNum'); if (elPctNum) elPctNum.textContent = total ? `${pct}%` : '-';
+  const elSemana = document.getElementById('kpiSemanaSel'); if (elSemana) elSemana.textContent = String(semana ?? '-');
+  const elTitulo = document.getElementById('kpiTituloSel'); if (elTitulo) elTitulo.textContent = String(titulo ?? '-');
 
   const kpiDisp = document.getElementById('kpiDispensados');
   if (kpiDisp) kpiDisp.textContent = String(nDispSafe);
 
-  document.getElementById('barPart').style.width    = total ? `${pct}%`   : '0%';
-  document.getElementById('barNaoPart').style.width = total ? `${pctNP}%` : '0%';
+  const barPart = document.getElementById('barPart'); if (barPart) barPart.style.width = total ? `${pct}%` : '0%';
+  const barNaoPart = document.getElementById('barNaoPart'); if (barNaoPart) barNaoPart.style.width = total ? `${pctNP}%` : '0%';
   const barDisp = document.getElementById('barDisp');
   if (barDisp) {
     barDisp.style.width = totalAll ? `${pctD}%` : '0%';
@@ -1191,7 +1191,7 @@ function funcEstaAfastadoNaSemana(matricula, semanaNorm, segMs, domMs){
 
   let wSeg = segMs, wDom = domMs;
   if (!wSeg || !wDom) {
-    const monday = semanaISOToMonday(semanaNorm);
+    const monday = typeof semanaISOToMonday === 'function' ? semanaISOToMonday(semanaNorm) : null;
     if (monday) {
       wSeg = monday.getTime();
       wDom = monday.getTime() + 6 * 86400000;
