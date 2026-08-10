@@ -2167,4 +2167,163 @@ async function calcularHistoricoFaltas(){
   } catch(err) {
     console.error('[Histórico Faltas]', err);
     tbody.innerHTML = `<tr><td colspan="5" class="px-4 py-8 text-center text-rose-500">Erro ao calcular: ${escapeHtml(String(err.message || err))}</td></tr>`;
-    if (totalEl) totalEl.te
+    if (totalEl) totalEl.textContent = '—';
+  }
+}
+
+// Armazena todas as linhas do histórico para filtragem
+let _historicoFaltasLinhas = [];
+
+function _renderHistoricoFiltrado(){
+  const tbody      = document.getElementById('tbodyHistoricoFaltas');
+  const filtNome   = (document.getElementById('filtroHistNome')?.value || '').toLowerCase().trim();
+  const filtSemana = document.getElementById('filtroHistSemana')?.value || '';
+  const filtSetor  = document.getElementById('filtroHistSetor')?.value || '';
+  const countEl   = document.getElementById('historicoFaltasFiltrado');
+  if (!tbody) return;
+
+  const filtradas = _historicoFaltasLinhas.filter(l => {
+    if (filtSemana && l.semanaISO !== filtSemana) return false;
+    if (filtSetor  && l.setor !== filtSetor)      return false;
+    if (filtNome   && !l.nome.toLowerCase().includes(filtNome) && !l.matricula.includes(filtNome)) return false;
+    return true;
+  });
+
+  if (countEl) countEl.textContent = `${filtradas.length} de ${_historicoFaltasLinhas.length}`;
+
+  if (!filtradas.length){
+    tbody.innerHTML = '<tr><td colspan="5" class="px-4 py-8 text-center text-slate-400">Nenhum resultado para os filtros aplicados.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = filtradas.map(l => `
+    <tr class="hover:bg-amber-50/40 transition-colors">
+      <td class="px-4 py-3 font-mono text-xs text-slate-500">${escapeHtml(l.semanaISO)}</td>
+      <td class="px-4 py-3 text-xs text-slate-500">${escapeHtml(l.titulo)}</td>
+      <td class="px-4 py-3 font-mono font-semibold text-slate-700">${escapeHtml(l.matricula)}</td>
+      <td class="px-4 py-3 font-semibold text-slate-800">${escapeHtml(l.nome)}</td>
+      <td class="px-4 py-3 text-slate-600">${escapeHtml(l.setor)}</td>
+    </tr>`).join('');
+}
+
+// Inicializar listeners dos filtros do Histórico (chamado uma vez)
+(function initHistoricoFiltros(){
+  const btnLimpar = document.getElementById('btnFiltroHistLimpar');
+  ['filtroHistNome','filtroHistSemana','filtroHistSetor'].forEach(id => {
+    document.getElementById(id)?.addEventListener('input', _renderHistoricoFiltrado);
+    document.getElementById(id)?.addEventListener('change', _renderHistoricoFiltrado);
+  });
+  btnLimpar?.addEventListener('click', () => {
+    const nEl = document.getElementById('filtroHistNome');
+    const sEl = document.getElementById('filtroHistSemana');
+    const stEl = document.getElementById('filtroHistSetor');
+    if (nEl) nEl.value = '';
+    if (sEl) sEl.value = '';
+    if (stEl) stEl.value = '';
+    _renderHistoricoFiltrado();
+  });
+})();
+
+// Exportação Excel de Não Participantes do Dashboard
+async function dashGerarXLS_NP(){
+  const base = DASH_naoParticipantes || []; 
+  if(!base.length){ alert('Não existem dados de ausentes para exportar.'); return; }
+  try { await _ensureXLSX(); } catch(e) { alert('Erro ao carregar biblioteca Excel: ' + e.message); return; }
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.json_to_sheet(base.map(r => ({ 'Matrícula': r.Matricula ?? '', 'Colaborador': r.Nome ?? '', 'Setor': r.Setor ?? '' })));
+  XLSX.utils.book_append_sheet(wb, ws, 'Ausentes');
+  XLSX.writeFile(wb, `DSS_GIG_NaoParticipantes_${(document.getElementById('kpiSemanaSel').textContent || 'semana')}.xlsx`);
+}
+
+// Exportação Excel de Participantes do Dashboard
+async function dashGerarXLS_P(){
+  const base = DASH_participantes || []; 
+  if(!base.length){ alert('Não existem dados de presenças para exportar.'); return; }
+  try { await _ensureXLSX(); } catch(e) { alert('Erro ao carregar biblioteca Excel: ' + e.message); return; }
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.json_to_sheet(base.map(r => ({ 'Matrícula': r.Matricula ?? '', 'Colaborador': r.Nome ?? '', 'Setor': r.Setor ?? '', 'Data de Participação': formatTimestamp(r.Timestamp) })));
+  XLSX.utils.book_append_sheet(wb, ws, 'Presencas');
+  XLSX.writeFile(wb, `DSS_GIG_Participantes_${(document.getElementById('kpiSemanaSel').textContent || 'semana')}.xlsx`);
+}
+
+function dashCompareSemanaISODesc(a, b){ 
+  const pa = dashParseSemanaISO(a), pb = dashParseSemanaISO(b); 
+  if (pa.year !== pb.year) return pb.year - pa.year; 
+  return pb.week - pa.week; 
+}
+
+function dashParseSemanaISO(s){ 
+  const m = String(s||'').match(/^(\d{4})-W?(\d{1,2})$/i); 
+  if(!m) return { year: 0, week: 0 }; 
+  return { year: +m[1], week: +m[2] }; 
+}
+
+// ── Dark Mode ─────────────────────────────────────────────────
+(function initDarkMode(){
+  const btn       = document.getElementById('btnDarkMode');
+  const iconDark  = document.getElementById('iconDark');
+  const iconLight = document.getElementById('iconLight');
+  const html      = document.documentElement;
+
+  const apply = (dark) => {
+    if (dark) {
+      html.classList.add('dark');
+      iconDark.classList.add('hidden');
+      iconLight.classList.remove('hidden');
+      btn.title = 'Mudar para modo claro';
+    } else {
+      html.classList.remove('dark');
+      iconDark.classList.remove('hidden');
+      iconLight.classList.add('hidden');
+      btn.title = 'Mudar para modo escuro';
+    }
+    try { localStorage.setItem('dssgig_dark', dark ? '1' : '0'); } catch(e){}
+  };
+
+  // Preferência salva ou preferência do sistema
+  let saved;
+  try { saved = localStorage.getItem('dssgig_dark'); } catch(e){}
+  const prefersDark = window.matchMedia?.('(prefers-color-scheme: dark)').matches;
+  apply(saved !== null ? saved === '1' : prefersDark);
+
+  btn.addEventListener('click', () => apply(!html.classList.contains('dark')));
+})();
+
+// ── Abas / Navegação ─────────────────────────────────────────
+(function initTabs(){
+  const btnPrincipal  = document.getElementById('tabPrincipal');
+  const btnDashboard  = document.getElementById('tabDashboard');
+  const secFiltros    = document.getElementById('cardFiltros');
+  const secResultados = document.getElementById('cardResultados');
+  const secDashboard  = document.getElementById('dashCard');
+
+  function setActive(btnOn, btnOff){
+    // Aba activa: destaque azul + sombra
+    btnOn.classList.add('tab-active', 'bg-brand-500', 'text-white');
+    btnOn.classList.remove('text-slate-600', 'hover:text-slate-900', 'bg-white');
+    // Aba inactiva: discreta
+    btnOff.classList.remove('tab-active', 'bg-brand-500', 'text-white', 'bg-white');
+    btnOff.classList.add('text-slate-600', 'hover:text-slate-900');
+  }
+
+  function showPrincipal(){
+    setActive(btnPrincipal, btnDashboard);
+    secFiltros?.classList.remove('is-hidden');
+    secResultados?.classList.remove('is-hidden');
+    secDashboard?.classList.add('is-hidden');
+  }
+
+  function showDashboard(){
+    setActive(btnDashboard, btnPrincipal);
+    secFiltros?.classList.add('is-hidden');
+    secResultados?.classList.add('is-hidden');
+    secDashboard?.classList.remove('is-hidden');
+  }
+
+  showPrincipal();
+
+  btnPrincipal.addEventListener('click', showPrincipal);
+  btnDashboard.addEventListener('click', showDashboard);
+  btnPrincipal.addEventListener('touchstart', e => { e.preventDefault(); showPrincipal(); }, { passive: false });
+  btnDashboard.addEventListener('touchstart', e => { e.preventDefault(); showDashboard(); }, { passive: false });
+})();
