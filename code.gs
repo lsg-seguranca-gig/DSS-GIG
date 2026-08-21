@@ -399,7 +399,8 @@ function doPost(e) {
 
     // ── registrar ─────────────────────────────────────────────────────────────
     if (action === 'registrar') {
-      let { matricula, semanaISO, tituloVideo, urlVideo, assinaturaPNG, deviceInfo } = body || {};
+      let { matricula, semanaISO, tituloVideo, urlVideo, assinaturaPNG, deviceInfo,
+            tempoAssistidoSegundos, duracaoSegundos } = body || {};
       matricula = normalizeMatricula(matricula);
       semanaISO = normalizeSemanaISO(semanaISO);
 
@@ -408,6 +409,22 @@ function doPost(e) {
       }
       const func = findFuncionarioByMatricula(matricula);
       if (!func) return respond({ ok: false, error: 'Funcionário não encontrado ou inativo.' });
+
+      // ── Validação server-side do tempo assistido ────────────────────────────
+      // O frontend já bloqueia o botão "Registrar" se o vídeo não chegou ao fim
+      // (flag videoEnded), mas esse flag pode ser manipulado por quem chama esta
+      // API diretamente (fetch manual, DevTools). Por isso, a prova real de
+      // conclusão é conferida aqui: o tempo assistido reportado precisa cobrir
+      // pelo menos 90% da duração do vídeo (a tolerância de 10% cobre pequenas
+      // variações de buffer/latência normais da reprodução).
+      const tempoAssistido = Number(tempoAssistidoSegundos) || 0;
+      const duracao        = Number(duracaoSegundos) || 0;
+      if (duracao > 0 && tempoAssistido < duracao * 0.9) {
+        return respond({
+          ok: false,
+          error: 'O vídeo não foi assistido integralmente pela plataforma. Assista até o final antes de registrar.'
+        });
+      }
 
       appendRow(SHEET_REG, {
         'Timestamp'    : new Date(),
@@ -418,7 +435,12 @@ function doPost(e) {
         'TituloVideo'  : tituloVideo,
         'URLVideo'     : urlVideo,
         'AssinaturaPNG': assinaturaPNG,
-        'DeviceInfo'   : deviceInfo || ''
+        'DeviceInfo'   : deviceInfo || '',
+        // Colunas de auditoria — se ainda não existirem na planilha "Registros",
+        // adicione os cabeçalhos "TempoAssistidoSegundos" e "DuracaoSegundos"
+        // (appendRow ignora silenciosamente colunas que não existem no cabeçalho).
+        'TempoAssistidoSegundos': tempoAssistido,
+        'DuracaoSegundos'       : duracao
       });
       invalidateCache('cache_registros_lite');
       return respond({ ok: true, message: 'Registro salvo.' });
