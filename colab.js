@@ -538,10 +538,21 @@ document.getElementById('btnFullscreen')?.addEventListener('click', toggleFullsc
 // ─── Checkpoint de atenção: "Continuar vídeo?" a cada 2 minutos ──────────────
 
 function showCheckpointModal() {
-  document.getElementById('checkpointModal')?.classList.add('show');
+  const el = document.getElementById('checkpointModal');
+  if (!el) return;
+  el.classList.add('show');
+  // Reforço via estilo inline: garante que o modal apareça mesmo que o
+  // navegador do colaborador esteja servindo um colab.css antigo em cache
+  // (estilo inline sempre vence sobre uma regra externa do CSS).
+  el.style.cssText =
+    'position:absolute;inset:0;z-index:99999;display:flex;align-items:center;' +
+    'justify-content:center;background:rgba(15,23,42,.88);padding:20px;text-align:center;';
 }
 function hideCheckpointModal() {
-  document.getElementById('checkpointModal')?.classList.remove('show');
+  const el = document.getElementById('checkpointModal');
+  if (!el) return;
+  el.classList.remove('show');
+  el.style.display = 'none';
 }
 
 document.getElementById('btnCheckpointSim')?.addEventListener('click', () => {
