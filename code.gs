@@ -4,19 +4,35 @@
  * Abas esperadas na planilha:
  *   Funcionarios  (Matricula, Nome, Setor, Ativo)
  *   Treinamentos  (SemanaISO, Titulo, URL, Ativo)
- *   Registros     (Timestamp, Matricula, Nome, Setor, SemanaISO, TituloVideo, URLVideo, AssinaturaPNG, DeviceInfo)
+ *   Registros     (Timestamp, Matricula, Nome, Setor, SemanaISO, TituloVideo, URLVideo, AssinaturaPNG, DeviceInfo, TempoAssistidoSegundos, DuracaoSegundos)
  *   Ferias        (Matricula, Funcionario, Situacao, InicioFerias, FimFerias)
+ *   Perguntas     (SemanaISO, Titulo, NumPergunta, Pergunta, OpcaoA, OpcaoB, OpcaoC, OpcaoD, RespostaCorreta, Ativo)
+ *                 — 1 linha por pergunta. Não há limite de quantidade: o desenvolvedor
+ *                 do vídeo pode cadastrar 1, 3, 10... quantas perguntas quiser para uma
+ *                 mesma semana (SemanaISO + Titulo), basta adicionar mais linhas com
+ *                 NumPergunta sequencial (1, 2, 3...). Até o desenvolvedor cadastrar
+ *                 perguntas para uma semana, o quiz é automaticamente pulado para aquele
+ *                 vídeo (retrocompatível). RespostaCorreta aceita DOIS formatos, para não
+ *                 depender de decorar uma convenção: a letra ("B") OU o texto exatamente
+ *                 igual ao de uma das colunas OpcaoA-D ("Resp2") — o sistema identifica a
+ *                 letra correta automaticamente nesse segundo caso.
  *
  * Endpoints GET  (?action=...):
  *   funcionario    — busca 1 funcionário ativo por matrícula
  *   funcionarios   — retorna todos os funcionários (para o dashboard)
  *   treinamentos   — retorna TODOS os treinamentos ativos (mais recentes primeiro)
- *   registros      — retorna registros com filtros opcionais (matricula, nome, semana)
+ *   registros      — retorna registros com filtros opcionais (matricula, nome, semana). NUNCA inclui a matrícula TESTE.
  *   ferias         — retorna todos os registros da aba Ferias
  *   getFeriasList  — alias de ferias (compatibilidade com o frontend)
+ *   perguntas      — retorna as perguntas (sem a resposta correta) de um vídeo, por ?semana= e ?titulo=
+ *   identificarColaborador — combinado (funcionário + férias + treinamentos + registros).
+ *                 Matrícula especial "TESTE": não precisa existir na aba Funcionarios,
+ *                 sempre recebe apenas o treinamento mais recente, nunca é bloqueada
+ *                 por férias e nunca aparece como "já assistido" (registros sempre []).
  *
  * Endpoints POST (?action=...):
- *   registrar          — salva presença de um colaborador
+ *   registrar          — salva presença de um colaborador (valida tempo assistido e quiz no servidor)
+ *   validarquiz         — valida as respostas do quiz de um vídeo, sem revelar a resposta correta
  *   addFuncionario     — inclui novo funcionário (verifica duplicidade)
  *   excluirFuncionario — remove funcionário pelo número de matrícula
  *   deleteFuncionario  — alias de excluirFuncionario
@@ -25,6 +41,12 @@
  *   deleteFerias       — remove registro da aba Ferias pela matrícula
  *   excluirFerias      — alias de deleteFerias
  *   removeFerias       — alias de deleteFerias
+ *
+ * Usuário de testes "TESTE": matrícula reservada para o desenvolvedor validar a
+ * exibição do vídeo mais recente quantas vezes precisar. Os registros que ela
+ * gera são gravados normalmente (para não quebrar o fluxo), mas são filtrados
+ * SEMPRE que a matrícula for "TESTE" na action 'registros' — por isso nunca
+ * aparecem nos relatórios do DSS Gestor.
  */
 
 // ── PLANILHA ALVO ─────────────────────────────────────────────────────────────
@@ -33,6 +55,10 @@ const SHEET_FUNC = 'Funcionarios';
 const SHEET_TREI = 'Treinamentos';
 const SHEET_REG  = 'Registros';
 const SHEET_FER  = 'Ferias';
+const SHEET_QUIZ = 'Perguntas';
+
+// Matrícula reservada para testes do desenvolvedor (ver cabeçalho do arquivo)
+const MATRICULA_TESTE = 'TESTE';
 
 // ── UTILITÁRIOS ───────────────────────────────────────────────────────────────
 
@@ -214,6 +240,102 @@ function getAllActiveWeeks(treinamentos) {
     .sort((a, b) => String(b['SemanaISO']).localeCompare(String(a['SemanaISO'])));
 }
 
+// Retorna só o treinamento mais recente (usado pelo usuário especial TESTE).
+function getTreinamentoMaisRecente_(treinamentosNormalizados) {
+  const ativos = getAllActiveWeeks(treinamentosNormalizados);
+  return ativos.length ? ativos[0] : null;
+}
+
+// ── QUIZ (Perguntas) ────────────────────────────────────────────────────────
+
+// Uma pergunta é considerada ativa por padrão (coluna Ativo em branco = ativa),
+// só fica inativa se alguém explicitamente marcar como não/false/0.
+function perguntaAtiva_(v) {
+  if (v === undefined || v === null || String(v).trim() === '') return true;
+  return isAtivo(v);
+}
+
+// Busca as perguntas cadastradas para um vídeo específico (SemanaISO + Titulo
+// precisam bater exatamente com o que está na aba Treinamentos). Se a aba
+// "Perguntas" ainda não existir na planilha, retorna lista vazia em vez de
+// quebrar — assim o quiz é simplesmente pulado até ser configurado.
+function getPerguntasDoVideo_(semanaISO, titulo) {
+  let rows;
+  try {
+    rows = getCachedData('cache_perguntas', SHEET_QUIZ);
+  } catch (e) {
+    return [];
+  }
+  const sem = normalizeSemanaISO(semanaISO);
+  const tit = String(titulo || '').trim();
+  return rows
+    .filter(r =>
+      normalizeSemanaISO(r['SemanaISO']) === sem &&
+      String(r['Titulo'] || '').trim() === tit &&
+      perguntaAtiva_(r['Ativo'])
+    )
+    .sort((a, b) => Number(a['NumPergunta']) - Number(b['NumPergunta']));
+}
+
+// Confere as respostas enviadas contra a aba Perguntas. NUNCA retorna a
+// resposta correta para o cliente — só se cada pergunta foi acertada ou não.
+// Usada tanto pela action 'validarquiz' (feedback imediato na tela) quanto
+// dentro de 'registrar' (segunda checagem, no servidor, antes de gravar).
+// Descobre qual letra (A/B/C/D) é a resposta correta de uma pergunta.
+// Aceita dois formatos na coluna RespostaCorreta, para não depender de quem
+// preenche a planilha lembrar uma convenção específica:
+//   1) A letra diretamente: "B"
+//   2) O texto igual ao de uma das colunas Opcao A-D: "Resp2" (case-insensitive,
+//      ignora espaços nas pontas) — nesse caso a letra é deduzida automaticamente.
+function letraRespostaCorreta_(pergunta) {
+  const bruto = String(pergunta['RespostaCorreta'] || '').trim();
+  if (!bruto) return '';
+
+  const comoLetra = bruto.toUpperCase();
+  if (['A', 'B', 'C', 'D'].includes(comoLetra)) return comoLetra;
+
+  // Não é uma letra — tenta casar com o TEXTO de uma das alternativas.
+  const norm = s => String(s || '').trim().toLowerCase();
+  const opcoes = { A: pergunta['OpcaoA'], B: pergunta['OpcaoB'], C: pergunta['OpcaoC'], D: pergunta['OpcaoD'] };
+  for (const letra in opcoes) {
+    if (norm(opcoes[letra]) === norm(bruto)) return letra;
+  }
+  return ''; // não foi possível determinar — nenhuma resposta será aceita como correta
+}
+
+function validarRespostasQuiz_(semanaISO, titulo, respostas) {
+  const perguntas = getPerguntasDoVideo_(semanaISO, titulo);
+  if (perguntas.length === 0) {
+    // Vídeo sem quiz configurado — não bloqueia o fluxo (retrocompatível).
+    // Aceita QUALQUER quantidade de perguntas cadastradas para o vídeo (1, 3, 10...),
+    // não há limite fixo — quem decide é o número de linhas na aba Perguntas.
+    return { temQuiz: false, aprovado: true, total: 0, corretas: 0, resultados: [] };
+  }
+
+  const respMap = {};
+  (respostas || []).forEach(r => {
+    respMap[String(r.numPergunta)] = String(r.resposta || '').trim().toUpperCase();
+  });
+
+  let corretas = 0;
+  const resultados = perguntas.map(p => {
+    const num    = String(p['NumPergunta']);
+    const dada   = respMap[num] || '';
+    const certa  = letraRespostaCorreta_(p);
+    const acertou = !!dada && !!certa && dada === certa;
+    if (acertou) corretas++;
+    return { numPergunta: p['NumPergunta'], correta: acertou };
+  });
+
+  return {
+    temQuiz: true,
+    total: perguntas.length,
+    corretas,
+    aprovado: corretas === perguntas.length, // exige acertar todas — ajuste aqui se quiser um mínimo diferente
+    resultados
+  };
+}
+
 function findFuncionarioByMatricula(matricula) {
   matricula = normalizeMatricula(matricula);
   const list = getCachedData('cache_funcionarios', SHEET_FUNC);
@@ -253,6 +375,25 @@ function doGet(e) {
       return respond({ ok: true, data: getAllActiveWeeks(normalized) });
     }
 
+    // ── perguntas (quiz de encerramento do vídeo) ─────────────────────────────
+    // Nunca retorna a coluna RespostaCorreta — a validação é sempre feita no
+    // servidor (actions 'validarquiz' e 'registrar').
+    if (action === 'perguntas') {
+      const semanaISO = e.parameter.semana || e.parameter.semanaISO || '';
+      const titulo    = e.parameter.titulo || '';
+      if (!semanaISO || !titulo) return respond({ ok: false, error: 'Informe ?semana= e ?titulo=' });
+
+      const perguntas = getPerguntasDoVideo_(semanaISO, titulo).map(p => ({
+        NumPergunta: p['NumPergunta'],
+        Pergunta   : p['Pergunta'],
+        OpcaoA     : p['OpcaoA'],
+        OpcaoB     : p['OpcaoB'],
+        OpcaoC     : p['OpcaoC'],
+        OpcaoD     : p['OpcaoD']
+      }));
+      return respond({ ok: true, data: perguntas });
+    }
+
     // ── registros ─────────────────────────────────────────────────────────────
     // A coluna AssinaturaPNG (imagem em base64) é pesada o bastante para
     // impedir o cache de funcionar (limite de 100KB do CacheService), o que
@@ -279,7 +420,11 @@ function doGet(e) {
       const temListaMatriculas = qMatriculasSet.length > 0;
 
       const base = getCachedData('cache_registros_lite',
-        () => getDataAsObjectsLite(SHEET_REG, ['AssinaturaPNG']));
+        () => getDataAsObjectsLite(SHEET_REG, ['AssinaturaPNG']))
+        // O usuário de testes do desenvolvedor (matrícula "TESTE") NUNCA deve
+        // aparecer em buscas/relatórios do DSS Gestor — filtrado incondicionalmente,
+        // mesmo que algum filtro de matrícula/nome tente encontrá-lo de propósito.
+        .filter(r => String(r['Matricula'] || '').trim().toUpperCase() !== MATRICULA_TESTE);
 
       const matched = base.filter(r => {
         const m = normalizeMatricula(r['Matricula']);
@@ -355,7 +500,36 @@ function doGet(e) {
     // isso eram 4 chamadas separadas (1 sequencial + 3 em paralelo), cada
     // uma pagando o custo fixo de rede/proxy — aqui é uma só.
     if (action === 'identificarcolaborador') {
-      const matricula = normalizeMatricula(e.parameter.matricula || '');
+      const matriculaRaw = String(e.parameter.matricula || '').trim();
+
+      // ── Usuário especial de testes do desenvolvedor ──────────────────────
+      // Não precisa existir na aba Funcionarios. Sempre recebe só o
+      // treinamento mais recente e "registros" vazio de propósito, para que
+      // o vídeo NUNCA seja marcado como já assistido — permitindo assistir
+      // (e registrar) quantas vezes forem necessárias para testar a exibição.
+      if (matriculaRaw.toUpperCase() === MATRICULA_TESTE) {
+        const treinamentosTodos = getCachedData('cache_treinamentos', SHEET_TREI).map(t => ({
+          ...t,
+          SemanaISO: normalizeSemanaISO(t['SemanaISO'])
+        }));
+        const maisRecente = getTreinamentoMaisRecente_(treinamentosTodos);
+
+        return respond({
+          ok: true,
+          found: true,
+          funcionario: {
+            Matricula: MATRICULA_TESTE,
+            Nome: 'Usuário de Teste (Desenvolvedor)',
+            Setor: 'TI / Desenvolvimento',
+            Ativo: true
+          },
+          treinamentos: maisRecente ? [maisRecente] : [],
+          ferias: [],
+          registros: []
+        });
+      }
+
+      const matricula = normalizeMatricula(matriculaRaw);
       if (!matricula) return respond({ ok: false, error: 'Informe ?matricula=' });
 
       const func = findFuncionarioByMatricula(matricula);
@@ -380,7 +554,7 @@ function doGet(e) {
 
     return respond({
       ok:  true,
-      msg: 'DSS GIG API — use ?action=[funcionario|funcionarios|treinamentos|registros|ferias|identificarColaborador]'
+      msg: 'DSS GIG API — use ?action=[funcionario|funcionarios|treinamentos|registros|ferias|identificarColaborador|perguntas]'
     });
 
   } catch (err) {
@@ -400,15 +574,26 @@ function doPost(e) {
     // ── registrar ─────────────────────────────────────────────────────────────
     if (action === 'registrar') {
       let { matricula, semanaISO, tituloVideo, urlVideo, assinaturaPNG, deviceInfo,
-            tempoAssistidoSegundos, duracaoSegundos } = body || {};
-      matricula = normalizeMatricula(matricula);
+            tempoAssistidoSegundos, duracaoSegundos, respostasQuiz } = body || {};
+
+      const isTeste = String(matricula || '').trim().toUpperCase() === MATRICULA_TESTE;
       semanaISO = normalizeSemanaISO(semanaISO);
 
       if (!matricula || !semanaISO || !tituloVideo || !urlVideo || !assinaturaPNG) {
         return respond({ ok: false, error: 'Campos obrigatórios: matricula, semanaISO, tituloVideo, urlVideo, assinaturaPNG' });
       }
-      const func = findFuncionarioByMatricula(matricula);
-      if (!func) return respond({ ok: false, error: 'Funcionário não encontrado ou inativo.' });
+
+      // ── Usuário de testes: não existe na aba Funcionarios, então usamos um
+      // registro sintético em vez de consultar a planilha.
+      let func;
+      if (isTeste) {
+        func = { Nome: 'Usuário de Teste (Desenvolvedor)', Setor: 'TI / Desenvolvimento' };
+        matricula = MATRICULA_TESTE;
+      } else {
+        matricula = normalizeMatricula(matricula);
+        func = findFuncionarioByMatricula(matricula);
+        if (!func) return respond({ ok: false, error: 'Funcionário não encontrado ou inativo.' });
+      }
 
       // ── Validação server-side do tempo assistido ────────────────────────────
       // O frontend já bloqueia o botão "Registrar" se o vídeo não chegou ao fim
@@ -417,13 +602,30 @@ function doPost(e) {
       // conclusão é conferida aqui: o tempo assistido reportado precisa cobrir
       // pelo menos 90% da duração do vídeo (a tolerância de 10% cobre pequenas
       // variações de buffer/latência normais da reprodução).
+      // O usuário TESTE fica isento — o objetivo dele é justamente testar a
+      // exibição repetidas vezes, inclusive pulando partes do vídeo.
       const tempoAssistido = Number(tempoAssistidoSegundos) || 0;
       const duracao        = Number(duracaoSegundos) || 0;
-      if (duracao > 0 && tempoAssistido < duracao * 0.9) {
+      if (!isTeste && duracao > 0 && tempoAssistido < duracao * 0.9) {
         return respond({
           ok: false,
           error: 'O vídeo não foi assistido integralmente pela plataforma. Assista até o final antes de registrar.'
         });
+      }
+
+      // ── Validação server-side do quiz ───────────────────────────────────────
+      // Segunda checagem (a primeira já aconteceu na action 'validarquiz', que
+      // deu o feedback em tela) — garante que ninguém registre sem responder
+      // corretamente, mesmo chamando esta API diretamente. Vídeos sem quiz
+      // configurado (nenhuma linha na aba Perguntas) não são bloqueados.
+      if (!isTeste) {
+        const quizResultado = validarRespostasQuiz_(semanaISO, tituloVideo, respostasQuiz);
+        if (quizResultado.temQuiz && !quizResultado.aprovado) {
+          return respond({
+            ok: false,
+            error: 'Responda corretamente as perguntas do treinamento antes de registrar.'
+          });
+        }
       }
 
       appendRow(SHEET_REG, {
@@ -442,8 +644,24 @@ function doPost(e) {
         'TempoAssistidoSegundos': tempoAssistido,
         'DuracaoSegundos'       : duracao
       });
+      // Nota: o registro do usuário TESTE é gravado normalmente na planilha
+      // (para não complicar o fluxo), mas a action 'registros' — usada pelo
+      // DSS Gestor para gerar relatórios — filtra a matrícula TESTE sempre,
+      // então ele nunca aparece em buscas/relatórios.
       invalidateCache('cache_registros_lite');
       return respond({ ok: true, message: 'Registro salvo.' });
+    }
+
+    // ── validarquiz ────────────────────────────────────────────────────────────
+    // Verifica as respostas do quiz e devolve feedback (quais perguntas foram
+    // acertadas) sem nunca revelar qual era a alternativa correta.
+    if (action === 'validarquiz') {
+      const { semanaISO, tituloVideo, respostas } = body || {};
+      if (!semanaISO || !tituloVideo) {
+        return respond({ ok: false, error: 'Campos obrigatórios: semanaISO, tituloVideo' });
+      }
+      const resultado = validarRespostasQuiz_(normalizeSemanaISO(semanaISO), tituloVideo, respostas);
+      return respond(Object.assign({ ok: true }, resultado));
     }
 
     // ── addFuncionario ────────────────────────────────────────────────────────
