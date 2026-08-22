@@ -106,10 +106,13 @@
           </div>
         </button>
 
-        <!-- Botão de tela cheia (gira o celular para paisagem automaticamente quando suportado) -->
-        <button id="btnFullscreen" aria-label="Assistir em tela cheia"
-          class="absolute top-3 right-3 z-20 w-9 h-9 rounded-lg bg-black/50 hover:bg-black/70 flex items-center justify-center text-white transition-colors">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <!-- Botão de tela cheia (gira o celular para paisagem automaticamente quando suportado).
+             Usa a classe própria .dss-fullscreen-btn (CSS puro, ver colab.css) em vez de
+             classes Tailwind, porque este colab.css é um build "purgado" que só contém as
+             classes já usadas no projeto — classes novas como w-9/h-9/bg-black/50 não
+             existem nele e fariam o botão renderizar sem tamanho nem fundo. -->
+        <button id="btnFullscreen" type="button" aria-label="Assistir em tela cheia" class="dss-fullscreen-btn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3"/>
           </svg>
         </button>
