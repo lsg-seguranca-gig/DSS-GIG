@@ -2,10 +2,43 @@
 // onde o HTML está hospedado (ex.: /gestor/). Por isso usamos caminho absoluto.
 const API_BASE = "/api/gas";
 
+// ── Sessão de login do DSS Gestor ───────────────────────────────────────────
+// Guardado em sessionStorage (não localStorage) de propósito: a sessão dura
+// só enquanto a aba do navegador estiver aberta, o que é mais seguro em
+// computadores compartilhados — fechou a aba, precisa logar de novo.
+let GESTOR_TOKEN   = sessionStorage.getItem('dssgestor_token')   || '';
+let GESTOR_USUARIO = sessionStorage.getItem('dssgestor_usuario') || '';
+
+function setSessaoGestor(token, usuario){
+  GESTOR_TOKEN = token || '';
+  GESTOR_USUARIO = usuario || '';
+  if (token) {
+    sessionStorage.setItem('dssgestor_token', token);
+    sessionStorage.setItem('dssgestor_usuario', usuario || '');
+  } else {
+    sessionStorage.removeItem('dssgestor_token');
+    sessionStorage.removeItem('dssgestor_usuario');
+  }
+}
+
   // Controlo de cache manual e chamadas de API
   function apiFetch(params, options){
-    const url = API_BASE + '?' + params + '&_t=' + Date.now();
+    // Anexa o token de login automaticamente em toda chamada GET — as actions
+    // públicas (usadas pelo lado do colaborador) simplesmente ignoram esse
+    // parâmetro; as actions administrativas exigem que ele seja válido.
+    const url = API_BASE + '?' + params + '&token=' + encodeURIComponent(GESTOR_TOKEN) + '&_t=' + Date.now();
     return fetch(url, Object.assign({ cache: 'no-store', headers: { 'Cache-Control': 'no-cache' } }, options || {}));
+  }
+
+  // Igual ao fetch(API_BASE + '?action=X', {method:'POST', ...}) que já existia
+  // pelo projeto, mas injeta o token automaticamente no corpo — use isso em
+  // vez de montar o POST manualmente para não esquecer o token em algum lugar.
+  function apiPost(action, payload){
+    return fetch(API_BASE + '?action=' + encodeURIComponent(action), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(Object.assign({}, payload || {}, { token: GESTOR_TOKEN })),
+    });
   }
 
   const LOGO_SRC = "/logo lsg.png";
@@ -511,8 +544,8 @@ function renderTemasAbordados(containerId, blocks){
         <p class="text-xs font-bold text-brand-700 uppercase tracking-wider mb-1.5">
           Temas Abordados — Semana ${escapeHtml(b.semanaISO || '')}${b.titulo ? ' · ' + escapeHtml(b.titulo) : ''}
         </p>
-        <ul class="list-disc list-inside space-y-0.5 text-sm text-slate-700">
-          ${linhas.map(l => `<li>${escapeHtml(l.replace(/^-\s*/, ''))}</li>`).join('')}
+        <ul class="list-none text-sm text-slate-700">
+          ${linhas.map(l => `<li style="margin-bottom:3px">- ${escapeHtml(l.replace(/^-\s*/, ''))}</li>`).join('')}
         </ul>
       </div>`;
   }).join('<hr class="my-3 border-brand-100">');
@@ -992,7 +1025,7 @@ async function novoFuncionarioViaPrompt(){
     const payload = { matricula, nome, setor, ativo: true };
     status.innerHTML = '<div class="text-amber-500 bg-amber-50 px-4 py-2 rounded-lg border border-amber-100">A submeter novo registo ao servidor...</div>';
 
-    const res = await fetch(API_BASE + '?action=addFuncionario', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    const res = await apiPost('addFuncionario', payload);
     let data; 
     try { data = await res.json(); } catch { data = { ok: false, error: 'Erro de formatação na resposta' }; }
     if (!data.ok) throw new Error(data.error ?? 'Falha ao incluir colaborador');
@@ -1035,11 +1068,7 @@ async function excluirFuncionarioViaPrompt(){
 
     // Prova de exclusão primária: action=excluirFuncionario
     try {
-      const res = await fetch(API_BASE + '?action=excluirFuncionario', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ matricula })
-      });
+      const res = await apiPost('excluirFuncionario', { matricula });
       const data = await res.json();
       if (data && data.ok) {
         success = true;
@@ -1053,11 +1082,7 @@ async function excluirFuncionarioViaPrompt(){
     // Fallback 1: action=deleteFuncionario
     if (!success) {
       try {
-        const res = await fetch(API_BASE + '?action=deleteFuncionario', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ matricula })
-        });
+        const res = await apiPost('deleteFuncionario', { matricula });
         const data = await res.json();
         if (data && data.ok) {
           success = true;
@@ -1072,11 +1097,7 @@ async function excluirFuncionarioViaPrompt(){
     // Fallback 2: action=excluirColaborador
     if (!success) {
       try {
-        const res = await fetch(API_BASE + '?action=excluirColaborador', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ matricula })
-        });
+        const res = await apiPost('excluirColaborador', { matricula });
         const data = await res.json();
         if (data && data.ok) {
           success = true;
@@ -1616,10 +1637,7 @@ async function afastInserir(){
   btnIns.disabled = true;
   msgEl.innerHTML = '<span class="text-amber-600">A inserir...</span>';
   try {
-    const res  = await fetch(API_BASE + '?action=addFerias', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
+    const res  = await apiPost('addFerias', payload);
     const data = await res.json().catch(() => ({ ok: false, error: 'Resposta inválida' }));
     if (!data.ok) throw new Error(data.error || 'Falha no servidor');
 
@@ -1695,10 +1713,7 @@ async function afastExcluir(idx){
     let success = false;
     for (const action of ['deleteFerias','excluirFerias','removeFerias']){
       try {
-        const res  = await fetch(API_BASE + '?action=' + action, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ matricula: mat, situacao: f.Situacao })
-        });
+        const res  = await apiPost(action, { matricula: mat, situacao: f.Situacao });
         const data = await res.json().catch(() => null);
         if (data && data.ok){ success = true; break; }
       } catch(e){ /* tenta próximo */ }
@@ -1724,6 +1739,13 @@ async function afastExcluir(idx){
   const chevron = document.getElementById('afastChevron');
   if (panel && chevron){
     panel.addEventListener('toggle', () => { chevron.textContent = panel.open ? '▲' : '▼'; });
+  }
+
+  // Painel de Histórico de Faltas Injustificadas — mesmo padrão de recolher/expandir
+  const faltasPanel   = document.getElementById('faltasPanel');
+  const faltasChevron = document.getElementById('faltasChevron');
+  if (faltasPanel && faltasChevron){
+    faltasPanel.addEventListener('toggle', () => { faltasChevron.textContent = faltasPanel.open ? '▲' : '▼'; });
   }
 
   // Botão inserir
@@ -2484,7 +2506,7 @@ function dashParseSemanaISO(s){
     }
     listaEl.innerHTML = '<p class="dssg-pg-empty">Carregando perguntas...</p>';
     try {
-      const res = await fetch(API_BASE + '?action=perguntasgestor&semana=' + encodeURIComponent(info.semanaISO) + '&titulo=' + encodeURIComponent(info.titulo) + '&_t=' + Date.now(), { cache: 'no-store' });
+      const res = await apiFetch('action=perguntasgestor&semana=' + encodeURIComponent(info.semanaISO) + '&titulo=' + encodeURIComponent(info.titulo));
       const j = await res.json().catch(() => null);
       const perguntas = (j && j.ok && Array.isArray(j.data)) ? j.data : [];
       renderListaPerguntasModal(perguntas, info);
@@ -2520,11 +2542,7 @@ function dashParseSemanaISO(s){
         btn.disabled = true;
         btn.textContent = '...';
         try {
-          const res = await fetch(API_BASE + '?action=excluirpergunta', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ semanaISO: info.semanaISO, titulo: info.titulo, numPergunta: num }),
-          });
+          const res = await apiPost('excluirpergunta', { semanaISO: info.semanaISO, titulo: info.titulo, numPergunta: num });
           const j = await res.json().catch(() => null);
           if (j && j.ok) {
             pgStatus('Pergunta removida.', 'ok');
@@ -2602,16 +2620,12 @@ function dashParseSemanaISO(s){
     btn.textContent = 'Adicionando...';
 
     try {
-      const res = await fetch(API_BASE + '?action=addpergunta', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          semanaISO: info.semanaISO,
-          titulo: info.titulo,
-          pergunta, opcaoA, opcaoB, opcaoC, opcaoD,
-          respostaCorreta: correta,
-          ativo: true,
-        }),
+      const res = await apiPost('addpergunta', {
+        semanaISO: info.semanaISO,
+        titulo: info.titulo,
+        pergunta, opcaoA, opcaoB, opcaoC, opcaoD,
+        respostaCorreta: correta,
+        ativo: true,
       });
       const j = await res.json().catch(() => null);
       if (j && j.ok) {
@@ -2629,4 +2643,102 @@ function dashParseSemanaISO(s){
       btn.textContent = txtOriginal;
     }
   });
+})();
+
+// ============================================================================
+// LOGIN DO DSS GESTOR
+// ============================================================================
+// Controla a tela de login que cobre a página inteira (#loginOverlay) até
+// existir uma sessão válida. Usa GESTOR_TOKEN/setSessaoGestor (definidos no
+// topo do arquivo) e as actions 'gestorlogin', 'gestorlogout' e
+// 'gestorverificar' do backend (code.gs).
+(function initLoginGestor(){
+  const overlay    = document.getElementById('loginOverlay');
+  const form       = document.getElementById('loginForm');
+  const statusEl   = document.getElementById('loginStatus');
+  const userBadge  = document.getElementById('loginUserBadge');
+  const userNomeEl = document.getElementById('loginUserNome');
+  const btnLogout  = document.getElementById('btnLogoutGestor');
+  if (!overlay || !form) return; // markup ainda não presente — não quebra o resto da página
+
+  function loginStatus(msg, tipo){
+    if (!statusEl) return;
+    if (!msg) { statusEl.innerHTML = ''; return; }
+    const cls = tipo === 'erro' ? 'dssg-modal-status-err' : 'dssg-modal-status-ok';
+    statusEl.innerHTML = `<div class="${cls}">${escapeHtml(msg)}</div>`;
+  }
+
+  function mostrarApp(usuario){
+    overlay.classList.add('hide');
+    if (userBadge) userBadge.classList.remove('hidden');
+    if (userNomeEl) userNomeEl.textContent = usuario || GESTOR_USUARIO || '';
+  }
+
+  function mostrarLogin(){
+    setSessaoGestor('', '');
+    overlay.classList.remove('hide');
+    userBadge?.classList.add('hidden');
+    loginStatus('');
+    setTimeout(() => document.getElementById('loginSenha')?.focus(), 50);
+  }
+
+  // Ao carregar a página: se já existir um token salvo (sessionStorage —
+  // sobrevive a recarregar a página, mas não a fechar a aba), confere no
+  // servidor se ele ainda é válido antes de liberar o acesso.
+  async function verificarSessaoExistente(){
+    if (!GESTOR_TOKEN) { mostrarLogin(); return; }
+    try {
+      const res = await apiFetch('action=gestorverificar');
+      const j = await res.json().catch(() => null);
+      if (j && j.ok && j.valido) {
+        mostrarApp(j.usuario || GESTOR_USUARIO);
+      } else {
+        mostrarLogin();
+      }
+    } catch(e) {
+      mostrarLogin();
+    }
+  }
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const usuario = document.getElementById('loginUsuario').value.trim();
+    const senha   = document.getElementById('loginSenha').value;
+    if (!usuario || !senha) { loginStatus('Preencha usuário e senha.', 'erro'); return; }
+
+    const btn = document.getElementById('btnLoginEntrar');
+    btn.disabled = true;
+    const txtOriginal = btn.textContent;
+    btn.textContent = 'Entrando...';
+    loginStatus('');
+
+    try {
+      const res = await fetch(API_BASE + '?action=gestorlogin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ usuario, senha }),
+      });
+      const j = await res.json().catch(() => null);
+      if (j && j.ok && j.token) {
+        setSessaoGestor(j.token, j.usuario || usuario);
+        document.getElementById('loginSenha').value = '';
+        mostrarApp(j.usuario || usuario);
+      } else {
+        loginStatus((j && j.error) || 'Usuário ou senha inválidos.', 'erro');
+      }
+    } catch(e) {
+      loginStatus('Erro de conexão. Tente novamente.', 'erro');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = txtOriginal;
+    }
+  });
+
+  btnLogout?.addEventListener('click', async () => {
+    if (!confirm('Encerrar a sessão do DSS Gestor?')) return;
+    try { await apiPost('gestorlogout', {}); } catch(e) {}
+    mostrarLogin();
+  });
+
+  verificarSessaoExistente();
 })();
