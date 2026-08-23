@@ -28,6 +28,34 @@
 </head>
 <body class="text-slate-800 min-h-screen flex flex-col antialiased">
 
+  <!-- ================== TELA DE LOGIN (DSS Gestor) ==================
+       Cobre a página inteira até um login válido ser confirmado. Não tem
+       botão de fechar nem fecha ao clicar fora — só sai daqui autenticando. -->
+  <div id="loginOverlay" class="dssg-login-overlay">
+    <div class="dssg-login-box">
+      <div class="dssg-login-logo">
+        <img src="../logo lsg.png" alt="LSG Sky Chefs" onerror="this.style.display='none'"/>
+      </div>
+      <h1>DSS Gestor</h1>
+      <p class="dssg-login-sub">Acesso restrito — informe suas credenciais para continuar.</p>
+
+      <form id="loginForm">
+        <div class="dssg-modal-field">
+          <label for="loginUsuario">Usuário</label>
+          <input type="text" id="loginUsuario" autocomplete="username" placeholder="seu.usuario" />
+        </div>
+        <div class="dssg-modal-field">
+          <label for="loginSenha">Senha</label>
+          <input type="password" id="loginSenha" autocomplete="current-password" placeholder="••••••••" />
+        </div>
+
+        <div id="loginStatus"></div>
+
+        <button type="submit" id="btnLoginEntrar" class="dssg-btn-primary">Entrar</button>
+      </form>
+    </div>
+  </div>
+
   <!-- CABEÇALHO / HEADER -->
   <header class="bg-white border-b border-slate-100 shadow-sm sticky top-0 z-50 transition-all-300 no-print">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 md:py-0 md:h-20 flex flex-col md:flex-row items-center justify-between gap-4">
@@ -47,6 +75,15 @@
 
       <!-- Navegação + Botão Dark Mode -->
       <div class="flex items-center gap-3 w-full md:w-auto justify-center">
+
+        <!-- Usuário logado + Sair -->
+        <div id="loginUserBadge" class="hidden flex items-center gap-2 text-xs text-slate-500 shrink-0">
+          <span>👤 <strong id="loginUserNome" class="text-slate-700"></strong></span>
+          <button id="btnLogoutGestor" type="button" title="Encerrar sessão"
+            class="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-slate-500 hover:text-rose-600 hover:border-rose-300 hover:bg-rose-50 transition-all duration-200 text-xs font-semibold">
+            Sair
+          </button>
+        </div>
 
         <!-- Botão Dark Mode -->
         <button id="btnDarkMode" type="button"
@@ -293,15 +330,15 @@
         <pre id="diagBox" class="mt-3 p-4 bg-slate-900 text-slate-200 rounded-xl text-xs overflow-x-auto font-mono max-h-60 hidden custom-scrollbar"></pre>
       </section>
 
-      <!-- Painel de Ausências e Férias (Histórico Permanente) -->
-      <details class="bg-white rounded-2xl border border-amber-200 shadow-sm overflow-hidden" id="afastPanel" open>
+      <!-- Painel de Ausências e Férias (Histórico Permanente) — recolhido por padrão -->
+      <details class="bg-white rounded-2xl border border-amber-200 shadow-sm overflow-hidden" id="afastPanel">
         <summary class="font-bold text-slate-800 cursor-pointer list-none flex items-center justify-between select-none px-6 py-5">
           <div class="flex items-center gap-2">
             <span class="p-1.5 bg-amber-50 text-amber-600 rounded-lg">⚠️</span>
             <span>Histórico de Férias & Afastamentos</span>
             <span id="afastBadge" class="bg-amber-100 text-amber-800 text-xs font-bold px-2 py-0.5 rounded-full border border-amber-200">0</span>
           </div>
-          <span class="text-slate-400 transition-transform duration-200 text-xs" id="afastChevron">▲</span>
+          <span class="text-slate-400 transition-transform duration-200 text-xs" id="afastChevron">▼</span>
         </summary>
 
         <div class="px-6 pb-6 space-y-5">
@@ -549,21 +586,25 @@
       </div>
 
       <!-- ── Histórico de Faltas ───────────────────────────────────────────────── -->
-      <div class="mt-8 bg-white rounded-2xl border border-slate-100 shadow-sm p-6">
-        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
-          <div>
-            <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
-              <svg class="w-5 h-5 text-amber-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
-              Histórico de Faltas Injustificadas
-            </h3>
-            <p class="text-xs text-slate-500 mt-1">Colaboradores que não assistiram o vídeo e <strong>não</strong> estavam de férias ou afastados no período. Calculado automaticamente ao clicar em "Atualizar".</p>
+      <details class="mt-8 bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden" id="faltasPanel">
+        <summary class="cursor-pointer list-none select-none px-6 py-5">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
+                <svg class="w-5 h-5 text-amber-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+                Histórico de Faltas Injustificadas
+              </h3>
+              <p class="text-xs text-slate-500 mt-1">Colaboradores que não assistiram o vídeo e <strong>não</strong> estavam de férias ou afastados no período. Calculado automaticamente ao clicar em "Atualizar".</p>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="text-xs text-slate-400">Total de faltas:</span>
+              <span id="historicoFaltasTotal" class="text-sm font-bold text-amber-600 bg-amber-50 border border-amber-100 px-3 py-1 rounded-full">—</span>
+              <span class="text-slate-400 transition-transform duration-200 text-xs ml-1" id="faltasChevron">▼</span>
+            </div>
           </div>
-          <div class="flex items-center gap-2">
-            <span class="text-xs text-slate-400">Total de faltas:</span>
-            <span id="historicoFaltasTotal" class="text-sm font-bold text-amber-600 bg-amber-50 border border-amber-100 px-3 py-1 rounded-full">—</span>
-          </div>
-        </div>
+        </summary>
 
+        <div class="px-6 pb-6">
         <!-- Filtros do Histórico -->
         <div class="flex flex-wrap gap-3 mb-4 p-3 bg-slate-50 rounded-xl border border-slate-100">
           <div class="flex-1 min-w-[160px]">
@@ -612,7 +653,8 @@
             </tbody>
           </table>
         </div>
-      </div>
+        </div>
+      </details>
     </div>
   </main>
 
