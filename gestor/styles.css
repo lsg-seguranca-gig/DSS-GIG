@@ -90,35 +90,3 @@
 .dssg-pg-opt{font-size:12px;color:var(--text-muted)}
 .dssg-pg-opt-correta{color:#059669;font-weight:700}
 
-/* ============================================================
-   TELA DE LOGIN (DSS Gestor) — CSS próprio, mesmo motivo das
-   outras seções customizadas: não depende do build purgado do
-   Tailwind. Cobre a página inteira até uma sessão válida existir.
-   ============================================================ */
-.dssg-login-overlay{
-  position:fixed;inset:0;z-index:500;
-  display:flex;align-items:center;justify-content:center;
-  background:linear-gradient(135deg,#0f172a,#1e3a8a 60%,#0f172a);
-  padding:24px;
-}
-.dssg-login-overlay.hide{display:none}
-.dssg-login-box{
-  background:#fff;border-radius:20px;padding:36px 32px;
-  max-width:380px;width:100%;box-shadow:0 25px 50px -12px rgba(0,0,0,.5);
-  text-align:center;
-}
-html.dark .dssg-login-box{background:#1e293b;color:#f1f5f9}
-.dssg-login-logo{margin-bottom:16px}
-.dssg-login-logo img{height:48px;width:auto;margin:0 auto;object-fit:contain}
-.dssg-login-box h1{font-size:20px;font-weight:800;margin:0 0 4px}
-.dssg-login-sub{font-size:13px;color:#64748b;margin:0 0 24px}
-.dssg-login-box form{text-align:left}
-.dssg-login-box .dssg-modal-field input{
-  width:100%;padding:11px 14px;font-size:14px;border-radius:10px;
-  border:1px solid #e2e8f0;background:#f8fafc;color:#0f172a;
-}
-html.dark .dssg-login-box .dssg-modal-field input{
-  border-color:#334155;background:#0f172a;color:#f1f5f9;
-}
-.dssg-login-box .dssg-modal-field input:focus{outline:2px solid rgba(37,99,235,.25);border-color:#2563eb}
-.dssg-login-box .dssg-btn-primary{margin-top:6px}

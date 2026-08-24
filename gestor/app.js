@@ -2,42 +2,19 @@
 // onde o HTML está hospedado (ex.: /gestor/). Por isso usamos caminho absoluto.
 const API_BASE = "/api/gas";
 
-// ── Sessão de login do DSS Gestor ───────────────────────────────────────────
-// Guardado em sessionStorage (não localStorage) de propósito: a sessão dura
-// só enquanto a aba do navegador estiver aberta, o que é mais seguro em
-// computadores compartilhados — fechou a aba, precisa logar de novo.
-let GESTOR_TOKEN   = sessionStorage.getItem('dssgestor_token')   || '';
-let GESTOR_USUARIO = sessionStorage.getItem('dssgestor_usuario') || '';
-
-function setSessaoGestor(token, usuario){
-  GESTOR_TOKEN = token || '';
-  GESTOR_USUARIO = usuario || '';
-  if (token) {
-    sessionStorage.setItem('dssgestor_token', token);
-    sessionStorage.setItem('dssgestor_usuario', usuario || '');
-  } else {
-    sessionStorage.removeItem('dssgestor_token');
-    sessionStorage.removeItem('dssgestor_usuario');
-  }
-}
-
   // Controlo de cache manual e chamadas de API
   function apiFetch(params, options){
-    // Anexa o token de login automaticamente em toda chamada GET — as actions
-    // públicas (usadas pelo lado do colaborador) simplesmente ignoram esse
-    // parâmetro; as actions administrativas exigem que ele seja válido.
-    const url = API_BASE + '?' + params + '&token=' + encodeURIComponent(GESTOR_TOKEN) + '&_t=' + Date.now();
+    const url = API_BASE + '?' + params + '&_t=' + Date.now();
     return fetch(url, Object.assign({ cache: 'no-store', headers: { 'Cache-Control': 'no-cache' } }, options || {}));
   }
 
   // Igual ao fetch(API_BASE + '?action=X', {method:'POST', ...}) que já existia
-  // pelo projeto, mas injeta o token automaticamente no corpo — use isso em
-  // vez de montar o POST manualmente para não esquecer o token em algum lugar.
+  // pelo projeto — helper para não repetir headers/JSON.stringify em cada chamada.
   function apiPost(action, payload){
     return fetch(API_BASE + '?action=' + encodeURIComponent(action), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(Object.assign({}, payload || {}, { token: GESTOR_TOKEN })),
+      body: JSON.stringify(payload || {}),
     });
   }
 
@@ -2643,102 +2620,4 @@ function dashParseSemanaISO(s){
       btn.textContent = txtOriginal;
     }
   });
-})();
-
-// ============================================================================
-// LOGIN DO DSS GESTOR
-// ============================================================================
-// Controla a tela de login que cobre a página inteira (#loginOverlay) até
-// existir uma sessão válida. Usa GESTOR_TOKEN/setSessaoGestor (definidos no
-// topo do arquivo) e as actions 'gestorlogin', 'gestorlogout' e
-// 'gestorverificar' do backend (code.gs).
-(function initLoginGestor(){
-  const overlay    = document.getElementById('loginOverlay');
-  const form       = document.getElementById('loginForm');
-  const statusEl   = document.getElementById('loginStatus');
-  const userBadge  = document.getElementById('loginUserBadge');
-  const userNomeEl = document.getElementById('loginUserNome');
-  const btnLogout  = document.getElementById('btnLogoutGestor');
-  if (!overlay || !form) return; // markup ainda não presente — não quebra o resto da página
-
-  function loginStatus(msg, tipo){
-    if (!statusEl) return;
-    if (!msg) { statusEl.innerHTML = ''; return; }
-    const cls = tipo === 'erro' ? 'dssg-modal-status-err' : 'dssg-modal-status-ok';
-    statusEl.innerHTML = `<div class="${cls}">${escapeHtml(msg)}</div>`;
-  }
-
-  function mostrarApp(usuario){
-    overlay.classList.add('hide');
-    if (userBadge) userBadge.classList.remove('hidden');
-    if (userNomeEl) userNomeEl.textContent = usuario || GESTOR_USUARIO || '';
-  }
-
-  function mostrarLogin(){
-    setSessaoGestor('', '');
-    overlay.classList.remove('hide');
-    userBadge?.classList.add('hidden');
-    loginStatus('');
-    setTimeout(() => document.getElementById('loginSenha')?.focus(), 50);
-  }
-
-  // Ao carregar a página: se já existir um token salvo (sessionStorage —
-  // sobrevive a recarregar a página, mas não a fechar a aba), confere no
-  // servidor se ele ainda é válido antes de liberar o acesso.
-  async function verificarSessaoExistente(){
-    if (!GESTOR_TOKEN) { mostrarLogin(); return; }
-    try {
-      const res = await apiFetch('action=gestorverificar');
-      const j = await res.json().catch(() => null);
-      if (j && j.ok && j.valido) {
-        mostrarApp(j.usuario || GESTOR_USUARIO);
-      } else {
-        mostrarLogin();
-      }
-    } catch(e) {
-      mostrarLogin();
-    }
-  }
-
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const usuario = document.getElementById('loginUsuario').value.trim();
-    const senha   = document.getElementById('loginSenha').value;
-    if (!usuario || !senha) { loginStatus('Preencha usuário e senha.', 'erro'); return; }
-
-    const btn = document.getElementById('btnLoginEntrar');
-    btn.disabled = true;
-    const txtOriginal = btn.textContent;
-    btn.textContent = 'Entrando...';
-    loginStatus('');
-
-    try {
-      const res = await fetch(API_BASE + '?action=gestorlogin', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ usuario, senha }),
-      });
-      const j = await res.json().catch(() => null);
-      if (j && j.ok && j.token) {
-        setSessaoGestor(j.token, j.usuario || usuario);
-        document.getElementById('loginSenha').value = '';
-        mostrarApp(j.usuario || usuario);
-      } else {
-        loginStatus((j && j.error) || 'Usuário ou senha inválidos.', 'erro');
-      }
-    } catch(e) {
-      loginStatus('Erro de conexão. Tente novamente.', 'erro');
-    } finally {
-      btn.disabled = false;
-      btn.textContent = txtOriginal;
-    }
-  });
-
-  btnLogout?.addEventListener('click', async () => {
-    if (!confirm('Encerrar a sessão do DSS Gestor?')) return;
-    try { await apiPost('gestorlogout', {}); } catch(e) {}
-    mostrarLogin();
-  });
-
-  verificarSessaoExistente();
 })();
