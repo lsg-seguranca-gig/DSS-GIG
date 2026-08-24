@@ -628,10 +628,47 @@ async function urlToDataURL(url){
   } 
 }
 
+// Normaliza um valor que DEVERIA ser uma assinatura em base64 para uma data
+// URL válida, tolerando variações comuns que fazem o valor escapar do
+// isDataURLImage() acima e ser tratado (erradamente) como se fosse uma URL
+// para buscar na internet — o que falha em silêncio, sem erro nenhum, e é
+// exatamente o tipo de bug que já causou assinaturas "sumindo" antes.
+// Tolera: espaços/quebras de linha extras, variação de maiúsculas no
+// cabeçalho, subtipos de imagem diferentes (jpeg, etc.), e até o payload
+// base64 puro salvo SEM o prefixo "data:image/...;base64," na frente.
+function normalizarAssinaturaParaDataURL(v){
+  if (typeof v !== 'string') return '';
+  const s = v.trim().replace(/\s+/g, ''); // remove espaços/quebras de linha internos
+  if (!s) return '';
+
+  // Já é (ou é uma variação de) uma data URL de imagem válida
+  const comPrefixo = s.match(/^data:image\/([a-z0-9.+-]+);?base64,(.*)$/i);
+  if (comPrefixo) return 'data:image/png;base64,' + comPrefixo[2];
+
+  // Não tem prefixo "data:" nenhum. Se NÃO parece um caminho/URL (não começa
+  // com "/", "http://" ou "https://") e É uma string longa só de caracteres
+  // válidos de base64, trata como o payload puro de uma imagem que, por
+  // algum motivo, foi salvo sem o cabeçalho — reconstrói o prefixo em vez de
+  // tentar (e falhar silenciosamente) buscar isso como se fosse uma URL.
+  const pareceCaminhoOuUrl = /^(https?:)?\/\//i.test(s) || s.startsWith('/');
+  if (!pareceCaminhoOuUrl && s.length > 200 && /^[A-Za-z0-9+/]+={0,2}$/.test(s)) {
+    return 'data:image/png;base64,' + s;
+  }
+
+  return '';
+}
+
 async function ensureDataURLImage(v){ 
   if(!v) return ''; 
-  if(isDataURLImage(v)) return v; 
-  return await urlToDataURL(v); 
+  const normalizado = normalizarAssinaturaParaDataURL(v);
+  if (normalizado) return normalizado;
+  // Só chega aqui se realmente parecer uma URL/caminho (ex.: a logo, que é
+  // "/logo lsg.png") — nesse caso sim faz sentido buscar via fetch.
+  const resultado = await urlToDataURL(v);
+  if (!resultado) {
+    console.warn('[PDF] valor de assinatura/imagem não reconhecido (nem data URL válida, nem URL buscável). Início do valor:', String(v).slice(0, 60));
+  }
+  return resultado;
 }
 
 // Carrega uma imagem (inclusive data URL) e só resolve DEPOIS que ela termina
@@ -687,13 +724,22 @@ async function _processarAssinaturaCanvas(dataUrl){
 
 async function resolveRowSignatures(rows){ 
   const out = []; 
+  let vazias = 0;
   for(const r of rows){ 
-    let sig = await ensureDataURLImage(r._sig || r.AssinaturaPNG || ''); 
+    const bruto = r._sig || r.AssinaturaPNG || '';
+    let sig = await ensureDataURLImage(bruto); 
     if (sig && /^data:image\/(png|jpeg|jpg);base64,/i.test(sig)) {
       sig = await _processarAssinaturaCanvas(sig);
     }
+    if (bruto && !sig) {
+      // Havia algo salvo (a pessoa assinou), mas não conseguimos transformar
+      // em imagem exibível — mostra a matrícula para facilitar o diagnóstico.
+      vazias++;
+      console.warn(`[PDF] assinatura da matrícula ${r.Matricula} não pôde ser processada (havia dado salvo, mas não virou imagem).`);
+    }
     out.push({ ...r, _sig: sig }); 
   } 
+  if (vazias > 0) console.warn(`[PDF] total de ${vazias} assinatura(s) com dado salvo mas que não puderam ser processadas/exibidas.`);
   return out; 
 }
 
