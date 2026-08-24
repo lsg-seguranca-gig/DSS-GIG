@@ -180,12 +180,22 @@ function alertCard(type, html) {
   const sun  = document.getElementById('iconSun');
   const moon = document.getElementById('iconMoon');
 
-  // Cores da caneta: claro = azul muito escuro, escuro = branco suave
+  // Cores da caneta: mantido apenas o valor escuro — ver explicação abaixo.
   const PEN_LIGHT = '#0f172a';
-  const PEN_DARK  = '#e2e8f0';
 
+  // IMPORTANTE: a cor da caneta e o fundo do canvas de assinatura são fixos
+  // (tinta escura sobre fundo branco), independente do modo escuro do app.
+  // Motivo: o canvas.toDataURL() exportado NUNCA inclui o fundo definido via
+  // CSS (canvas.style.background) — só o que foi de fato desenhado no
+  // canvas. Antes, no modo escuro, a caneta ficava clara para contrastar
+  // com o fundo escuro *da tela*, e isso funcionava perfeitamente enquanto o
+  // colaborador via a própria assinatura sendo desenhada — só que a imagem
+  // exportada saía com um traço claro sobre fundo TRANSPARENTE. Assim que
+  // essa assinatura era impressa numa página branca (o relatório em PDF),
+  // ficava praticamente invisível — mesmo a pessoa tendo assinado
+  // normalmente e vendo a própria assinatura perfeitamente na tela dela.
   function getPenColor() {
-    return html.classList.contains('dark') ? PEN_DARK : PEN_LIGHT;
+    return PEN_LIGHT; // sempre tinta escura — nunca a variante clara
   }
 
   function setDark(dark) {
@@ -194,15 +204,14 @@ function alertCard(type, html) {
     moon.classList.toggle('hidden', dark);
     try { localStorage.setItem('dssgig_dark', dark ? '1' : '0'); } catch (e) {}
 
-    // Atualizar cor da caneta em tempo real, sem apagar a assinatura
+    // A cor da caneta e o fundo do canvas de assinatura NÃO acompanham o
+    // modo escuro — ver explicação acima em getPenColor().
     if (signaturePad) {
       signaturePad.penColor = getPenColor();
     }
-
-    // Atualizar cor de fundo do canvas para contrastar com o tema
     const canvas = document.getElementById('signaturePad');
     if (canvas) {
-      canvas.style.background = dark ? '#0f172a' : '#ffffff';
+      canvas.style.background = '#ffffff';
     }
   }
 
@@ -336,18 +345,20 @@ function liberarAssinatura() {
       setTimeout(initPad, 100);
       return;
     }
-    const isDark = document.documentElement.classList.contains('dark');
-    canvas.style.background = isDark ? '#0f172a' : '#ffffff';
+    // Fundo branco e tinta escura fixos, independente do modo escuro do app —
+    // ver explicação detalhada junto de getPenColor() no initDarkMode().
+    canvas.style.background = '#ffffff';
+    const corCaneta = window._getPenColor ? window._getPenColor() : '#0f172a';
 
     if (!signaturePad) {
       signaturePad = new SignaturePad(canvas, {
         minWidth: 1,
         maxWidth: 3,
-        penColor: (window._getPenColor ? window._getPenColor() : (isDark ? '#e2e8f0' : '#0f172a')),
+        penColor: corCaneta,
         backgroundColor: 'rgba(0,0,0,0)',
       });
     } else {
-      signaturePad.penColor = window._getPenColor ? window._getPenColor() : (isDark ? '#e2e8f0' : '#0f172a');
+      signaturePad.penColor = corCaneta;
       signaturePad.clear();
     }
   };
