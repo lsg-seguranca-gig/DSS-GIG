@@ -772,6 +772,46 @@ async function gerarPDF(){
         console.warn('[PDF] mais de 200 pessoas — assinaturas não serão buscadas automaticamente.');
       }
     } catch(e) { console.warn('Não foi possível carregar assinaturas para o PDF:', e); }
+
+    // Fallback final: para qualquer registro que ainda não tenha assinatura
+    // depois da busca em lote acima (por exemplo, se algum dado da linha
+    // estiver com formatação inesperada e escapar até desse casamento),
+    // tenta buscar individualmente por matrícula — sem depender de
+    // semana/título baterem, cobrindo praticamente qualquer inconsistência.
+    // Limitado a poucos casos de cada vez (a maioria dos relatórios não
+    // deveria cair aqui de jeito nenhum); se sobrarem muitos, é sinal de um
+    // problema maior nos dados, não algo para tentar resolver silenciosamente
+    // com dezenas de chamadas extras.
+    try {
+      const semAssinatura = base.filter(r => !r.AssinaturaPNG && r.Matricula);
+      if (semAssinatura.length && semAssinatura.length <= 20) {
+        console.log(`[PDF] busca individual (fallback) de assinatura para ${semAssinatura.length} registo(s)...`);
+        await Promise.all(semAssinatura.map(async (r) => {
+          try {
+            const qs = new URLSearchParams({
+              action: 'registros', comAssinatura: '1', exato: '1',
+              matricula: String(r.Matricula),
+            });
+            const res = await apiFetch(qs.toString());
+            const data = await res.json().catch(() => null);
+            if (data && data.ok && Array.isArray(data.data)) {
+              const alvo = data.data.find(x => String(x.Timestamp ?? '') === String(r.Timestamp ?? ''));
+              if (alvo && alvo.AssinaturaPNG) {
+                r.AssinaturaPNG = alvo.AssinaturaPNG;
+                console.log(`[PDF] assinatura recuperada via fallback individual — matrícula ${r.Matricula}.`);
+              } else {
+                console.warn(`[PDF] fallback individual não encontrou assinatura — matrícula ${r.Matricula}, Timestamp ${r.Timestamp}.`);
+              }
+            }
+          } catch(e) {
+            console.warn(`[PDF] falha no fallback individual — matrícula ${r.Matricula}:`, e);
+          }
+        }));
+      } else if (semAssinatura.length > 20) {
+        console.warn(`[PDF] ${semAssinatura.length} registo(s) sem assinatura — número alto demais para o fallback individual automático. Verifique os dados na aba Registros.`);
+      }
+    } catch(e) { console.warn('[PDF] falha no fallback individual de assinaturas:', e); }
+
     const titulos = [...new Set(base.map(r => r.TituloVideo).filter(Boolean))];
     const tituloSemana = titulos.length ? titulos.join('; ') : '-';
 
