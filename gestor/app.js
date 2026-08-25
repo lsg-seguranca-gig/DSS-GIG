@@ -700,19 +700,30 @@ async function _processarAssinaturaCanvas(dataUrl){
     ctx.drawImage(imgEl, 0, 0);
     const imgData = ctx.getImageData(0, 0, nW, nH);
     const d = imgData.data;
+    // "Caneta azul" única aplicada a TODO traço de assinatura no relatório —
+    // não importa a cor com que foi originalmente salva (registros antigos
+    // têm cores variadas, dependendo do modo claro/escuro em que a pessoa
+    // assinou). Isso garante aparência visual consistente em 100% dos
+    // relatórios, sem precisar alterar nenhum dado já salvo na planilha.
+    const PEN_R = 29, PEN_G = 78, PEN_B = 216; // #1d4ed8 — azul caneta
+
     for (let i = 0; i < d.length; i += 4){
-      const brightness = (d[i] + d[i+1] + d[i+2]) / 3;
-      if (d[i+3] < 10) continue; // já transparente, mantém assim
-      if (brightness < 180){
-        // Traço da assinatura: escurece e garante opacidade total
-        d[i]   = Math.max(0, d[i]   - 40);
-        d[i+1] = Math.max(0, d[i+1] - 40);
-        d[i+2] = Math.max(0, d[i+2] - 40);
-        d[i+3] = 255;
-      } else {
-        // Fundo claro: totalmente transparente (em vez de branco)
-        d[i+3] = 0;
+      // CRUCIAL: decide se o pixel é "traço" ou "fundo" pela OPACIDADE
+      // (o que realmente indica se algo foi desenhado ali), nunca pelo
+      // brilho da cor. A versão anterior checava o brilho — e por isso
+      // apagava por completo qualquer traço salvo numa cor clara (como o
+      // usado no modo escuro antes desta correção), tratando-o como se
+      // fosse fundo. Esse foi um segundo motivo, além da cor em si, para as
+      // assinaturas sumirem no relatório mesmo com o dado presente.
+      if (d[i+3] < 10) {
+        d[i+3] = 0; // realmente não há traço aqui — mantém transparente
+        continue;
       }
+      // Havia traço aqui — repinta de azul, preservando a opacidade
+      // original (mantém o antialiasing suave das bordas do traço).
+      d[i]   = PEN_R;
+      d[i+1] = PEN_G;
+      d[i+2] = PEN_B;
     }
     ctx.putImageData(imgData, 0, 0);
     return canvas.toDataURL('image/png');
