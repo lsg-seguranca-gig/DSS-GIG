@@ -181,7 +181,10 @@ function alertCard(type, html) {
   const moon = document.getElementById('iconMoon');
 
   // Cores da caneta: mantido apenas o valor escuro — ver explicação abaixo.
-  const PEN_LIGHT = '#0f172a';
+  // Cor da caneta — azul, para ficar visualmente consistente com o "azul
+  // caneta" usado no relatório em PDF (ver _processarAssinaturaCanvas no
+  // app.js do DSS Gestor). Fixa, independente do modo claro/escuro do app.
+  const PEN_COLOR = '#1d4ed8';
 
   // IMPORTANTE: a cor da caneta e o fundo do canvas de assinatura são fixos
   // (tinta escura sobre fundo branco), independente do modo escuro do app.
@@ -195,7 +198,7 @@ function alertCard(type, html) {
   // ficava praticamente invisível — mesmo a pessoa tendo assinado
   // normalmente e vendo a própria assinatura perfeitamente na tela dela.
   function getPenColor() {
-    return PEN_LIGHT; // sempre tinta escura — nunca a variante clara
+    return PEN_COLOR; // sempre azul — nunca varia com o modo claro/escuro
   }
 
   function setDark(dark) {
@@ -348,7 +351,7 @@ function liberarAssinatura() {
     // Fundo branco e tinta escura fixos, independente do modo escuro do app —
     // ver explicação detalhada junto de getPenColor() no initDarkMode().
     canvas.style.background = '#ffffff';
-    const corCaneta = window._getPenColor ? window._getPenColor() : '#0f172a';
+    const corCaneta = window._getPenColor ? window._getPenColor() : '#1d4ed8';
 
     if (!signaturePad) {
       signaturePad = new SignaturePad(canvas, {
