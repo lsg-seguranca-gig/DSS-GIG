@@ -14,9 +14,39 @@
  * alguns ambientes Vercel bloqueiam redirects cross-origin silenciosamente.
  * A solução mais robusta é desabilitar o redirect automático (redirect:'manual'),
  * capturar o Location header e fazer uma segunda requisição GET para a URL final.
+ *
+ * ── Por que cache de borda (Cache-Control) nas leituras? ────────────────────
+ * Cada requisição GET obriga o proxy a fazer DUAS chamadas de rede sequenciais
+ * ao Google (redirect + resposta final), e se o cache do Apps Script tiver
+ * expirado, o Google ainda releva a planilha inteira antes de responder. Essa
+ * soma ocasionalmente ultrapassa os 60s (o teto do plano Hobby da Vercel), e
+ * a função é encerrada à força — o que aparece para o usuário como uma
+ * resposta "não-JSON".
+ *
+ * Para reduzir quantas vezes essa cadeia lenta é sequer acionada, marcamos as
+ * respostas de LEITURA (GET) bem-sucedidas com Cache-Control s-maxage: a CDN
+ * da própria Vercel passa a servir buscas repetidas (mesma semana/vídeo,
+ * comum quando vários gestores olham o mesmo período) direto do edge, sem
+ * acordar o Apps Script. Escritas (POST) NUNCA são cacheadas — continuam
+ * sempre indo direto ao Google.
  */
 
 const GAS_URL = process.env.GAS_URL;
+
+// Tempo (segundos) que a CDN da Vercel pode servir uma resposta de leitura
+// sem revalidar com o Google. Ajuste conforme a tolerância a dados "levemente
+// desatualizados" — 120s é um bom equilíbrio: reduz muito a carga sem deixar
+// o dashboard visivelmente desatualizado.
+const EDGE_CACHE_SECONDS = 120;
+
+// Ações de escrita — NUNCA devem ser cacheadas, mesmo que por engano
+// cheguem como GET no futuro.
+const ACTIONS_ESCRITA = new Set([
+  'registrar', 'addfuncionario', 'excluirfuncionario', 'deletefuncionario',
+  'excluircolaborador', 'addferias', 'deleteferias', 'excluirferias',
+  'removeferias', 'addpergunta', 'excluirpergunta', 'deletepergunta',
+  'removepergunta', 'validarquiz',
+]);
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
@@ -105,6 +135,21 @@ export default async function handler(req, res) {
         ? 'Não foi possível confirmar se os dados foram salvos (falha na resposta do Google, não no envio). Antes de tentar de novo, verifique na planilha se o registro já não foi gravado — para evitar duplicidade.'
         : 'GAS retornou resposta não-JSON após retentativa. Verifique se o script está publicado corretamente.';
       return res.status(502).json({ ok: false, error: msg });
+    }
+
+    // ── Cache de borda (CDN da Vercel) só para leituras bem-sucedidas ───────
+    // Buscas repetidas com os MESMOS parâmetros (ex.: mesma semana/vídeo no
+    // Dashboard) passam a ser servidas direto pela CDN, sem acordar o Apps
+    // Script — reduz quantas vezes a cadeia lenta (redirect duplo + releitura
+    // da planilha) é sequer acionada. Nunca aplicado a POST/ações de escrita.
+    const podeCachear = req.method === 'GET' && !ACTIONS_ESCRITA.has(action) && json && json.ok !== false;
+    if (podeCachear) {
+      res.setHeader(
+        'Cache-Control',
+        `public, s-maxage=${EDGE_CACHE_SECONDS}, stale-while-revalidate=${EDGE_CACHE_SECONDS * 2}`
+      );
+    } else {
+      res.setHeader('Cache-Control', 'no-store');
     }
 
     return res.status(200).json(json);
